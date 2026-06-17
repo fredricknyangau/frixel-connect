@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { User } from '../types/users';
+import { User, CustomerCreateRequest } from '../types/users';
 
 export function useAdminCustomers() {
   return useQuery({
@@ -28,6 +28,19 @@ export function useCustomerProfile() {
     queryFn: async () => {
       const response = await api.get<User>('/customers/me');
       return response.data;
+    },
+  });
+}
+
+export function useCreateResellerCustomer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CustomerCreateRequest) => {
+      const response = await api.post<User>('/reseller/customers', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['resellerCustomers'] });
     },
   });
 }

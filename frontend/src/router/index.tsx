@@ -18,10 +18,10 @@ import AdminPayments from '../pages/admin/PaymentsPage';
 import AdminVouchers from '../pages/admin/VouchersPage';
 import AdminSessions from '../pages/admin/SessionsPage';
 
-import ResellerDashboard from '../pages/reseller/DashboardPage';
-import ResellerCustomers from '../pages/reseller/CustomersPage';
-import ResellerPayments from '../pages/reseller/PaymentsPage';
-import ResellerVouchers from '../pages/reseller/VouchersPage';
+import ResellerDashboard from '../pages/reseller/ResellerDashboard';
+import ResellerCustomers from '../pages/reseller/MyCustomersPage';
+import ResellerPayments from '../pages/reseller/ResellerPaymentsPage';
+import ResellerVouchers from '../pages/reseller/ResellerVouchersPage';
 
 import CustomerDashboard from '../pages/customer/DashboardPage';
 import CustomerBuyPackage from '../pages/customer/BuyPackagePage';
