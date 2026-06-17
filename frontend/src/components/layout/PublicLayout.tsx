@@ -10,10 +10,10 @@ export default function PublicLayout() {
             <span className="text-xl font-bold text-primary">ZealSync</span>
           </Link>
           <nav className="flex items-center gap-4">
-            <Button variant="ghost" render={<Link to="/login" />} className="hidden sm:inline-flex">
+            <Button variant="ghost" render={<Link to="/login" />} className="hidden sm:inline-flex" nativeButton={false}>
               Login
             </Button>
-            <Button render={<Link to="/register" />}>
+            <Button render={<Link to="/register" />} nativeButton={false}>
               Get Started
             </Button>
           </nav>
