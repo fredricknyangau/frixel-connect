@@ -41,7 +41,11 @@ BEGIN;
 ALTER TABLE packages
     DROP CONSTRAINT IF EXISTS packages_name_unique;
 
--- Step 2: Add a composite constraint — unique per (tenant, name)
+-- Step 2: Drop the composite constraint if it already exists (makes migration idempotent)
+ALTER TABLE packages
+    DROP CONSTRAINT IF EXISTS packages_tenant_name_unique;
+
+-- Step 3: Add a composite constraint — unique per (tenant, name)
 --         An ISP cannot have two active packages with the same name,
 --         but a different ISP can reuse any name freely.
 ALTER TABLE packages

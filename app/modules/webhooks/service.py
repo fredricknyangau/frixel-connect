@@ -9,16 +9,12 @@ MULTI-TENANCY NOTE:
   Instead, we look up the payment by mpesa_checkout_id (which we store
   when the STK push is initiated). That payment row carries tenant_id,
   so the webhook implicitly operates in the correct tenant context.
-
-  The idempotency and reliability pipeline is unchanged from the MLP.
 """
 
 import logging
-
-from fastapi import BackgroundTasks
 import asyncpg
 
-from app.modules.vouchers.service import generate_voucher_task
+from app.core.redis import get_redis_pool
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +22,11 @@ logger = logging.getLogger(__name__)
 async def process_daraja_webhook(
     conn: asyncpg.Connection,
     body: dict,
-    background_tasks: BackgroundTasks,
 ) -> dict:
     """
     Processes the raw Daraja webhook callback.
 
-    THE IDEMPOTENCY AND RELIABILITY PIPELINE (unchanged from MLP):
+    THE IDEMPOTENCY AND RELIABILITY PIPELINE:
       1. Parse body → CheckoutRequestID + ResultCode.
       2. Look up payment by mpesa_checkout_id. Payment row carries tenant_id.
       3. If already processed (confirmed/failed), return 200 immediately.
@@ -40,7 +35,7 @@ async def process_daraja_webhook(
          - UPDATE payments SET status='confirmed', mpesa_receipt_number=...
            inside a transaction. UNIQUE constraint on mpesa_receipt_number
            absorbs duplicate webhook retries at the DB layer.
-         - Enqueue generate_voucher_task as a BackgroundTask.
+         - Enqueue generate_voucher_task in Redis/arq.
       5. ResultCode != 0 (failure): mark payment as failed.
       6. Always return {"ResultCode": 0, "ResultDesc": "Accepted"} so
          Safaricom stops retrying.
@@ -117,9 +112,10 @@ async def process_daraja_webhook(
             )
             return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
-        # Enqueue voucher generation AFTER HTTP response is returned.
-        background_tasks.add_task(generate_voucher_task, str(payment_id))
-        logger.info(f"Webhooks: voucher generation task scheduled for payment {payment_id}")
+        # Enqueue voucher generation task to the durable arq/Redis queue
+        redis = get_redis_pool()
+        await redis.enqueue_job("generate_voucher_task", str(payment_id))
+        logger.info(f"Webhooks: voucher generation job enqueued to Redis for payment {payment_id}")
 
     # ── Failed / cancelled payment ────────────────────────────────────────────
     else:

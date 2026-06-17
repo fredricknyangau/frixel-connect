@@ -221,3 +221,28 @@ async def get_all_payments(
         tenant_id,
     )
     return [dict(r) for r in rows]
+
+
+async def get_stuck_payments(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+) -> list[dict]:
+    """
+    Retrieves confirmed payments past the reconciliation threshold with no voucher.
+    These are "stuck" payments that require background or manual retry provisioning.
+    """
+    rows = await conn.fetch(
+        """
+        SELECT id, customer_id, package_id, amount_kes, status, phone_number, created_at
+        FROM payments p
+        WHERE tenant_id = $1
+          AND status = 'confirmed'
+          AND created_at < NOW() - INTERVAL '2 minutes'
+          AND NOT EXISTS (
+              SELECT 1 FROM vouchers v WHERE v.payment_id = p.id
+          )
+        ORDER BY created_at DESC
+        """,
+        tenant_id,
+    )
+    return [dict(r) for r in rows]

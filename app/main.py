@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import create_pool, close_pool
+from app.core.redis import init_redis, close_redis
 
 # Set up logging for main app module
 logging.basicConfig(level=logging.INFO)
@@ -21,21 +22,30 @@ from app.modules.users.router    import router as users_router
 from app.modules.packages.router import router as packages_router
 from app.modules.payments.router import router as payments_router
 from app.modules.vouchers.router import router as vouchers_router
-from app.modules.vouchers.service import provision_retry_poller
 from app.modules.sessions.router import router as sessions_router
 from app.modules.webhooks.router import router as webhooks_router
 from app.modules.tenants.router  import router as tenants_router   # Phase 1
+from app.modules.routers.router  import router as routers_router    # Phase 2
+from app.modules.routers.service import router_heartbeat_loop       # Phase 2
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
+    # Initialize DB connection pool
     await create_pool()
-    # Phase 3 replaces this poller with a durable arq worker.
-    # Until then the in-process poller provides basic self-healing.
-    poller_task = asyncio.create_task(provision_retry_poller())
+
+    # Initialize shared Redis connection pool for background task workers
+    await init_redis()
+    
+    # Phase 2: Start background heartbeat checks for all registered routers
+    heartbeat_task = asyncio.create_task(router_heartbeat_loop())
+    
     yield
-    poller_task.cancel()
+    
+    # Shutdown sequence
+    heartbeat_task.cancel()
+    await close_redis()
     await close_pool()
 
 
@@ -47,6 +57,7 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
 
 # ── CORS Middleware ───────────────────────────────────────────────────────────
 if settings.APP_ENV == "production":
@@ -99,7 +110,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 # ── Router registration ───────────────────────────────────────────────────────
 PREFIX = "/api/v1"
 
-app.include_router(tenants_router,  prefix=f"{PREFIX}/tenants",  tags=["Tenants"])   # Phase 1 — NEW
+app.include_router(tenants_router,  prefix=f"{PREFIX}/tenants",  tags=["Tenants"])   # Phase 1
+app.include_router(routers_router,  prefix=f"{PREFIX}/admin/routers", tags=["Routers"])   # Phase 2
 app.include_router(auth_router,     prefix=f"{PREFIX}/auth",      tags=["Auth"])
 app.include_router(users_router,    prefix=f"{PREFIX}",           tags=["Users"])
 app.include_router(packages_router, prefix=f"{PREFIX}/packages",  tags=["Packages"])

@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Created by migration 007. Used in tests and backfill scripts.
     DEFAULT_TENANT_ID: str = "aaaaaaaa-0000-0000-0000-000000000001"
 
+    # Redis URL for background task queue
+    REDIS_URL: str = "redis://redis:6379/0"
+
     @property
     def DARAJA_BASE_URL(self) -> str:
         if self.DARAJA_ENVIRONMENT == "production":

@@ -7,8 +7,23 @@ Integration tests for user authentication and authorization logic.
 from fastapi.testclient import TestClient
 
 
+def get_admin_headers(client: TestClient) -> dict:
+    """Logs in as the seeded admin to obtain authentication headers."""
+    resp = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "admin@zealsync.dev",
+            "password": "TestPassword123!"
+        }
+    )
+    assert resp.status_code == 200
+    token = resp.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
 def test_register_new_user(client: TestClient):
     """Asserts that a user can successfully register and receive a JWT token."""
+    headers = get_admin_headers(client)
     response = client.post(
         "/api/v1/auth/register",
         json={
@@ -16,7 +31,8 @@ def test_register_new_user(client: TestClient):
             "phone": "0798765432",
             "password": "Password123!",
             "role": "customer"
-        }
+        },
+        headers=headers
     )
     assert response.status_code == 211 or response.status_code == 201  # HTTP_201_CREATED
     data = response.json()
@@ -27,6 +43,7 @@ def test_register_new_user(client: TestClient):
 
 def test_register_duplicate_email(client: TestClient):
     """Asserts that registering with an already existing email returns a 409 Conflict."""
+    headers = get_admin_headers(client)
     # Register the first user
     client.post(
         "/api/v1/auth/register",
@@ -35,7 +52,8 @@ def test_register_duplicate_email(client: TestClient):
             "phone": "0711223344",
             "password": "Password123!",
             "role": "customer"
-        }
+        },
+        headers=headers
     )
 
     # Attempt to register with the same email
@@ -46,7 +64,8 @@ def test_register_duplicate_email(client: TestClient):
             "phone": "0755667788",
             "password": "DifferentPassword123!",
             "role": "customer"
-        }
+        },
+        headers=headers
     )
     assert response.status_code == 409
     assert "already exists" in response.json()["detail"]

@@ -11,6 +11,25 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - wifi_billing_net
+
+  api-worker:
+    build: .
+    container_name: wifi_billing_worker
+    # Command to run arq background task worker
+    command: arq app.worker.WorkerSettings
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
     networks:
       - wifi_billing_net
@@ -39,6 +58,16 @@ services:
     networks:
       - wifi_billing_net
 
+  redis:
+    image: redis:7-alpine
+    container_name: wifi_billing_redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - wifi_billing_net
+
   nginx:
     image: nginx:alpine
     container_name: wifi_billing_nginx
@@ -55,6 +84,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   wifi_billing_net:

@@ -6,10 +6,11 @@ Router for payment processing — fully tenant-scoped.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 
 from app.database import get_db
 from app.dependencies import require_role
+from app.core.exceptions import NotFoundException
 from app.modules.payments.schemas import STKPushRequest, PaymentResponse, PaymentStatusResponse
 from app.modules.payments.service import (
     initiate_stk_push,
@@ -17,6 +18,7 @@ from app.modules.payments.service import (
     get_customer_payments,
     get_reseller_payments,
     get_all_payments,
+    get_stuck_payments,
 )
 
 router = APIRouter()
@@ -115,3 +117,73 @@ async def list_all_payments_admin(
             tenant_id=UUID(current_user["tenant_id"]),
         )
     return payments
+
+
+@router.get(
+    "/admin/payments/stuck",
+    response_model=list[PaymentResponse],
+    summary="List all stuck confirmed payments with no vouchers (admin only)",
+)
+async def list_stuck_payments(
+    current_user: dict = Depends(require_role("admin")),
+):
+    async with get_db() as conn:
+        payments = await get_stuck_payments(
+            conn,
+            tenant_id=UUID(current_user["tenant_id"]),
+        )
+    return payments
+
+
+@router.post(
+    "/admin/payments/{payment_id}/retry-provision",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Manually trigger provisioning for a stuck confirmed payment (admin only)",
+)
+async def retry_provision_payment(
+    payment_id: str,
+    current_user: dict = Depends(require_role("admin")),
+):
+    from app.core.redis import get_redis_pool
+
+    tenant_id = UUID(current_user["tenant_id"])
+    try:
+        payment_uuid = UUID(payment_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid payment UUID: '{payment_id}'",
+        )
+
+    async with get_db() as conn:
+        # Verify payment exists, belongs to caller's tenant, and is confirmed
+        payment = await conn.fetchrow(
+            "SELECT id, status FROM payments WHERE id = $1 AND tenant_id = $2",
+            payment_uuid,
+            tenant_id,
+        )
+        if not payment:
+            raise NotFoundException("Payment", payment_id)
+
+        if payment["status"] != "confirmed":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only confirmed payments can be provisioned.",
+            )
+
+        # Check if voucher already exists
+        voucher_exists = await conn.fetchval(
+            "SELECT COUNT(*) FROM vouchers WHERE payment_id = $1",
+            payment_uuid,
+        )
+        if voucher_exists > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Voucher already exists for this payment.",
+            )
+
+    # Enqueue to task queue
+    redis = get_redis_pool()
+    await redis.enqueue_job("generate_voucher_task", payment_id)
+
+    return {"message": "Provisioning task enqueued."}

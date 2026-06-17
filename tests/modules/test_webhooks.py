@@ -4,9 +4,18 @@ tests/modules/test_webhooks.py
 Integration and pipeline tests for the Safaricom Daraja webhooks endpoint.
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 import asyncpg
 from fastapi.testclient import TestClient
+
+class MockArqRedis:
+    def __init__(self):
+        self.enqueued_jobs = []
+
+    async def enqueue_job(self, job_name, *args, **kwargs):
+        self.enqueued_jobs.append((job_name, args, kwargs))
+
+
 
 
 async def get_test_customer_and_package_ids(conn: asyncpg.Connection):
@@ -16,25 +25,32 @@ async def get_test_customer_and_package_ids(conn: asyncpg.Connection):
     return customer_id, package_id
 
 
-@patch("app.modules.vouchers.service.mikrotik_client", autospec=True)
-async def test_webhook_successful_payment(mock_mikrotik, client: TestClient, conn: asyncpg.Connection):
+@patch("app.modules.webhooks.service.get_redis_pool")
+@patch("app.modules.vouchers.service.get_mikrotik_client")
+async def test_webhook_successful_payment(mock_get_client, mock_get_redis, client: TestClient, conn: asyncpg.Connection):
     """
     Asserts that a successful M-Pesa STK push callback (ResultCode=0):
       1. Confirms the pending payment.
       2. Records the M-Pesa receipt number.
       3. Launches the background task which creates a voucher and calls MikroTik.
     """
-    # Configure mock
+    # Configure mock Redis
+    mock_redis = MockArqRedis()
+    mock_get_redis.return_value = mock_redis
+
+    # Configure mock MikroTik
+    mock_mikrotik = MagicMock()
+    mock_get_client.return_value = mock_mikrotik
     mock_mikrotik.generate_hotspot_user = AsyncMock(return_value={"ret": "*2"})
 
     customer_id, package_id = await get_test_customer_and_package_ids(conn)
 
-    # 1. Insert a pending payment record
+    # 1. Insert a pending payment record under the default tenant
     checkout_id = "ws_CO_SUCCESS_TEST"
     payment_id = await conn.fetchval(
         """
-        INSERT INTO payments (customer_id, package_id, amount_kes, status, phone_number, mpesa_checkout_id)
-        VALUES ($1, $2, 50.00, 'pending', '254708374149', $3)
+        INSERT INTO payments (customer_id, package_id, amount_kes, status, phone_number, mpesa_checkout_id, tenant_id)
+        VALUES ($1, $2, 50.00, 'pending', '254708374149', $3, 'aaaaaaaa-0000-0000-0000-000000000001')
         RETURNING id
         """,
         customer_id, package_id, checkout_id
@@ -69,30 +85,46 @@ async def test_webhook_successful_payment(mock_mikrotik, client: TestClient, con
     assert payment["status"] == "confirmed"
     assert payment["mpesa_receipt_number"] == "RCTSUCCESS99"
 
-    # 4. Assert the voucher was created in the DB and MikroTik was called
-    # Wait briefly for FastAPI background tasks to run synchronously in TestClient
+    # 4. Assert the task was enqueued to Redis
+    assert len(mock_redis.enqueued_jobs) == 1
+    assert mock_redis.enqueued_jobs[0][0] == "generate_voucher_task"
+    assert mock_redis.enqueued_jobs[0][1][0] == str(payment_id)
+
+    # 5. Execute generate_voucher synchronously within the test loop context
+    from app.modules.vouchers.service import generate_voucher
+    await generate_voucher(conn, payment_id)
+
+    # 6. Assert the voucher was created in the DB and MikroTik was called
     voucher = await conn.fetchrow("SELECT code, status FROM vouchers WHERE payment_id = $1", payment_id)
     assert voucher is not None
     assert voucher["status"] == "active"
     mock_mikrotik.generate_hotspot_user.assert_called_once()
 
 
-@patch("app.modules.vouchers.service.mikrotik_client", autospec=True)
-async def test_webhook_idempotency(mock_mikrotik, client: TestClient, conn: asyncpg.Connection):
+@patch("app.modules.webhooks.service.get_redis_pool")
+@patch("app.modules.vouchers.service.get_mikrotik_client")
+async def test_webhook_idempotency(mock_get_client, mock_get_redis, client: TestClient, conn: asyncpg.Connection):
     """
     Asserts that duplicate webhook hits for the same transaction:
       1. Are absorbed gracefully at the database layer.
       2. Return 200 OK without triggering multiple voucher generation background runs.
     """
+    # Configure mock Redis
+    mock_redis = MockArqRedis()
+    mock_get_redis.return_value = mock_redis
+
+    # Configure mock MikroTik
+    mock_mikrotik = MagicMock()
+    mock_get_client.return_value = mock_mikrotik
     mock_mikrotik.generate_hotspot_user = AsyncMock(return_value={"ret": "*2"})
     customer_id, package_id = await get_test_customer_and_package_ids(conn)
 
-    # 1. Insert a pending payment record
+    # 1. Insert a pending payment record under the default tenant
     checkout_id = "ws_CO_IDEMPOTENT_TEST"
     payment_id = await conn.fetchval(
         """
-        INSERT INTO payments (customer_id, package_id, amount_kes, status, phone_number, mpesa_checkout_id)
-        VALUES ($1, $2, 50.00, 'pending', '254708374149', $3)
+        INSERT INTO payments (customer_id, package_id, amount_kes, status, phone_number, mpesa_checkout_id, tenant_id)
+        VALUES ($1, $2, 50.00, 'pending', '254708374149', $3, 'aaaaaaaa-0000-0000-0000-000000000001')
         RETURNING id
         """,
         customer_id, package_id, checkout_id
@@ -125,30 +157,39 @@ async def test_webhook_idempotency(mock_mikrotik, client: TestClient, conn: asyn
     response2 = client.post("/api/v1/webhooks/daraja", json=payload)
     assert response2.status_code == 200
 
-    # Verify that only ONE confirmed payment exists and MikroTik client was only invoked once
+    # Verify that only ONE confirmed payment exists and job was enqueued once
     count = await conn.fetchval(
         "SELECT COUNT(*) FROM payments WHERE mpesa_receipt_number = 'RCTIDEMPOTENT' AND status = 'confirmed'"
     )
     assert count == 1
+    assert len(mock_redis.enqueued_jobs) == 1
+    assert mock_redis.enqueued_jobs[0][0] == "generate_voucher_task"
+
+    # Call generate_voucher manually to verify it triggers MikroTik call
+    from app.modules.vouchers.service import generate_voucher
+    await generate_voucher(conn, payment_id)
     mock_mikrotik.generate_hotspot_user.assert_called_once()
 
 
-@patch("app.modules.vouchers.service.mikrotik_client", autospec=True)
-async def test_webhook_failed_payment(mock_mikrotik, client: TestClient, conn: asyncpg.Connection):
+@patch("app.modules.vouchers.service.get_mikrotik_client")
+async def test_webhook_failed_payment(mock_get_client, client: TestClient, conn: asyncpg.Connection):
     """
     Asserts that a failed payment callback (ResultCode != 0):
       1. Marks the payment as 'failed' in the database.
       2. Records the failure description.
       3. Does NOT invoke MikroTik provisioning.
     """
+    # Configure mock
+    mock_mikrotik = MagicMock()
+    mock_get_client.return_value = mock_mikrotik
     mock_mikrotik.generate_hotspot_user = AsyncMock()
     customer_id, package_id = await get_test_customer_and_package_ids(conn)
 
     checkout_id = "ws_CO_FAILED_TEST"
     payment_id = await conn.fetchval(
         """
-        INSERT INTO payments (customer_id, package_id, amount_kes, status, phone_number, mpesa_checkout_id)
-        VALUES ($1, $2, 50.00, 'pending', '254708374149', $3)
+        INSERT INTO payments (customer_id, package_id, amount_kes, status, phone_number, mpesa_checkout_id, tenant_id)
+        VALUES ($1, $2, 50.00, 'pending', '254708374149', $3, 'aaaaaaaa-0000-0000-0000-000000000001')
         RETURNING id
         """,
         customer_id, package_id, checkout_id
@@ -179,13 +220,16 @@ async def test_webhook_failed_payment(mock_mikrotik, client: TestClient, conn: a
     mock_mikrotik.generate_hotspot_user.assert_not_called()
 
 
-@patch("app.modules.vouchers.service.mikrotik_client", autospec=True)
-async def test_webhook_unknown_checkout_id(mock_mikrotik, client: TestClient, conn: asyncpg.Connection):
+@patch("app.modules.vouchers.service.get_mikrotik_client")
+async def test_webhook_unknown_checkout_id(mock_get_client, client: TestClient, conn: asyncpg.Connection):
     """
     Asserts that receiving a callback for an unknown CheckoutRequestID:
       1. Returns 200 OK to stop Daraja retries.
       2. Makes no modifications to database records.
     """
+    # Configure mock
+    mock_mikrotik = MagicMock()
+    mock_get_client.return_value = mock_mikrotik
     mock_mikrotik.generate_hotspot_user = AsyncMock()
     payload = {
         "Body": {
