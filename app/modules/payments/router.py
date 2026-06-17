@@ -1,84 +1,112 @@
 """
 app/modules/payments/router.py
 ================================
-Stub router for the payments module — role guards wired, handlers not yet
-implemented (Phase 7 completes them).
-
-This router is mounted at /api/v1 (no sub-prefix) in main.py so that
-routes spanning /payments/... AND /reseller/... AND /admin/... all resolve
-at the correct top-level paths. Each route below defines its full path
-relative to /api/v1.
-
-Route-to-role mapping:
-  POST /payments/stk          → customer only (initiates M-Pesa payment)
-  GET  /payments/me           → customer only (own payment history)
-  GET  /payments/{id}/status  → customer only (poll for confirmation)
-  GET  /reseller/payments     → admin, reseller (see their customers' payments)
-  GET  /admin/payments        → admin only (see all payments)
-
-Why is STK push customer-only?
-Resellers and admins don't buy packages for themselves — they manage the
-system. A reseller creating a payment on behalf of a customer is a v2 feature
-(agent-initiated STK, different Daraja API flow). For v1, the customer
-initiates their own payment directly.
+Router exposing HTTP endpoints for payment processing and billing records.
+Wired with RBAC role guards to secure access.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
+from app.database import get_db
 from app.dependencies import require_role
+from app.modules.payments.schemas import STKPushRequest, PaymentResponse, PaymentStatusResponse
+from app.modules.payments.service import (
+    initiate_stk_push,
+    get_payment_status,
+    get_customer_payments,
+    get_reseller_payments,
+    get_all_payments,
+)
 
 router = APIRouter()
 
 
 @router.post(
     "/payments/stk",
-    status_code=202,
+    response_model=PaymentResponse,
+    status_code=status.HTTP_202_ACCEPTED,
     summary="Initiate M-Pesa STK push payment (customer only)",
 )
-async def initiate_stk_push(
-    _user: dict = Depends(require_role("customer")),
+async def create_stk_push(
+    data: STKPushRequest,
+    current_user: dict = Depends(require_role("customer")),
 ):
-    # 202 Accepted: the request was received and we're working on it,
-    # but the work (waiting for M-Pesa callback) isn't done yet.
-    return {"message": "not yet implemented — Phase 7"}
+    """
+    Initiates an STK Push payment to Safaricom Daraja.
+    Returns 202 Accepted, indicating the payment request is queued and waiting for
+    the customer to input their M-Pesa PIN and for Daraja to invoke our webhook.
+    """
+    async with get_db() as conn:
+        payment = await initiate_stk_push(conn, current_user["user_id"], data)
+    return payment
 
 
 @router.get(
     "/payments/me",
+    response_model=list[PaymentResponse],
     summary="Get own payment history (customer only)",
 )
 async def get_my_payments(
-    _user: dict = Depends(require_role("customer")),
+    current_user: dict = Depends(require_role("customer")),
 ):
-    return {"message": "not yet implemented — Phase 7"}
+    """
+    Returns the billing history of the authenticated customer.
+    """
+    async with get_db() as conn:
+        payments = await get_customer_payments(conn, current_user["user_id"])
+    return payments
 
 
 @router.get(
     "/payments/{payment_id}/status",
+    response_model=PaymentStatusResponse,
     summary="Poll payment status (customer only)",
 )
-async def get_payment_status(
+async def check_payment_status(
     payment_id: str,
-    _user: dict = Depends(require_role("customer")),
+    current_user: dict = Depends(require_role("customer")),
 ):
-    return {"message": "not yet implemented — Phase 7"}
+    """
+    Endpoint for polling the state of a payment.
+    Customers poll this endpoint every ~3 seconds until status is 'confirmed'
+    and a 'voucher_code' is populated.
+    """
+    async with get_db() as conn:
+        status_info = await get_payment_status(conn, payment_id, current_user["user_id"])
+    return status_info
 
 
 @router.get(
     "/reseller/payments",
+    response_model=list[PaymentResponse],
     summary="List payments for reseller's customers",
 )
 async def list_reseller_payments(
-    _user: dict = Depends(require_role("admin", "reseller")),
+    current_user: dict = Depends(require_role("admin", "reseller")),
 ):
-    return {"message": "not yet implemented — Phase 7"}
+    """
+    Returns payment records for customers registered under the reseller.
+    Admins are permitted to call this, in which case they see all payments.
+    """
+    async with get_db() as conn:
+        if current_user["role"] == "admin":
+            payments = await get_all_payments(conn)
+        else:
+            payments = await get_reseller_payments(conn, current_user["user_id"])
+    return payments
 
 
 @router.get(
     "/admin/payments",
+    response_model=list[PaymentResponse],
     summary="List all payments (admin only)",
 )
-async def list_all_payments(
-    _user: dict = Depends(require_role("admin")),
+async def list_all_payments_admin(
+    current_user: dict = Depends(require_role("admin")),
 ):
-    return {"message": "not yet implemented — Phase 7"}
+    """
+    Returns all payments in the system. Restricted to administrators.
+    """
+    async with get_db() as conn:
+        payments = await get_all_payments(conn)
+    return payments

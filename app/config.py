@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "WiFi Billing System"
     APP_ENV: str = "development"
     DEBUG: bool = True
+    ALLOWED_ORIGINS: list[str] = ["*"]
 
     # Database
     DATABASE_URL: str
