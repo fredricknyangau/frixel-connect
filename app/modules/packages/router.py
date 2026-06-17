@@ -1,24 +1,11 @@
 """
 app/modules/packages/router.py
 ================================
-HTTP endpoints for the packages module.
+HTTP endpoints for the packages module — fully tenant-scoped.
 
-This replaces the stub router from Phase 2.
-
-FastAPI path parameter types:
-  {package_id: UUID} in the path tells FastAPI to:
-    1. Extract the string from the URL.
-    2. Try to parse it as a UUID.
-    3. Return 422 if it's not a valid UUID (e.g. /packages/not-a-uuid).
-  Without UUID type annotation, FastAPI passes it as a raw string and
-  your service layer would fail with a cryptic asyncpg type error instead
-  of a clean 422 Unprocessable Entity.
-
-Dependency injection pattern:
-  Each route takes `user: dict = Depends(require_role(...))`.
-  require_role returns the decoded JWT payload as a dict:
-    {"user_id": "...", "role": "admin", "reseller_id": "..."}
-  We use user["user_id"] to stamp created_by on new packages.
+Every service call now passes tenant_id extracted from the authenticated
+user's JWT. A customer in tenant A cannot see tenant B's packages because
+the service scopes every query to tenant_id.
 """
 
 from uuid import UUID
@@ -42,14 +29,14 @@ router = APIRouter()
 @router.get(
     "",
     response_model=list[PackageResponse],
-    summary="List all active packages",
+    summary="List all active packages in this tenant",
 )
 async def list_packages(
     user: dict = Depends(require_role("admin", "reseller", "customer")),
 ) -> list[PackageResponse]:
-    """Returns all active packages ordered by price ascending."""
+    """Returns all active packages for the caller's tenant, ordered by price."""
     async with get_db() as conn:
-        packages = await get_all_packages(conn)
+        packages = await get_all_packages(conn, tenant_id=UUID(user["tenant_id"]))
     return packages
 
 
@@ -62,9 +49,13 @@ async def get_package(
     package_id: UUID,
     user: dict = Depends(require_role("admin", "reseller", "customer")),
 ) -> PackageResponse:
-    """Fetches a single active package. Returns 404 if not found or soft-deleted."""
+    """Fetches a single active package. Returns 404 for cross-tenant UUIDs."""
     async with get_db() as conn:
-        package = await get_package_by_id(conn, package_id)
+        package = await get_package_by_id(
+            conn,
+            tenant_id=UUID(user["tenant_id"]),
+            package_id=package_id,
+        )
     return package
 
 
@@ -78,15 +69,13 @@ async def create_package_route(
     data: PackageCreate,
     user: dict = Depends(require_role("admin")),
 ) -> PackageResponse:
-    """
-    Creates a new WiFi package.
-
-    The created_by field is taken from the authenticated admin's token —
-    the client cannot supply it. This is intentional: if the client could
-    set created_by, they could claim any admin created the package.
-    """
     async with get_db() as conn:
-        package = await create_package(conn, data, UUID(user["user_id"]))
+        package = await create_package(
+            conn,
+            tenant_id=UUID(user["tenant_id"]),
+            data=data,
+            created_by_user_id=UUID(user["user_id"]),
+        )
     return package
 
 
@@ -100,12 +89,13 @@ async def update_package_route(
     data: PackageUpdate,
     user: dict = Depends(require_role("admin")),
 ) -> PackageResponse:
-    """
-    Partially updates a package. Only fields present in the body are updated.
-    Returns the full updated package.
-    """
     async with get_db() as conn:
-        package = await update_package(conn, package_id, data)
+        package = await update_package(
+            conn,
+            tenant_id=UUID(user["tenant_id"]),
+            package_id=package_id,
+            data=data,
+        )
     return package
 
 
@@ -118,15 +108,9 @@ async def delete_package_route(
     package_id: UUID,
     user: dict = Depends(require_role("admin")),
 ) -> None:
-    """
-    Soft-deletes a package (sets is_active=False). Never hard-deletes.
-
-    Returns 204 No Content on success — there's nothing to return because
-    the resource is now "gone" from the client's perspective. 204 is the
-    correct HTTP status for a successful DELETE that returns no body.
-
-    The package record still exists in the DB to preserve payment history.
-    """
     async with get_db() as conn:
-        await deactivate_package(conn, package_id)
-    # Returning None with status_code=204 makes FastAPI return an empty response body.
+        await deactivate_package(
+            conn,
+            tenant_id=UUID(user["tenant_id"]),
+            package_id=package_id,
+        )

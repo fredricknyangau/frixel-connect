@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Loader2, Copy, Ban } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { useAdminVouchers, useRevokeVoucher } from '../../hooks/useVouchers';
+import { useAdminVouchers, useRevokeVoucher, useRetryVoucher } from '../../hooks/useVouchers';
 import { useAdminCustomers } from '../../hooks/useUsers';
 import { usePackages } from '../../hooks/usePackages';
 import { VoucherStatus } from '../../types/vouchers';
@@ -20,6 +20,7 @@ export default function VouchersPage() {
   const { data: customers } = useAdminCustomers();
   const { data: packages } = usePackages();
   const revokeVoucher = useRevokeVoucher();
+  const retryVoucher = useRetryVoucher();
 
   const [statusFilter, setStatusFilter] = useState<VoucherStatus | 'all'>('all');
 
@@ -51,6 +52,15 @@ export default function VouchersPage() {
     }
   };
 
+  const handleRetry = async (voucherId: string) => {
+    try {
+      await retryVoucher.mutateAsync(voucherId);
+      toast.success('Voucher provisioned successfully');
+    } catch (error) {
+      toast.error('Failed to provision voucher');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageTitle title="Vouchers | ZealSync Admin" />
@@ -67,6 +77,7 @@ export default function VouchersPage() {
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="pending_provision">Pending</TabsTrigger>
             <TabsTrigger value="used">Used</TabsTrigger>
             <TabsTrigger value="expired">Expired</TabsTrigger>
             <TabsTrigger value="revoked">Revoked</TabsTrigger>
@@ -126,6 +137,17 @@ export default function VouchersPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      {voucher.status === 'pending_provision' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleRetry(voucher.id)}
+                          disabled={retryVoucher.isPending}
+                        >
+                          <Loader2 className={cn("h-4 w-4 mr-2", retryVoucher.isPending && "animate-spin")} />
+                          Retry
+                        </Button>
+                      )}
                       <Button 
                         variant="ghost" 
                         size="sm" 

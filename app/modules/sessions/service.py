@@ -1,38 +1,34 @@
 """
 app/modules/sessions/service.py
 ================================
-Service layer managing queries to the sessions table.
+Service layer for network sessions — fully tenant-scoped.
 
-DESIGN NOTE AND ARCHITECTURAL LIMITATION:
-  Hotspot session records are generated and recorded by the MikroTik router's
-  internal accounting engine, NOT directly by our HTTP REST API. The API cannot
-  intercept raw hotspot traffic.
-  Therefore, the local `sessions` table acts strictly as a cache or mirror of
-  the router's active state.
-  In this v1 architecture, sessions are either synced from MikroTik's active list
-  manually or will be updated asynchronously via a cron sync script querying
-  MikroTik's REST endpoint and updating PostgreSQL.
+MULTI-TENANCY CHANGE (Phase 1):
+  Both functions now scope to tenant_id. A customer in tenant A cannot
+  see sessions belonging to tenant B's customers.
 """
 
 import logging
+from uuid import UUID
+
 import asyncpg
 
 logger = logging.getLogger(__name__)
 
 
-async def get_customer_sessions(conn: asyncpg.Connection, customer_id: str) -> list[dict]:
-    """
-    Retrieves all hotspot login sessions belonging to a specific customer.
-    Results are sorted chronologically with the newest session first.
-    """
-    query = """
+async def get_customer_sessions(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    customer_id: str,
+) -> list[dict]:
+    """Retrieves all sessions for a customer within a tenant."""
+    rows = await conn.fetch(
+        """
         SELECT
             id,
             voucher_id,
             customer_id,
             mac_address,
-            -- asyncpg automatically casts INET database types to strings
-            -- which serializes cleanly in our Pydantic schemas.
             ip_address,
             bytes_uploaded,
             bytes_downloaded,
@@ -41,23 +37,24 @@ async def get_customer_sessions(conn: asyncpg.Connection, customer_id: str) -> l
             created_at
         FROM sessions
         WHERE customer_id = $1
+          AND tenant_id = $2
         ORDER BY started_at DESC
-    """
-    rows = await conn.fetch(query, customer_id)
+        """,
+        customer_id,
+        tenant_id,
+    )
     return [dict(r) for r in rows]
 
 
 async def get_all_sessions(
     conn: asyncpg.Connection,
+    tenant_id: UUID,
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict]:
-    """
-    Retrieves a paginated list of all sessions in the system.
-    Pagination is strictly enforced using LIMIT and OFFSET to prevent unbounded database
-    fetches from degrading API response times under high transaction load.
-    """
-    query = """
+    """Retrieves a paginated list of all sessions in a tenant."""
+    rows = await conn.fetch(
+        """
         SELECT
             id,
             voucher_id,
@@ -70,8 +67,12 @@ async def get_all_sessions(
             ended_at,
             created_at
         FROM sessions
+        WHERE tenant_id = $1
         ORDER BY started_at DESC
-        LIMIT $1 OFFSET $2
-    """
-    rows = await conn.fetch(query, limit, offset)
+        LIMIT $2 OFFSET $3
+        """,
+        tenant_id,
+        limit,
+        offset,
+    )
     return [dict(r) for r in rows]

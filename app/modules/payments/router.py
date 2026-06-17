@@ -1,9 +1,10 @@
 """
 app/modules/payments/router.py
 ================================
-Router exposing HTTP endpoints for payment processing and billing records.
-Wired with RBAC role guards to secure access.
+Router for payment processing — fully tenant-scoped.
 """
+
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 
@@ -31,13 +32,13 @@ async def create_stk_push(
     data: STKPushRequest,
     current_user: dict = Depends(require_role("customer")),
 ):
-    """
-    Initiates an STK Push payment to Safaricom Daraja.
-    Returns 202 Accepted, indicating the payment request is queued and waiting for
-    the customer to input their M-Pesa PIN and for Daraja to invoke our webhook.
-    """
     async with get_db() as conn:
-        payment = await initiate_stk_push(conn, current_user["user_id"], data)
+        payment = await initiate_stk_push(
+            conn,
+            tenant_id=UUID(current_user["tenant_id"]),
+            customer_id=current_user["user_id"],
+            data=data,
+        )
     return payment
 
 
@@ -49,11 +50,12 @@ async def create_stk_push(
 async def get_my_payments(
     current_user: dict = Depends(require_role("customer")),
 ):
-    """
-    Returns the billing history of the authenticated customer.
-    """
     async with get_db() as conn:
-        payments = await get_customer_payments(conn, current_user["user_id"])
+        payments = await get_customer_payments(
+            conn,
+            tenant_id=UUID(current_user["tenant_id"]),
+            customer_id=current_user["user_id"],
+        )
     return payments
 
 
@@ -66,13 +68,13 @@ async def check_payment_status(
     payment_id: str,
     current_user: dict = Depends(require_role("customer")),
 ):
-    """
-    Endpoint for polling the state of a payment.
-    Customers poll this endpoint every ~3 seconds until status is 'confirmed'
-    and a 'voucher_code' is populated.
-    """
     async with get_db() as conn:
-        status_info = await get_payment_status(conn, payment_id, current_user["user_id"])
+        status_info = await get_payment_status(
+            conn,
+            tenant_id=UUID(current_user["tenant_id"]),
+            payment_id=payment_id,
+            customer_id=current_user["user_id"],
+        )
     return status_info
 
 
@@ -84,29 +86,32 @@ async def check_payment_status(
 async def list_reseller_payments(
     current_user: dict = Depends(require_role("admin", "reseller")),
 ):
-    """
-    Returns payment records for customers registered under the reseller.
-    Admins are permitted to call this, in which case they see all payments.
-    """
     async with get_db() as conn:
         if current_user["role"] == "admin":
-            payments = await get_all_payments(conn)
+            payments = await get_all_payments(
+                conn,
+                tenant_id=UUID(current_user["tenant_id"]),
+            )
         else:
-            payments = await get_reseller_payments(conn, current_user["user_id"])
+            payments = await get_reseller_payments(
+                conn,
+                tenant_id=UUID(current_user["tenant_id"]),
+                reseller_id=current_user["user_id"],
+            )
     return payments
 
 
 @router.get(
     "/admin/payments",
     response_model=list[PaymentResponse],
-    summary="List all payments (admin only)",
+    summary="List all payments in this tenant (admin only)",
 )
 async def list_all_payments_admin(
     current_user: dict = Depends(require_role("admin")),
 ):
-    """
-    Returns all payments in the system. Restricted to administrators.
-    """
     async with get_db() as conn:
-        payments = await get_all_payments(conn)
+        payments = await get_all_payments(
+            conn,
+            tenant_id=UUID(current_user["tenant_id"]),
+        )
     return payments

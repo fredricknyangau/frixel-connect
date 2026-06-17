@@ -1,9 +1,10 @@
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     # App
-    APP_NAME: str = "WiFi Billing System"
+    APP_NAME: str = "ZealSync WiFi Billing"
     APP_ENV: str = "development"
     DEBUG: bool = True
     ALLOWED_ORIGINS: list[str] = ["*"]
@@ -24,11 +25,20 @@ class Settings(BaseSettings):
     DARAJA_CALLBACK_URL: str
     DARAJA_ENVIRONMENT: str = "sandbox"
 
-    # MikroTik
+    # MikroTik (global fallback — superseded by per-tenant router records in Phase 2)
     MIKROTIK_HOST: str
     MIKROTIK_PORT: int = 80
     MIKROTIK_USERNAME: str
     MIKROTIK_PASSWORD: str
+
+    # Fernet symmetric encryption key for router passwords stored in the DB.
+    # Generate once: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # NEVER commit this value to git. Inject via Docker secrets or secret manager.
+    FERNET_SECRET_KEY: Optional[str] = None
+
+    # Default tenant ID (the original single-tenant MLP seed data).
+    # Created by migration 007. Used in tests and backfill scripts.
+    DEFAULT_TENANT_ID: str = "aaaaaaaa-0000-0000-0000-000000000001"
 
     @property
     def DARAJA_BASE_URL(self) -> str:

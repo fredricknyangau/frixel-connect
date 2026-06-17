@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import bcrypt
+from cryptography.fernet import Fernet
 from jose import JWTError, jwt
 
 from app.config import settings
@@ -29,7 +31,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(
     user_id: str,
     role: str,
-    reseller_id: str | None = None,
+    tenant_id: str,
+    reseller_id: Optional[str] = None,
 ) -> str:
     """
     Creates a signed JWT access token.
@@ -37,6 +40,10 @@ def create_access_token(
     Payload:
         sub         — user UUID
         role        — admin | reseller | customer
+        tenant_id   — UUID of the tenant this user belongs to.
+                      Every subsequent request uses this to scope database
+                      queries. By embedding it in the token we avoid a
+                      database lookup on every request just to find tenant_id.
         reseller_id — UUID of the parent reseller (customers only), or None
         exp         — expiry timestamp
         iat         — issued-at timestamp
@@ -47,6 +54,7 @@ def create_access_token(
     payload = {
         "sub": user_id,
         "role": role,
+        "tenant_id": tenant_id,      # NEW: injected into every token
         "reseller_id": reseller_id,
         "iat": now,
         "exp": expire,
@@ -112,3 +120,57 @@ def normalise_phone(phone: str) -> str:
     raise ValueError(
         f"Invalid Kenyan phone number: '{phone}'. Must be a valid 07... or 01... number."
     )
+
+
+# ── Symmetric encryption for router credentials (Phase 2) ────────────────────
+# Router passwords must not sit in plaintext in the database. We use Fernet
+# (AES-128-CBC + HMAC-SHA256) with a key read from settings at startup.
+#
+# WHY FERNET AND NOT bcrypt?
+#   bcrypt is a one-way hash — you can never recover the original value.
+#   Router passwords must be decrypted at the moment of use so we can pass
+#   them to MikroTik's REST API. Fernet is a symmetric cipher: encrypt at
+#   write time, decrypt only when the plaintext is needed for the API call.
+#
+# KEY MANAGEMENT:
+#   The key is a URL-safe base64-encoded 32-byte secret stored in
+#   settings.FERNET_SECRET_KEY. It must NEVER be committed to git.
+#   In production it is injected via Docker secrets or the hosting platform's
+#   secret manager. See Phase 8 for the docker-compose.yml changes.
+#
+# IMPORTANT: if the key changes, all previously encrypted values become
+#   undecryptable. Key rotation requires decrypting all records with the old
+#   key and re-encrypting with the new one in a coordinated migration.
+
+def _get_fernet() -> Fernet:
+    """
+    Returns a Fernet cipher initialised with the configured secret key.
+    Called at the moment of use rather than at import time so that the
+    key can be loaded from environment variables (not committed constants).
+    """
+    key = settings.FERNET_SECRET_KEY
+    if not key:
+        raise RuntimeError(
+            "FERNET_SECRET_KEY is not set. "
+            "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+        )
+    return Fernet(key.encode() if isinstance(key, str) else key)
+
+
+def encrypt_secret(plaintext: str) -> str:
+    """
+    Encrypts a plaintext string and returns a URL-safe base64 ciphertext.
+    Use this when storing router passwords in the database.
+    """
+    f = _get_fernet()
+    return f.encrypt(plaintext.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_secret(ciphertext: str) -> str:
+    """
+    Decrypts a Fernet-encrypted ciphertext back to plaintext.
+    Call this only at the moment of use (e.g., inside get_mikrotik_client).
+    Never log or return the decrypted value.
+    """
+    f = _get_fernet()
+    return f.decrypt(ciphertext.encode("utf-8")).decode("utf-8")

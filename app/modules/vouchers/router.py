@@ -1,8 +1,24 @@
 """
 app/modules/vouchers/router.py
 ================================
-Router exposing HTTP endpoints for managing hotspot vouchers.
+Router for voucher management — fully tenant-scoped.
+
+CROSS-TENANT ISOLATION (WHY 404 NOT 403):
+  When a customer requests GET /vouchers/{voucher_id} with a real UUID
+  that belongs to tenant B, the service returns None (because the query
+  scopes to the caller's tenant_id and finds nothing). The router raises
+  NotFoundException → 404.
+
+  A 403 Forbidden would say "I found this voucher but you can't have it."
+  That leaks that the UUID exists somewhere in the system, potentially
+  revealing that tenant B has a voucher with that specific ID. A 404
+  reveals nothing — the caller cannot distinguish "doesn't exist" from
+  "exists in another tenant."
+
+  This is the correct behavior for any multi-tenant resource endpoint.
 """
+
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 
@@ -16,14 +32,13 @@ from app.modules.vouchers.service import (
     get_reseller_vouchers,
     get_all_vouchers,
     admin_revoke_voucher,
+    admin_retry_voucher,
 )
 
 router = APIRouter()
 
 
 # IMPORTANT: /vouchers/me must come before /vouchers/{voucher_id}
-# FastAPI matches routes top-to-bottom. If {voucher_id} is first,
-# a request to /vouchers/me will match it with voucher_id="me".
 @router.get(
     "/vouchers/me",
     response_model=list[VoucherResponse],
@@ -32,11 +47,12 @@ router = APIRouter()
 async def get_my_vouchers(
     current_user: dict = Depends(require_role("customer")),
 ):
-    """
-    Returns the list of vouchers purchased by the authenticated customer.
-    """
     async with get_db() as conn:
-        vouchers = await get_customer_vouchers(conn, current_user["user_id"])
+        vouchers = await get_customer_vouchers(
+            conn,
+            tenant_id=UUID(current_user["tenant_id"]),
+            customer_id=current_user["user_id"],
+        )
     return vouchers
 
 
@@ -50,18 +66,29 @@ async def get_voucher(
     current_user: dict = Depends(require_role("customer")),
 ):
     """
-    Returns details of a specific voucher.
-    Enforces customer isolation (customers can only look up vouchers they own).
+    Returns 404 for:
+      - Vouchers that don't exist.
+      - Vouchers that exist but belong to a different tenant.
+      - Vouchers that belong to the same tenant but a different customer.
+
+    WHY ALL THREE CASES RETURN 404 (not 403):
+      See module docstring. Confirming existence but denying access (403)
+      leaks information about other tenants' data. 404 reveals nothing.
     """
     async with get_db() as conn:
-        voucher = await get_voucher_by_id(conn, voucher_id)
+        voucher = await get_voucher_by_id(
+            conn,
+            tenant_id=UUID(current_user["tenant_id"]),
+            voucher_id=voucher_id,
+        )
 
-    # 404 if the voucher does not exist
     if not voucher:
         raise NotFoundException("Voucher", voucher_id)
 
-    # Prevent customer from accessing another customer's voucher
+    # Customer isolation within the tenant
     if str(voucher["customer_id"]) != str(current_user["user_id"]):
+        # Also 404 — same reason. A customer calling with another customer's
+        # voucher ID within the same tenant should not learn that the voucher exists.
         raise NotFoundException("Voucher", voucher_id)
 
     return voucher
@@ -73,16 +100,32 @@ async def get_voucher(
 )
 async def revoke_voucher(
     voucher_id: str,
-    _user: dict = Depends(require_role("admin")),
+    current_user: dict = Depends(require_role("admin")),
 ):
-    """
-    Revokes an active voucher.
-    Updates the voucher state to 'revoked' in PostgreSQL and deletes the user
-    from the RouterOS Hotspot instance synchronously. Restricted to admins.
-    """
     async with get_db() as conn:
-        result = await admin_revoke_voucher(conn, voucher_id)
+        result = await admin_revoke_voucher(
+            conn,
+            tenant_id=UUID(current_user["tenant_id"]),
+            voucher_id=voucher_id,
+        )
     return {"message": "Voucher revoked successfully", "voucher": result}
+
+
+@router.post(
+    "/vouchers/{voucher_id}/retry",
+    summary="Retry provisioning a pending voucher (admin only)",
+)
+async def retry_voucher(
+    voucher_id: str,
+    current_user: dict = Depends(require_role("admin")),
+):
+    async with get_db() as conn:
+        result = await admin_retry_voucher(
+            conn,
+            tenant_id=UUID(current_user["tenant_id"]),
+            voucher_id=voucher_id,
+        )
+    return {"message": "Voucher provisioned successfully", "voucher": result}
 
 
 @router.get(
@@ -93,13 +136,16 @@ async def revoke_voucher(
 async def list_reseller_vouchers(
     current_user: dict = Depends(require_role("admin", "reseller")),
 ):
-    """
-    Returns voucher records for customers belonging to the reseller.
-    Admins are permitted to call this, in which case they see all vouchers.
-    """
     async with get_db() as conn:
         if current_user["role"] == "admin":
-            vouchers = await get_all_vouchers(conn)
+            vouchers = await get_all_vouchers(
+                conn,
+                tenant_id=UUID(current_user["tenant_id"]),
+            )
         else:
-            vouchers = await get_reseller_vouchers(conn, current_user["user_id"])
+            vouchers = await get_reseller_vouchers(
+                conn,
+                tenant_id=UUID(current_user["tenant_id"]),
+                reseller_id=current_user["user_id"],
+            )
     return vouchers

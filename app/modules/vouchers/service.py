@@ -2,112 +2,114 @@
 app/modules/vouchers/service.py
 ================================
 Service logic for voucher code generation, MikroTik hotspot user creation,
-and database persistence.
+and database persistence — fully tenant-scoped.
+
+MULTI-TENANCY CHANGE (Phase 1):
+  - generate_voucher: fetches payment AND validates tenant_id match.
+    Stores tenant_id on the voucher row.
+  - All list/get functions scope to tenant_id.
+  - The 404-not-403 cross-tenant isolation rule applies here too:
+    get_voucher_by_id returns None for cross-tenant UUIDs — the router
+    raises 404.
 
 WHY WE USE secrets.choice INSTEAD OF random.choice:
-  Standard library `random` module uses the Mersenne Twister algorithm, which
-  is a deterministic pseudo-random number generator. If an attacker observes a
-  sufficient number of generated voucher codes, they can reconstruct the state of
-  the generator and predict future codes, enabling voucher theft.
-  In contrast, the `secrets` module uses the operating system's cryptographically
-  secure pseudo-random number generator (CSPRNG), which leverages environmental
-  entropy. It is designed specifically for cryptography and security tokens,
-  rendering the voucher codes mathematically unpredictable.
+  Standard library `random` uses Mersenne Twister — a deterministic PRNG.
+  If an attacker observes enough codes they can reconstruct the generator
+  state and predict future codes. `secrets` uses OS CSPRNG (getrandom/
+  /dev/urandom) — cryptographically unpredictable.
 """
 
 import asyncio
 import logging
 import secrets
 from typing import Optional
+from uuid import UUID
 
 import asyncpg
 
 from app.database import get_db
 from app.integrations.mikrotik import mikrotik_client, MikroTikError
+from app.core.exceptions import NotFoundException
 
 logger = logging.getLogger(__name__)
 
-# Alphabet excluding easily confused characters:
-# - Numbers 0 and 1
-# - Letters O, I, l (lowercase L)
+# Alphabet excluding easily confused characters (0, 1, O, I, l)
 VOUCHER_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
 
 def generate_voucher_code(length: int = 10) -> str:
-    """
-    Generates a cryptographically secure random voucher code.
-    Uses secrets.choice to avoid predictability.
-    """
+    """Generates a cryptographically secure random voucher code."""
     return "".join(secrets.choice(VOUCHER_ALPHABET) for _ in range(length))
 
 
-async def generate_voucher(conn: asyncpg.Connection, payment_id: str) -> str:
+async def generate_voucher(
+    conn: asyncpg.Connection,
+    payment_id: str,
+) -> str:
     """
     Core voucher generation pipeline:
-      1. Fetch payment and package details in a single JOIN query.
-      2. Generate a secure voucher code.
-      3. Call MikroTik to provision the hotspot user.
-      4. If MikroTik is unreachable/fails, retry with exponential backoff (5s, 15s, 45s).
-      5. Insert voucher record into DB. If MikroTik fails completely, save as 'pending_provision'.
-      6. Return the voucher code.
+      1. Fetch payment + package details (scoped to payment's tenant_id).
+      2. Generate a secure voucher code (unique within the tenant).
+      3. Call MikroTik with exponential backoff.
+      4. Insert voucher with tenant_id.
+      5. Return the voucher code.
 
-    CRITICAL ARCHITECTURAL DECISION:
-      We intentionally do NOT run this function inside a PostgreSQL transaction block.
-      Why? Holding a database connection and keeping a transaction open while making
-      slow external HTTP requests (which can take up to 65+ seconds due to backoff retries)
-      is a critical resource-exhaustion anti-pattern. Under load, it would consume all
-      available pool connections, causing the API to hang.
-      Instead, we fetch data, release/use standard connection queries, perform the HTTP
-      calls without a transaction, and execute a final INSERT query.
+    MULTI-TENANCY NOTE:
+    Code uniqueness is currently global (vouchers.code UNIQUE constraint is
+    table-wide). This is intentional: voucher codes are sent to MikroTik
+    as hotspot usernames. If two tenants happen to generate the same code
+    on the same MikroTik router, one would overwrite the other. By keeping
+    code globally unique, this collision is impossible regardless of which
+    router the voucher lands on.
     """
-    # ── Step 1: Fetch payment & package details ──────────────────────────────
-    query = """
+    # ── Step 1: Fetch payment, package, and tenant ────────────────────────────
+    row = await conn.fetchrow(
+        """
         SELECT
             p.customer_id,
             p.package_id,
             p.amount_kes,
             p.status AS payment_status,
+            p.tenant_id,
             pkg.duration_days,
             pkg.speed_mbps
         FROM payments p
         JOIN packages pkg ON p.package_id = pkg.id
         WHERE p.id = $1
-    """
-    row = await conn.fetchrow(query, payment_id)
+        """,
+        payment_id,
+    )
     if not row:
         raise ValueError(f"Payment {payment_id} not found when generating voucher")
 
     customer_id = row["customer_id"]
-    package_id = row["package_id"]
+    package_id  = row["package_id"]
+    tenant_id   = row["tenant_id"]
     duration_days = row["duration_days"]
-    speed_mbps = row["speed_mbps"]
+    speed_mbps    = row["speed_mbps"]
 
-    # ── Step 2: Generate voucher code ────────────────────────────────────────
-    # We must ensure the code is unique in our database. We try to generate it,
-    # and if it exists we generate another. Normally a 10-char alphabet of size 31
-    # has 31^10 = 819 trillion combinations, so collisions are practically impossible.
-    # But we perform a quick check to be fully robust.
+    # ── Step 2: Generate globally unique voucher code ─────────────────────────
     code = generate_voucher_code()
-    collision_check = await conn.fetchval("SELECT COUNT(*) FROM vouchers WHERE code = $1", code)
-    if collision_check > 0:
-        code = generate_voucher_code()  # retry once
+    # Check global uniqueness (see module docstring for why global, not per-tenant)
+    collision = await conn.fetchval(
+        "SELECT COUNT(*) FROM vouchers WHERE code = $1",
+        code,
+    )
+    if collision > 0:
+        code = generate_voucher_code()  # retry once — collision probability is ~1 in 800 trillion
 
-    # ── Step 3: Call MikroTik with Exponential Backoff ────────────────────────
-    # Attempt count is 4 (Initial attempt + 3 retries)
-    # Delays: 5s, 15s, 45s
+    # ── Step 3: Call MikroTik with exponential backoff ────────────────────────
     attempts = 4
-    delays = [5, 15, 45]
-    success = False
+    delays   = [5, 15, 45]
+    success  = False
 
-    profile = f"{speed_mbps}Mbps"
+    profile    = f"{speed_mbps}Mbps"
     time_limit = f"{duration_days}d"
 
-    logger.info(f"Voucher: provisioning voucher '{code}' on MikroTik for payment {payment_id}")
+    logger.info(f"Voucher: provisioning '{code}' on MikroTik for payment {payment_id} (tenant {tenant_id})")
 
     for attempt in range(1, attempts + 1):
         try:
-            # Call MikroTikClient singleton.
-            # Username and password are set to the same voucher code value.
             await mikrotik_client.generate_hotspot_user(
                 username=code,
                 password=code,
@@ -115,34 +117,34 @@ async def generate_voucher(conn: asyncpg.Connection, payment_id: str) -> str:
                 time_limit=time_limit,
             )
             success = True
-            logger.info(f"Voucher: successfully provisioned '{code}' on MikroTik on attempt {attempt}")
+            logger.info(f"Voucher: provisioned '{code}' on attempt {attempt}")
             break
         except (MikroTikError, Exception) as e:
-            logger.warning(
-                f"Voucher: MikroTik provisioning attempt {attempt} failed for code '{code}': {e}"
-            )
+            logger.warning(f"Voucher: MikroTik attempt {attempt} failed for '{code}': {e}")
             if attempt < attempts:
                 delay = delays[attempt - 1]
-                logger.info(f"Voucher: retrying in {delay} seconds...")
+                logger.info(f"Voucher: retrying in {delay}s...")
                 await asyncio.sleep(delay)
 
-    # ── Step 4: Record Voucher in Database ───────────────────────────────────
-    # If provisioning was successful, status is 'active'.
-    # If provisioning failed completely, status is 'pending_provision'.
-    # This prevents money/vouchers from being lost if the router goes offline:
-    # the customer payment is stored, and an admin can manually retry from a dashboard.
+    # ── Step 4: Insert voucher with tenant_id ─────────────────────────────────
     status = "active" if success else "pending_provision"
 
-    insert_query = """
-        INSERT INTO vouchers (payment_id, customer_id, package_id, code, status)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id
-    """
     try:
-        await conn.execute(insert_query, payment_id, customer_id, package_id, code, status)
-        logger.info(f"Voucher: recorded '{code}' in database with status '{status}'")
+        await conn.execute(
+            """
+            INSERT INTO vouchers (payment_id, customer_id, package_id, code, status, tenant_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            """,
+            payment_id,
+            customer_id,
+            package_id,
+            code,
+            status,
+            tenant_id,
+        )
+        logger.info(f"Voucher: recorded '{code}' in DB with status '{status}'")
     except Exception as e:
-        logger.error(f"Voucher: failed to insert voucher '{code}' into DB: {e}")
+        logger.error(f"Voucher: failed to insert '{code}' into DB: {e}")
         raise e
 
     return code
@@ -151,8 +153,9 @@ async def generate_voucher(conn: asyncpg.Connection, payment_id: str) -> str:
 async def generate_voucher_task(payment_id: str) -> None:
     """
     FastAPI BackgroundTask wrapper.
-    Obtains a database connection from the pool, then triggers generate_voucher.
-    Exceptions are caught and logged so the background task worker doesn't crash.
+    (Phase 3 replaces this with a durable arq job — the function signature
+    is preserved so the webhook handler needs no changes in Phase 3, only
+    the enqueue mechanism changes.)
     """
     try:
         async with get_db() as conn:
@@ -161,88 +164,244 @@ async def generate_voucher_task(payment_id: str) -> None:
         logger.error(f"Voucher Background Task: failed for payment {payment_id}: {e}", exc_info=True)
 
 
-async def get_customer_vouchers(conn: asyncpg.Connection, customer_id: str) -> list[dict]:
-    """Retrieves all vouchers belonging to a specific customer."""
-    query = """
-        SELECT v.id, v.code, v.status, v.expires_at, v.customer_id, v.activated_at, v.created_at,
+async def get_customer_vouchers(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    customer_id: str,
+) -> list[dict]:
+    """Retrieves all vouchers for a customer within a tenant."""
+    rows = await conn.fetch(
+        """
+        SELECT v.id, v.code, v.status, v.expires_at, v.customer_id,
+               v.activated_at, v.created_at,
                pkg.name AS package_name
         FROM vouchers v
         JOIN packages pkg ON v.package_id = pkg.id
         WHERE v.customer_id = $1
+          AND v.tenant_id = $2
         ORDER BY v.created_at DESC
-    """
-    rows = await conn.fetch(query, customer_id)
+        """,
+        customer_id,
+        tenant_id,
+    )
     return [dict(r) for r in rows]
 
 
-async def get_voucher_by_id(conn: asyncpg.Connection, voucher_id: str) -> Optional[dict]:
-    """Retrieves a specific voucher by its UUID, including the package name."""
-    query = """
-        SELECT v.id, v.code, v.status, v.expires_at, v.customer_id, v.activated_at, v.created_at,
+async def get_voucher_by_id(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    voucher_id: str,
+) -> Optional[dict]:
+    """
+    Retrieves a specific voucher within a tenant.
+
+    Returns None (not a NotFoundException) when the voucher exists in a
+    different tenant. The ROUTER raises NotFoundException on None, producing
+    a 404. This way:
+      - Same-tenant, voucher exists → returns dict
+      - Same-tenant, voucher doesn't exist → returns None → router raises 404
+      - Cross-tenant UUID → returns None → router raises 404 (not 403)
+
+    404 vs 403 matters: returning 403 for a cross-tenant UUID would tell
+    the caller "this UUID exists somewhere in our system, just not for you."
+    That leaks information. 404 reveals nothing.
+    """
+    row = await conn.fetchrow(
+        """
+        SELECT v.id, v.code, v.status, v.expires_at, v.customer_id,
+               v.activated_at, v.created_at,
                pkg.name AS package_name
         FROM vouchers v
         JOIN packages pkg ON v.package_id = pkg.id
         WHERE v.id = $1
-    """
-    row = await conn.fetchrow(query, voucher_id)
+          AND v.tenant_id = $2
+        """,
+        voucher_id,
+        tenant_id,
+    )
     return dict(row) if row else None
 
 
-async def get_reseller_vouchers(conn: asyncpg.Connection, reseller_id: str) -> list[dict]:
-    """Retrieves all vouchers for customers assigned to a specific reseller."""
-    query = """
-        SELECT v.id, v.code, v.status, v.expires_at, v.customer_id, v.activated_at, v.created_at,
+async def get_reseller_vouchers(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    reseller_id: str,
+) -> list[dict]:
+    """Retrieves vouchers for a reseller's customers within a tenant."""
+    rows = await conn.fetch(
+        """
+        SELECT v.id, v.code, v.status, v.expires_at, v.customer_id,
+               v.activated_at, v.created_at,
                pkg.name AS package_name
         FROM vouchers v
         JOIN packages pkg ON v.package_id = pkg.id
         JOIN users u ON v.customer_id = u.id
         WHERE u.reseller_id = $1
+          AND v.tenant_id = $2
         ORDER BY v.created_at DESC
-    """
-    rows = await conn.fetch(query, reseller_id)
+        """,
+        reseller_id,
+        tenant_id,
+    )
     return [dict(r) for r in rows]
 
 
-async def get_all_vouchers(conn: asyncpg.Connection) -> list[dict]:
-    """Retrieves all vouchers in the system (admin view)."""
-    query = """
-        SELECT v.id, v.code, v.status, v.expires_at, v.customer_id, v.activated_at, v.created_at,
+async def get_all_vouchers(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+) -> list[dict]:
+    """Retrieves all vouchers in the tenant (admin view)."""
+    rows = await conn.fetch(
+        """
+        SELECT v.id, v.code, v.status, v.expires_at, v.customer_id,
+               v.activated_at, v.created_at,
                pkg.name AS package_name
         FROM vouchers v
         JOIN packages pkg ON v.package_id = pkg.id
+        WHERE v.tenant_id = $1
         ORDER BY v.created_at DESC
-    """
-    rows = await conn.fetch(query)
+        """,
+        tenant_id,
+    )
     return [dict(r) for r in rows]
 
 
-async def admin_revoke_voucher(conn: asyncpg.Connection, voucher_id: str) -> dict:
+async def admin_revoke_voucher(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    voucher_id: str,
+) -> dict:
     """
-    Revokes a voucher by UUID:
-      1. Looks up the voucher. Raises NotFoundException if missing.
-      2. Updates status to "revoked" in PostgreSQL.
-      3. Synchronously calls MikroTik REST client to remove the hotspot user.
+    Revokes a voucher within the tenant.
+    Returns 404 for cross-tenant voucher UUIDs (not 403).
     """
-    from app.core.exceptions import NotFoundException
-
-    # Fetch the voucher first to get the code
-    v_query = "SELECT id, code, status FROM vouchers WHERE id = $1"
-    voucher = await conn.fetchrow(v_query, voucher_id)
+    # Fetch with tenant_id scope — cross-tenant UUIDs return None → 404
+    voucher = await conn.fetchrow(
+        "SELECT id, code, status FROM vouchers WHERE id = $1 AND tenant_id = $2",
+        voucher_id,
+        tenant_id,
+    )
     if not voucher:
         raise NotFoundException("Voucher", voucher_id)
 
-    # Perform SQL status update
-    update_query = """
+    updated_row = await conn.fetchrow(
+        """
         UPDATE vouchers
         SET status = 'revoked'
-        WHERE id = $1
+        WHERE id = $1 AND tenant_id = $2
         RETURNING id, code, status
-    """
-    updated_row = await conn.fetchrow(update_query, voucher_id)
+        """,
+        voucher_id,
+        tenant_id,
+    )
 
-    # Remove the user profile entry from RouterOS Hotspot database
     logger.info(f"Voucher Revocation: deleting hotspot user '{voucher['code']}' from RouterOS")
     await mikrotik_client.remove_hotspot_user(voucher["code"])
 
     return dict(updated_row)
 
+
+async def admin_retry_voucher(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    voucher_id: str,
+) -> dict:
+    """Manually retries provisioning a stuck voucher within the tenant."""
+    row = await conn.fetchrow(
+        """
+        SELECT v.id, v.code, v.status, pkg.duration_days, pkg.speed_mbps
+        FROM vouchers v
+        JOIN packages pkg ON v.package_id = pkg.id
+        WHERE v.id = $1
+          AND v.tenant_id = $2
+        """,
+        voucher_id,
+        tenant_id,
+    )
+
+    if not row:
+        raise NotFoundException("Voucher", voucher_id)
+
+    if row["status"] != "pending_provision":
+        raise ValueError(f"Voucher {voucher_id} is not pending provision.")
+
+    code       = row["code"]
+    profile    = f"{row['speed_mbps']}Mbps"
+    time_limit = f"{row['duration_days']}d"
+
+    logger.info(f"Voucher Retry: provisioning '{code}'")
+
+    try:
+        await mikrotik_client.generate_hotspot_user(
+            username=code,
+            password=code,
+            profile=profile,
+            time_limit=time_limit,
+        )
+    except Exception as e:
+        logger.error(f"Voucher Retry: failed for '{code}': {e}")
+        raise ValueError(f"MikroTik provisioning failed: {e}")
+
+    updated_row = await conn.fetchrow(
+        """
+        UPDATE vouchers
+        SET status = 'active'
+        WHERE id = $1 AND tenant_id = $2
+        RETURNING id, code, status
+        """,
+        voucher_id,
+        tenant_id,
+    )
+    return dict(updated_row)
+
+
+async def provision_retry_poller() -> None:
+    """
+    Background poller for pending_provision vouchers.
+    Phase 3 replaces this with a durable arq cron job — this remains
+    active until Phase 3 is applied.
+    """
+    logger.info("Voucher Poller: started background self-healing task")
+    while True:
+        try:
+            await asyncio.sleep(300)
+
+            async with get_db() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT v.id, v.code, pkg.duration_days, pkg.speed_mbps
+                    FROM vouchers v
+                    JOIN packages pkg ON v.package_id = pkg.id
+                    WHERE v.status = 'pending_provision'
+                    """
+                )
+
+                if rows:
+                    logger.info(f"Voucher Poller: found {len(rows)} pending vouchers")
+
+                    for v in rows:
+                        code       = v["code"]
+                        profile    = f"{v['speed_mbps']}Mbps"
+                        time_limit = f"{v['duration_days']}d"
+
+                        try:
+                            await mikrotik_client.generate_hotspot_user(
+                                username=code,
+                                password=code,
+                                profile=profile,
+                                time_limit=time_limit,
+                            )
+                            await conn.execute(
+                                "UPDATE vouchers SET status = 'active' WHERE id = $1",
+                                v["id"],
+                            )
+                            logger.info(f"Voucher Poller: recovered '{code}'")
+                        except Exception as e:
+                            logger.warning(f"Voucher Poller: still failing '{code}': {e}")
+
+        except asyncio.CancelledError:
+            logger.info("Voucher Poller: shutting down")
+            break
+        except Exception as e:
+            logger.error(f"Voucher Poller: unexpected error: {e}", exc_info=True)
+            await asyncio.sleep(10)

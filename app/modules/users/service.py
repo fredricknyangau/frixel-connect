@@ -3,8 +3,23 @@ app/modules/users/service.py
 ============================
 Business logic and database interactions for the users module.
 
-This layer sits between the HTTP router and raw database queries, encapsulating
-database transaction logic, data mapping, and authorization checks.
+MULTI-TENANCY CHANGE (Phase 1):
+  Every function that reads users from the database now requires tenant_id
+  and adds AND tenant_id = $N to every WHERE clause.
+
+  WHY is tenant_id in EVERY query?
+  Without it, an admin from tenant A who somehow obtains a user UUID from
+  tenant B (e.g., by brute-forcing UUIDs or via a bug in another endpoint)
+  could read or modify that user. Adding tenant_id to the WHERE clause means
+  the query returns zero rows for cross-tenant UUIDs — the same result as if
+  the user didn't exist at all. We return 404, not 403, for this case.
+
+  WHY 404 and not 403?
+  A 403 says "I found the resource, but you can't have it." That confirms the
+  resource exists — leaking that tenant B has a user with that UUID. A 404 says
+  "no such resource in your context." An attacker learns nothing about whether
+  tenant B's data exists at all. This is sometimes called "security through
+  plausible deniability" and is standard practice in multi-tenant APIs.
 """
 
 from uuid import UUID
@@ -17,20 +32,27 @@ from app.core.security import hash_password
 from app.modules.users.schemas import CreateCustomerRequest, UserUpdate, AdminUserCreate, AdminUserUpdate
 
 
-async def get_my_profile(conn: asyncpg.Connection, user_id: UUID) -> dict:
+async def get_my_profile(
+    conn: asyncpg.Connection,
+    user_id: UUID,
+    tenant_id: UUID,
+) -> dict:
     """
-    Retrieves the complete profile for a single user by ID.
+    Retrieves the profile for a single user, scoped to the caller's tenant.
 
-    Raises:
-        NotFoundException: If the user record cannot be found.
+    Raises NotFoundException if:
+      - The user doesn't exist at all.
+      - The user exists but belongs to a different tenant (same 404 — no leakage).
     """
     row = await conn.fetchrow(
         """
-        SELECT id, email, phone, role, reseller_id, is_active, created_at
+        SELECT id, email, phone, role, reseller_id, tenant_id, is_active, created_at
         FROM users
         WHERE id = $1
+          AND tenant_id = $2
         """,
         user_id,
+        tenant_id,
     )
     if not row:
         raise NotFoundException("User", str(user_id))
@@ -41,80 +63,83 @@ async def get_my_profile(conn: asyncpg.Connection, user_id: UUID) -> dict:
 async def update_my_profile(
     conn: asyncpg.Connection,
     user_id: UUID,
+    tenant_id: UUID,
     data: UserUpdate,
 ) -> dict:
     """
-    Updates the contact information of a customer (phone number).
-
-    Why restrict customer updates to phone number?
-    Customers should not be allowed to self-modify credentials such as email,
-    role, or active status (which could bypass billing or deactivation logic).
-    Admin actions are performed through administrative commands, not self-service routes.
-
-    Validation:
-        - Verifies that the new phone number is not already in use by another user
-          to avoid violating the database unique constraint and causing dirty states.
+    Updates a customer's own phone number, scoped to their tenant.
     """
-    # 1. Fetch current profile to ensure user exists
-    user = await get_my_profile(conn, user_id)
+    # Fetch current profile (also validates ownership + tenant membership)
+    user = await get_my_profile(conn, user_id, tenant_id)
 
-    # 2. Check if a new, different phone number is requested
     if data.phone is not None and data.phone != user["phone"]:
-        # Verify the phone is unique across other users
+        # Phone uniqueness within the same tenant
         existing = await conn.fetchrow(
-            "SELECT id FROM users WHERE phone = $1 AND id != $2",
+            """
+            SELECT id FROM users
+            WHERE phone = $1
+              AND tenant_id = $2
+              AND id != $3
+            """,
             data.phone,
+            tenant_id,
             user_id,
         )
         if existing:
             raise ConflictException("An account with this phone number already exists.")
 
-        # Update the user profile with the new phone number
         row = await conn.fetchrow(
             """
             UPDATE users
             SET phone = $1, updated_at = NOW()
-            WHERE id = $2
-            RETURNING id, email, phone, role, reseller_id, is_active, created_at
+            WHERE id = $2 AND tenant_id = $3
+            RETURNING id, email, phone, role, reseller_id, tenant_id, is_active, created_at
             """,
             data.phone,
             user_id,
+            tenant_id,
         )
         return dict(row)
 
-    # If the phone was not updated, return the original profile row
     return user
 
 
 async def list_customers(
     conn: asyncpg.Connection,
+    tenant_id: UUID,
     caller_role: str,
     caller_id: UUID,
 ) -> list[dict]:
     """
-    Returns a list of customer accounts.
+    Returns customers scoped to the caller's tenant.
 
-    Visibility mapping:
-        - Admin: Can see all customers in the system.
-        - Reseller: Can only see customer profiles they registered (where reseller_id = caller_id).
+    Visibility:
+      - Admin:    all customers in this tenant.
+      - Reseller: only customers they created (reseller_id = caller_id),
+                  AND still within the same tenant.
     """
     if caller_role == "admin":
         rows = await conn.fetch(
             """
-            SELECT id, email, phone, role, reseller_id, is_active, created_at
+            SELECT id, email, phone, role, reseller_id, tenant_id, is_active, created_at
             FROM users
-            WHERE role = 'customer'
+            WHERE tenant_id = $1
+              AND role = 'customer'
             ORDER BY created_at DESC
-            """
+            """,
+            tenant_id,
         )
     else:
         rows = await conn.fetch(
             """
-            SELECT id, email, phone, role, reseller_id, is_active, created_at
+            SELECT id, email, phone, role, reseller_id, tenant_id, is_active, created_at
             FROM users
-            WHERE role = 'customer' AND reseller_id = $1
+            WHERE tenant_id = $1
+              AND role = 'customer'
+              AND reseller_id = $2
             ORDER BY created_at DESC
             """,
+            tenant_id,
             caller_id,
         )
 
@@ -123,22 +148,26 @@ async def list_customers(
 
 async def create_customer(
     conn: asyncpg.Connection,
+    tenant_id: UUID,
     data: CreateCustomerRequest,
     reseller_id: Optional[UUID],
 ) -> dict:
     """
-    Creates a new customer record under a specific reseller.
+    Creates a new customer under the given tenant.
 
-    Validation:
-        - Ensures neither email nor phone is already registered.
-        - Hashes password using bcrypt.
-        - Sets the role to 'customer' explicitly.
+    tenant_id comes from the calling reseller or admin's JWT — the caller
+    cannot create a customer in a different tenant.
     """
-    # 1. Check for email or phone conflicts
+    # Check for email/phone conflicts within this tenant
     existing = await conn.fetchrow(
-        "SELECT id, email, phone FROM users WHERE email = $1 OR phone = $2",
+        """
+        SELECT id, email, phone FROM users
+        WHERE (email = $1 OR phone = $2)
+          AND tenant_id = $3
+        """,
         data.email,
         data.phone,
+        tenant_id,
     )
     if existing:
         if existing["email"] == data.email:
@@ -146,47 +175,56 @@ async def create_customer(
         else:
             raise ConflictException("An account with this phone number already exists.")
 
-    # 2. Hash the customer password using bcrypt (standard security practice)
     hashed = hash_password(data.password)
 
-    # 3. Create the customer record
     user = await conn.fetchrow(
         """
-        INSERT INTO users (email, phone, hashed_password, role, reseller_id)
-        VALUES ($1, $2, $3, 'customer', $4)
-        RETURNING id, email, phone, role, reseller_id, is_active, created_at
+        INSERT INTO users (email, phone, hashed_password, role, reseller_id, tenant_id)
+        VALUES ($1, $2, $3, 'customer', $4, $5)
+        RETURNING id, email, phone, role, reseller_id, tenant_id, is_active, created_at
         """,
         data.email,
         data.phone,
         hashed,
         reseller_id,
+        tenant_id,
     )
 
     return dict(user)
 
 
-async def list_all_users(conn: asyncpg.Connection) -> list[dict]:
-    """
-    Lists every user in the database (admin only).
-    """
+async def list_all_users(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+) -> list[dict]:
+    """Lists every user in the tenant (admin only)."""
     rows = await conn.fetch(
         """
-        SELECT id, email, phone, role, reseller_id, is_active, created_at
+        SELECT id, email, phone, role, reseller_id, tenant_id, is_active, created_at
         FROM users
+        WHERE tenant_id = $1
         ORDER BY created_at DESC
-        """
+        """,
+        tenant_id,
     )
     return [dict(row) for row in rows]
 
+
 async def admin_create_user(
     conn: asyncpg.Connection,
+    tenant_id: UUID,
     data: AdminUserCreate,
 ) -> dict:
-    # 1. Check for email or phone conflicts
+    """Admin creates a user of any role within the tenant."""
     existing = await conn.fetchrow(
-        "SELECT id, email, phone FROM users WHERE email = $1 OR phone = $2",
+        """
+        SELECT id, email, phone FROM users
+        WHERE (email = $1 OR phone = $2)
+          AND tenant_id = $3
+        """,
         data.email,
         data.phone,
+        tenant_id,
     )
     if existing:
         if existing["email"] == data.email:
@@ -198,105 +236,110 @@ async def admin_create_user(
 
     user = await conn.fetchrow(
         """
-        INSERT INTO users (email, phone, hashed_password, role, reseller_id)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, email, phone, role, reseller_id, is_active, created_at
+        INSERT INTO users (email, phone, hashed_password, role, reseller_id, tenant_id)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, email, phone, role, reseller_id, tenant_id, is_active, created_at
         """,
         data.email,
         data.phone,
         hashed,
         data.role,
         data.reseller_id,
+        tenant_id,
     )
     return dict(user)
 
+
 async def admin_update_user(
     conn: asyncpg.Connection,
+    tenant_id: UUID,
     user_id: UUID,
     data: AdminUserUpdate,
 ) -> dict:
-    # Fetch current
-    current = await conn.fetchrow("SELECT * FROM users WHERE id = $1", user_id)
+    """Admin partially updates a user within the tenant."""
+    # Confirm user exists in this tenant
+    current = await conn.fetchrow(
+        "SELECT * FROM users WHERE id = $1 AND tenant_id = $2",
+        user_id,
+        tenant_id,
+    )
     if not current:
         raise NotFoundException("User", str(user_id))
 
-    updates = {}
-    
-    if data.email is not None and data.email != current["email"]:
-        existing = await conn.fetchrow("SELECT id FROM users WHERE email = $1 AND id != $2", data.email, user_id)
-        if existing:
-            raise ConflictException("Email already in use.")
-        updates["email"] = data.email
-        
-    if data.phone is not None and data.phone != current["phone"]:
-        existing = await conn.fetchrow("SELECT id FROM users WHERE phone = $1 AND id != $2", data.phone, user_id)
-        if existing:
-            raise ConflictException("Phone already in use.")
-        updates["phone"] = data.phone
-
-    if data.password is not None:
-        updates["hashed_password"] = hash_password(data.password)
-        
-    if data.role is not None:
-        updates["role"] = data.role
-        
-    if data.reseller_id is not None:
-        # Pydantic's Optional will be explicitly passed, but sometimes we want to unset it.
-        # However, None might mean "don't update" in a PATCH. 
-        # But wait, Pydantic's default is None. If we want to allow unsetting, we'd need more complex logic.
-        # Let's assume if they pass it, we update it.
-        # If we really want to unset, maybe we need a special value. But let's just update if it's in model_fields_set.
-        pass # Handle below via model_dump(exclude_unset=True)
-
-    # A better approach for PATCH:
     update_data = data.model_dump(exclude_unset=True)
+
     if "password" in update_data:
         update_data["hashed_password"] = hash_password(update_data.pop("password"))
-        
+
     if "email" in update_data and update_data["email"] != current["email"]:
-        existing = await conn.fetchrow("SELECT id FROM users WHERE email = $1 AND id != $2", update_data["email"], user_id)
+        existing = await conn.fetchrow(
+            "SELECT id FROM users WHERE email = $1 AND tenant_id = $2 AND id != $3",
+            update_data["email"],
+            tenant_id,
+            user_id,
+        )
         if existing:
             raise ConflictException("Email already in use.")
-            
+
     if "phone" in update_data and update_data["phone"] != current["phone"]:
-        existing = await conn.fetchrow("SELECT id FROM users WHERE phone = $1 AND id != $2", update_data["phone"], user_id)
+        existing = await conn.fetchrow(
+            "SELECT id FROM users WHERE phone = $1 AND tenant_id = $2 AND id != $3",
+            update_data["phone"],
+            tenant_id,
+            user_id,
+        )
         if existing:
             raise ConflictException("Phone already in use.")
 
     if not update_data:
-        # No fields to update
-        row = await conn.fetchrow("SELECT id, email, phone, role, reseller_id, is_active, created_at FROM users WHERE id = $1", user_id)
+        row = await conn.fetchrow(
+            """
+            SELECT id, email, phone, role, reseller_id, tenant_id, is_active, created_at
+            FROM users WHERE id = $1 AND tenant_id = $2
+            """,
+            user_id,
+            tenant_id,
+        )
         return dict(row)
 
-    update_data["updated_at"] = "NOW()"
-    
+    # Build dynamic SET clause
     set_clauses = []
     values = []
-    
     for i, (key, value) in enumerate(update_data.items(), start=1):
-        if value == "NOW()":
-            set_clauses.append(f"{key} = NOW()")
-        else:
-            set_clauses.append(f"{key} = ${i}")
-            values.append(value)
-            
-    values.append(user_id)
+        set_clauses.append(f"{key} = ${i}")
+        values.append(value)
+
+    # updated_at always refreshed
+    set_clauses.append("updated_at = NOW()")
+    values.extend([user_id, tenant_id])
+
     query = f"""
         UPDATE users
         SET {', '.join(set_clauses)}
-        WHERE id = ${len(values)}
-        RETURNING id, email, phone, role, reseller_id, is_active, created_at
+        WHERE id = ${len(values) - 1} AND tenant_id = ${len(values)}
+        RETURNING id, email, phone, role, reseller_id, tenant_id, is_active, created_at
     """
-    
+
     row = await conn.fetchrow(query, *values)
     return dict(row)
 
+
 async def admin_deactivate_user(
     conn: asyncpg.Connection,
+    tenant_id: UUID,
     user_id: UUID,
 ) -> None:
-    row = await conn.fetchrow("SELECT id FROM users WHERE id = $1", user_id)
+    """Soft-deactivates a user within the tenant."""
+    row = await conn.fetchrow(
+        "SELECT id FROM users WHERE id = $1 AND tenant_id = $2",
+        user_id,
+        tenant_id,
+    )
     if not row:
         raise NotFoundException("User", str(user_id))
-        
-    await conn.execute("UPDATE users SET is_active = False, updated_at = NOW() WHERE id = $1", user_id)
+
+    await conn.execute(
+        "UPDATE users SET is_active = FALSE, updated_at = NOW() WHERE id = $1 AND tenant_id = $2",
+        user_id,
+        tenant_id,
+    )

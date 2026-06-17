@@ -3,6 +3,12 @@ tests/conftest.py
 ==================
 Pytest configuration and global fixtures.
 Enables running unit and integration tests against a clean, isolated database.
+
+PHASE 1 UPDATE:
+  - setup_test_database runs ALL migrations including 006 and 007.
+  - clean_and_seed_db now creates a default tenant first, then seeds all
+    users and packages with tenant_id = DEFAULT_TENANT_ID.
+  - The test database URL uses the same DEFAULT_TENANT_ID as production.
 """
 
 import asyncio
@@ -20,31 +26,29 @@ from app.config import settings
 from app.core.security import hash_password
 from app.database import get_db
 
-# Extract DB credentials and construct a URL pointing to 'postgres' (default) and the test DB
+# Extract DB credentials and construct test DB URL
 parsed_url = urllib.parse.urlparse(settings.DATABASE_URL)
 POSTGRES_DB_URL = parsed_url._replace(path="/postgres").geturl()
-TEST_DB_URL = parsed_url._replace(path="/wifi_billing_test").geturl()
+TEST_DB_URL     = parsed_url._replace(path="/wifi_billing_test").geturl()
 
-# Override the application-wide database URL settings to point to the test database
+# Override application-wide DATABASE_URL to point at the test database.
 settings.DATABASE_URL = TEST_DB_URL
 
-TEST_PASSWORD = "TestPassword123!"
+TEST_PASSWORD      = "TestPassword123!"
+DEFAULT_TENANT_ID  = "aaaaaaaa-0000-0000-0000-000000000001"
 
 
 @pytest.fixture(autouse=True)
 async def setup_test_database():
     """
     Function-scoped fixture that:
-      1. Connects to the default 'postgres' database.
-      2. Drops any existing 'wifi_billing_test' database.
-      3. Creates a fresh 'wifi_billing_test' database.
-      4. Connects to 'wifi_billing_test' and executes all migrations in order.
-      5. Tears down (drops) the test database at the end of the test.
+      1. Connects to 'postgres' database to drop/create 'wifi_billing_test'.
+      2. Runs all migrations (001–007) against the fresh test DB.
+      3. Tears down after the test completes.
     """
-    # Step 1: Connect to default 'postgres' to manage databases
     conn = await asyncpg.connect(dsn=POSTGRES_DB_URL)
     try:
-        # Close any active connections to the test DB to allow dropping it
+        # Terminate active connections to allow DROP
         await conn.execute(
             """
             SELECT pg_terminate_backend(pg_stat_activity.pid)
@@ -58,15 +62,13 @@ async def setup_test_database():
     finally:
         await conn.close()
 
-    # Step 2: Connect to the new test database and run all migrations
+    # Run all migrations in order
     test_conn = await asyncpg.connect(dsn=TEST_DB_URL)
     try:
-        # Determine the migrations directory relative to this file
         migrations_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "migrations"
         )
-        # Sort migrations alphabetically (001_..., 002_...)
         migration_files = sorted(
             [f for f in os.listdir(migrations_dir) if f.endswith(".sql")]
         )
@@ -75,15 +77,13 @@ async def setup_test_database():
             filepath = os.path.join(migrations_dir, filename)
             with open(filepath, "r") as f:
                 sql_content = f.read()
-            # asyncpg can execute multi-statement SQL content directly
             await test_conn.execute(sql_content)
     finally:
         await test_conn.close()
 
-    # Yield control to the test
     yield
 
-    # Step 3: Tear down after the test finishes
+    # Teardown
     conn = await asyncpg.connect(dsn=POSTGRES_DB_URL)
     try:
         await conn.execute(
@@ -115,76 +115,88 @@ async def db_pool(setup_test_database) -> asyncpg.Pool:
 async def clean_and_seed_db(db_pool: asyncpg.Pool) -> AsyncGenerator[None, None]:
     """
     Function-scoped fixture that:
-      1. Truncates all tables in dependency order.
-      2. Seeds the database with standard admin, reseller, and customer accounts.
-      3. Seeds standard packages.
-    This guarantees that every individual test starts with a clean database and identical seed data.
+      1. Truncates all tables.
+      2. Creates the default tenant (migration 007 inserted it, but TRUNCATE removes it).
+      3. Seeds admin, reseller, customer accounts with tenant_id.
+      4. Seeds packages with tenant_id.
     """
     async with db_pool.acquire() as conn:
-        # 1. Truncate all tables
+        # 1. Truncate in dependency order
         await conn.execute(
-            "TRUNCATE sessions, vouchers, payments, packages, users CASCADE;"
+            "TRUNCATE sessions, vouchers, payments, packages, users, tenants CASCADE;"
         )
 
-        # 2. Seed Users
+        # 2. Re-insert the default tenant (TRUNCATE removed it)
+        await conn.execute(
+            """
+            INSERT INTO tenants (id, business_name, owner_email, owner_phone,
+                                 subscription_tier, max_customers, status)
+            VALUES ($1, 'Default ISP (ZealSync MLP)', 'admin@zealsync.dev',
+                    '254700000001', 'enterprise', 99999, 'active')
+            """,
+            DEFAULT_TENANT_ID,
+        )
+
+        # 3. Seed users (all in the default tenant)
         hashed = hash_password(TEST_PASSWORD)
 
-        # Admin user
         admin_id = await conn.fetchval(
             """
-            INSERT INTO users (email, phone, hashed_password, role, reseller_id)
-            VALUES ($1, $2, $3, 'admin', NULL)
+            INSERT INTO users (email, phone, hashed_password, role, reseller_id, tenant_id)
+            VALUES ($1, $2, $3, 'admin', NULL, $4)
             RETURNING id
             """,
-            "admin@zealsync.dev", "254700000001", hashed
+            "admin@zealsync.dev", "254700000001", hashed, DEFAULT_TENANT_ID
         )
 
-        # Reseller user (owned by admin)
         reseller_id = await conn.fetchval(
             """
-            INSERT INTO users (email, phone, hashed_password, role, reseller_id)
-            VALUES ($1, $2, $3, 'reseller', $4)
+            INSERT INTO users (email, phone, hashed_password, role, reseller_id, tenant_id)
+            VALUES ($1, $2, $3, 'reseller', $4, $5)
             RETURNING id
             """,
-            "reseller@zealsync.dev", "254700000002", hashed, admin_id
+            "reseller@zealsync.dev", "254700000002", hashed, admin_id, DEFAULT_TENANT_ID
         )
 
-        # Customer user (owned by reseller)
         await conn.execute(
             """
-            INSERT INTO users (email, phone, hashed_password, role, reseller_id)
-            VALUES ($1, $2, $3, 'customer', $4)
+            INSERT INTO users (email, phone, hashed_password, role, reseller_id, tenant_id)
+            VALUES ($1, $2, $3, 'customer', $4, $5)
             """,
-            "customer@zealsync.dev", "254700000003", hashed, reseller_id
+            "customer@zealsync.dev", "254700000003", hashed, reseller_id, DEFAULT_TENANT_ID
         )
 
-        # 3. Seed Packages
+        # 4. Seed packages (in the default tenant)
         await conn.execute(
             """
-            INSERT INTO packages (id, name, description, price_kes, duration_days, speed_mbps, created_by)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO packages
+                (id, name, description, price_kes, duration_days, speed_mbps, created_by, tenant_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             """,
             "11111111-1111-1111-1111-111111111111",
             "Daily 10Mbps",
-            "1-day internet access at 10 Mbps. Perfect for light browsing.",
+            "1-day internet access at 10 Mbps.",
             Decimal("50.00"),
             1,
             10,
-            admin_id
+            admin_id,
+            DEFAULT_TENANT_ID,
         )
 
         await conn.execute(
             """
-            INSERT INTO packages (id, name, description, price_kes, duration_days, speed_mbps, created_by)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO packages
+                (id, name, description, price_kes, duration_days, speed_mbps, created_by, tenant_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             """,
             "22222222-2222-2222-2222-222222222222",
             "Weekly 20Mbps",
-            "7-day internet access at 20 Mbps. Great for regular users.",
+            "7-day internet access at 20 Mbps.",
             Decimal("300.00"),
             7,
             20,
-            admin_id
+            admin_id,
+            DEFAULT_TENANT_ID,
         )
 
     yield
@@ -192,9 +204,7 @@ async def clean_and_seed_db(db_pool: asyncpg.Pool) -> AsyncGenerator[None, None]
 
 @pytest.fixture
 def client(db_pool: asyncpg.Pool) -> Generator[TestClient, None, None]:
-    """
-    Returns a FastAPI TestClient configured to run against the test database.
-    """
+    """Returns a FastAPI TestClient configured to run against the test database."""
     from app.main import app as fastapi_app
 
     with TestClient(fastapi_app) as test_client:

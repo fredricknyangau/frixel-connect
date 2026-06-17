@@ -2,10 +2,19 @@
 app/modules/webhooks/service.py
 ================================
 Service layer handling Safaricom Daraja STK Push callback webhooks.
-Enforces the reliability contract and strict idempotency.
+
+MULTI-TENANCY NOTE:
+  The Daraja webhook is public — Safaricom's servers call it with no JWT.
+  We cannot know which tenant a webhook belongs to from the HTTP headers.
+  Instead, we look up the payment by mpesa_checkout_id (which we store
+  when the STK push is initiated). That payment row carries tenant_id,
+  so the webhook implicitly operates in the correct tenant context.
+
+  The idempotency and reliability pipeline is unchanged from the MLP.
 """
 
 import logging
+
 from fastapi import BackgroundTasks
 import asyncpg
 
@@ -22,75 +31,63 @@ async def process_daraja_webhook(
     """
     Processes the raw Daraja webhook callback.
 
-    THE IDEMPOTENCY AND RELIABILITY PIPELINE:
-      1. Parse Safaricom's body to retrieve CheckoutRequestID and ResultCode.
-      2. Query payments table by `mpesa_checkout_id` to find the record.
-         - If payment is not found: return 200 OK immediately (ignore old/stale requests).
-      3. Check status: is it "pending"?
-         - If it is already "confirmed" or "failed", return 200 OK immediately.
-           This handles Daraja webhook retry loops (in case they retry after we've finished).
-      4. If ResultCode == 0 (Payment Successful):
-         - Extract transaction details (Amount, MpesaReceiptNumber, PhoneNumber) from CallbackMetadata.
-         - Start a database TRANSACTION:
-           - Try to UPDATE payment with status="confirmed", and set the UNIQUE `mpesa_receipt_number`.
-           - If another concurrent thread is processing the same receipt number, the database
-             UNIQUE constraint will trigger an asyncpg UniqueViolationError.
-           - We catch the UniqueViolationError, ROLLBACK, and return 200 OK (idempotent success).
-         - If the UPDATE succeeds, we append the voucher generation background task:
-           - `generate_voucher_task(payment_id)`
-           - The HTTP response is returned to Safaricom IMMEDIATELY, and the voucher is provisioned.
-      5. If ResultCode != 0 (Payment Failed / Cancelled):
-         - Update payment status to "failed" and save the failure reason.
-
-    Why this function ALWAYS returns {"ResultCode": 0, "ResultDesc": "Accepted"}:
-      If our server returns a 4xx/5xx or a generic validation failure, Safaricom's servers
-      will repeatedly retry the webhook, exhausting local server resources and clogging the
-      transaction queue. To acknowledge receipt and terminate the retry loop, we must return
-      a 200 OK with the exact schema Safaricom expects, regardless of whether the transaction
-      was successful or rejected.
+    THE IDEMPOTENCY AND RELIABILITY PIPELINE (unchanged from MLP):
+      1. Parse body → CheckoutRequestID + ResultCode.
+      2. Look up payment by mpesa_checkout_id. Payment row carries tenant_id.
+      3. If already processed (confirmed/failed), return 200 immediately.
+      4. ResultCode == 0 (success):
+         - Extract MpesaReceiptNumber from CallbackMetadata.
+         - UPDATE payments SET status='confirmed', mpesa_receipt_number=...
+           inside a transaction. UNIQUE constraint on mpesa_receipt_number
+           absorbs duplicate webhook retries at the DB layer.
+         - Enqueue generate_voucher_task as a BackgroundTask.
+      5. ResultCode != 0 (failure): mark payment as failed.
+      6. Always return {"ResultCode": 0, "ResultDesc": "Accepted"} so
+         Safaricom stops retrying.
     """
-    logger.info(f"Webhooks: received Safaricom Daraja webhook body: {body}")
+    logger.info(f"Webhooks: received Daraja callback: {body}")
 
-    # ── 1. Parse body and extract CheckoutRequestID ───────────────────────────
     stk_callback = body.get("Body", {}).get("stkCallback", {})
-    checkout_id = stk_callback.get("CheckoutRequestID")
-    result_code = stk_callback.get("ResultCode")
-    result_desc = stk_callback.get("ResultDesc", "No description provided.")
+    checkout_id  = stk_callback.get("CheckoutRequestID")
+    result_code  = stk_callback.get("ResultCode")
+    result_desc  = stk_callback.get("ResultDesc", "No description provided.")
 
     if not checkout_id:
-        logger.error("Webhooks: received callback missing CheckoutRequestID. Rejecting processing.")
+        logger.error("Webhooks: callback missing CheckoutRequestID.")
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
-    # ── 2. Retrieve the corresponding payment ─────────────────────────────────
-    query = "SELECT id, status FROM payments WHERE mpesa_checkout_id = $1"
-    payment = await conn.fetchrow(query, checkout_id)
+    # Look up payment by checkout_id (no tenant filter — we find the record
+    # globally and use its embedded tenant_id for subsequent operations)
+    payment = await conn.fetchrow(
+        "SELECT id, status, tenant_id FROM payments WHERE mpesa_checkout_id = $1",
+        checkout_id,
+    )
 
     if not payment:
-        logger.warning(f"Webhooks: no payment record found matching CheckoutRequestID '{checkout_id}'. Skipping.")
+        logger.warning(f"Webhooks: no payment found for CheckoutRequestID '{checkout_id}'.")
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
-    payment_id = payment["id"]
+    payment_id    = payment["id"]
     current_status = payment["status"]
 
-    # ── 3. Check if already processed ─────────────────────────────────────────
+    # Already processed — idempotent skip
     if current_status != "pending":
         logger.info(
-            f"Webhooks: payment {payment_id} already processed with status '{current_status}'. "
-            f"CheckoutRequestID '{checkout_id}' is idempotent. Skipping."
+            f"Webhooks: payment {payment_id} already has status '{current_status}'. "
+            f"Skipping (idempotent)."
         )
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
-    # ── 4. Handle Successful payment ──────────────────────────────────────────
+    # ── Successful payment ────────────────────────────────────────────────────
     if result_code == 0:
-        # Extract metadata items
         metadata_items = stk_callback.get("CallbackMetadata", {}).get("Item", [])
-        metadata = {item.get("Name"): item.get("Value") for item in metadata_items}
+        metadata       = {item.get("Name"): item.get("Value") for item in metadata_items}
 
         receipt_number = metadata.get("MpesaReceiptNumber")
-        phone_number = metadata.get("PhoneNumber")
+        phone_number   = metadata.get("PhoneNumber")
 
         if not receipt_number:
-            logger.error(f"Webhooks: checkout '{checkout_id}' marked success but receipt number is missing.")
+            logger.error(f"Webhooks: checkout '{checkout_id}' success but no receipt number.")
             return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
         logger.info(
@@ -98,46 +95,48 @@ async def process_daraja_webhook(
             f"Receipt={receipt_number}, Phone={phone_number}, Amount={metadata.get('Amount')}"
         )
 
-        # Start a database transaction to update the status and record the receipt.
-        # This protects against race conditions where the webhook is delivered twice in rapid succession.
         try:
             async with conn.transaction():
-                update_query = """
+                await conn.execute(
+                    """
                     UPDATE payments
                     SET status = 'confirmed',
                         mpesa_receipt_number = $1,
                         updated_at = NOW()
                     WHERE id = $2
-                """
-                await conn.execute(update_query, receipt_number, payment_id)
+                    """,
+                    receipt_number,
+                    payment_id,
+                )
 
         except asyncpg.exceptions.UniqueViolationError:
-            # The receipt number already exists in the payments table.
-            # This confirms a duplicate webhook hit, which we absorb gracefully.
+            # Duplicate webhook — receipt number already recorded.
             logger.warning(
-                f"Webhooks: UniqueViolation caught for receipt '{receipt_number}' (payment {payment_id}). "
-                f"Idempotency guard successfully absorbed duplicate request."
+                f"Webhooks: UniqueViolation for receipt '{receipt_number}' "
+                f"(payment {payment_id}). Duplicate webhook absorbed."
             )
             return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
-        # Register the voucher generation task to run asynchronously AFTER the HTTP response is sent.
-        # This is critical for returning 200 OK under the 200ms window.
+        # Enqueue voucher generation AFTER HTTP response is returned.
         background_tasks.add_task(generate_voucher_task, str(payment_id))
         logger.info(f"Webhooks: voucher generation task scheduled for payment {payment_id}")
 
-    # ── 5. Handle Failed / Cancelled payment ──────────────────────────────────
+    # ── Failed / cancelled payment ────────────────────────────────────────────
     else:
         logger.warning(
-            f"Webhooks: STK Push failed for payment {payment_id}. "
+            f"Webhooks: STK push failed for payment {payment_id}. "
             f"ResultCode={result_code}, Reason={result_desc}"
         )
-        update_query = """
+        await conn.execute(
+            """
             UPDATE payments
             SET status = 'failed',
                 failure_reason = $1,
                 updated_at = NOW()
             WHERE id = $2
-        """
-        await conn.execute(update_query, result_desc, payment_id)
+            """,
+            result_desc,
+            payment_id,
+        )
 
     return {"ResultCode": 0, "ResultDesc": "Accepted"}

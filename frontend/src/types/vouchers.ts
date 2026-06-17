@@ -1,4 +1,4 @@
-export type VoucherStatus = 'active' | 'used' | 'expired' | 'revoked';
+export type VoucherStatus = 'active' | 'used' | 'expired' | 'revoked' | 'pending_provision';
 
 export interface Voucher {
   id: string;

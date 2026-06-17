@@ -47,3 +47,18 @@ export function useRevokeVoucher() {
     },
   });
 }
+
+export function useRetryVoucher() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.post(`/vouchers/${id}/retry`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminVouchers'] });
+      queryClient.invalidateQueries({ queryKey: ['resellerVouchers'] });
+      queryClient.invalidateQueries({ queryKey: ['customerVouchers'] });
+    },
+  });
+}

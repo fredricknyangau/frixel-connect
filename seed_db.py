@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-seed_db.py — Database Seeder for WiFi Billing System
-=====================================================
+seed_db.py — Database Seeder for ZealSync (Phase 1: Multi-Tenant)
+===================================================================
 Inserts a known set of users and packages so you have working data
 to test every route immediately after running migrations.
+
+PHASE 1 CHANGE:
+  All users and packages now reference the default tenant created by
+  migration 007_add_tenant_id.sql. The default tenant's UUID is fixed:
+  'aaaaaaaa-0000-0000-0000-000000000001'
 
 Run from inside Docker Compose:
     docker compose exec api python seed_db.py
@@ -11,16 +16,8 @@ Run from inside Docker Compose:
 Run from your local machine (with virtualenv activated):
     python seed_db.py
 
-How it works:
-    1. Connects to the database using the same DATABASE_URL as the API.
-    2. Wraps all inserts in a single transaction.
-    3. Uses INSERT ... ON CONFLICT DO NOTHING so running this script
-       twice doesn't fail — it just skips rows that already exist.
-       This is the correct idempotency pattern for seeders:
-       ON CONFLICT DO NOTHING vs IF NOT EXISTS:
-       - IF NOT EXISTS is for DDL (CREATE TABLE, CREATE INDEX).
-       - ON CONFLICT DO NOTHING is for DML (INSERT). It tells PostgreSQL:
-         "if this row violates a UNIQUE constraint, silently skip it."
+Idempotency: uses INSERT ... ON CONFLICT DO NOTHING so running this
+script twice doesn't fail — it just skips rows that already exist.
 """
 
 import asyncio
@@ -29,32 +26,24 @@ import os
 
 import asyncpg
 
-# ---------------------------------------------------------------------------
-# We import settings the same way the API does so DATABASE_URL is read from
-# the .env file automatically. This means the seeder always talks to the
-# same database the API uses — no separate config needed.
-# ---------------------------------------------------------------------------
-# Add the project root to sys.path so `from app.config import settings` works
-# when running this script as: python seed_db.py (not as a module).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.config import settings
 from app.core.security import hash_password
 
-
 # ---------------------------------------------------------------------------
 # Seed data definitions
 # ---------------------------------------------------------------------------
 
-# All test accounts use the same password. In production NEVER do this.
 TEST_PASSWORD = "TestPassword123!"
 
-
-# Users are inserted in order: admin first, then reseller (needs admin.id),
-# then customer (needs reseller.id). We resolve the IDs after each insert.
 ADMIN_EMAIL    = "admin@zealsync.dev"
 RESELLER_EMAIL = "reseller@zealsync.dev"
 CUSTOMER_EMAIL = "customer@zealsync.dev"
+
+# The default tenant UUID created by migration 007.
+# All seed data belongs to this tenant.
+DEFAULT_TENANT_ID = "aaaaaaaa-0000-0000-0000-000000000001"
 
 PACKAGES = [
     {
@@ -76,37 +65,43 @@ PACKAGES = [
 
 async def seed():
     print("=" * 60)
-    print("  WiFi Billing System — Database Seeder")
+    print("  ZealSync — Database Seeder (Phase 1: Multi-Tenant)")
     print("=" * 60)
 
-    # Connect using the same DSN as the API. asyncpg.connect() opens a
-    # single connection (not a pool) — fine for a one-shot script.
     conn = await asyncpg.connect(dsn=settings.DATABASE_URL)
 
     try:
-        # Wrap everything in a transaction. If any insert fails (e.g. the
-        # database schema is wrong), the whole seeder rolls back cleanly
-        # instead of leaving partial data.
         async with conn.transaction():
 
-            # ── 1. Admin user ─────────────────────────────────────────────
-            # reseller_id = NULL for the top-level admin (no parent).
-            # We use RETURNING id to get the UUID the database generated,
-            # so we can reference it when creating child records.
+            # ── 0. Verify the default tenant exists ──────────────────────────
+            # Migration 007 should have created this. If it's missing, the
+            # migration hasn't run yet.
+            tenant = await conn.fetchrow(
+                "SELECT id, business_name FROM tenants WHERE id = $1",
+                DEFAULT_TENANT_ID,
+            )
+            if not tenant:
+                print("⚠  Default tenant not found. Run migrations first:")
+                print("     ./run_migrations.sh")
+                return
+            print(f"✓  Default tenant:          {tenant['business_name']} ({tenant['id']})")
+
+            # ── 1. Admin user ─────────────────────────────────────────────────
+            # Now includes tenant_id — admin belongs to the default tenant.
             admin_row = await conn.fetchrow(
                 """
-                INSERT INTO users (email, phone, hashed_password, role, reseller_id)
-                VALUES ($1, $2, $3, 'admin', NULL)
+                INSERT INTO users (email, phone, hashed_password, role, reseller_id, tenant_id)
+                VALUES ($1, $2, $3, 'admin', NULL, $4)
                 ON CONFLICT (email) DO NOTHING
                 RETURNING id, email, role
                 """,
                 ADMIN_EMAIL,
                 "254700000001",
                 hash_password(TEST_PASSWORD),
+                DEFAULT_TENANT_ID,
             )
 
             if admin_row is None:
-                # ON CONFLICT triggered — user already exists, fetch their id.
                 admin_row = await conn.fetchrow(
                     "SELECT id, email, role FROM users WHERE email = $1",
                     ADMIN_EMAIL,
@@ -117,20 +112,19 @@ async def seed():
 
             admin_id = admin_row["id"]
 
-            # ── 2. Reseller user ──────────────────────────────────────────
-            # reseller_id = admin's id. In our model, resellers are
-            # "owned by" the admin. This is the self-referential FK.
+            # ── 2. Reseller user ──────────────────────────────────────────────
             reseller_row = await conn.fetchrow(
                 """
-                INSERT INTO users (email, phone, hashed_password, role, reseller_id)
-                VALUES ($1, $2, $3, 'reseller', $4)
+                INSERT INTO users (email, phone, hashed_password, role, reseller_id, tenant_id)
+                VALUES ($1, $2, $3, 'reseller', $4, $5)
                 ON CONFLICT (email) DO NOTHING
                 RETURNING id, email, role
                 """,
                 RESELLER_EMAIL,
                 "254700000002",
                 hash_password(TEST_PASSWORD),
-                admin_id,                          # reseller's parent = admin
+                admin_id,
+                DEFAULT_TENANT_ID,
             )
 
             if reseller_row is None:
@@ -144,19 +138,19 @@ async def seed():
 
             reseller_id = reseller_row["id"]
 
-            # ── 3. Customer user ──────────────────────────────────────────
-            # reseller_id = reseller's id. The customer belongs to the reseller.
+            # ── 3. Customer user ──────────────────────────────────────────────
             customer_row = await conn.fetchrow(
                 """
-                INSERT INTO users (email, phone, hashed_password, role, reseller_id)
-                VALUES ($1, $2, $3, 'customer', $4)
+                INSERT INTO users (email, phone, hashed_password, role, reseller_id, tenant_id)
+                VALUES ($1, $2, $3, 'customer', $4, $5)
                 ON CONFLICT (email) DO NOTHING
                 RETURNING id, email, role
                 """,
                 CUSTOMER_EMAIL,
                 "254700000003",
                 hash_password(TEST_PASSWORD),
-                reseller_id,                       # customer's parent = reseller
+                reseller_id,
+                DEFAULT_TENANT_ID,
             )
 
             if customer_row is None:
@@ -168,14 +162,14 @@ async def seed():
             else:
                 print(f"✓  Created customer:        {customer_row['email']} ({customer_row['id']})")
 
-            # ── 4. Packages ───────────────────────────────────────────────
+            # ── 4. Packages ───────────────────────────────────────────────────
             print("")
             for pkg in PACKAGES:
                 pkg_row = await conn.fetchrow(
                     """
                     INSERT INTO packages
-                        (name, description, price_kes, duration_days, speed_mbps, created_by)
-                    VALUES ($1, $2, $3, $4, $5, $6)
+                        (name, description, price_kes, duration_days, speed_mbps, created_by, tenant_id)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
                     ON CONFLICT (name) DO NOTHING
                     RETURNING id, name, price_kes
                     """,
@@ -184,7 +178,8 @@ async def seed():
                     pkg["price_kes"],
                     pkg["duration_days"],
                     pkg["speed_mbps"],
-                    admin_id,                      # admin created the packages
+                    admin_id,
+                    DEFAULT_TENANT_ID,
                 )
 
                 if pkg_row is None:
@@ -196,19 +191,18 @@ async def seed():
                 else:
                     print(f"✓  Created package:         {pkg_row['name']} (KES {pkg_row['price_kes']}) ({pkg_row['id']})")
 
-        # Transaction committed successfully.
         print("")
         print("=" * 60)
         print("  Seeding complete.")
         print(f"  Login credentials for all test accounts:")
-        print(f"    Password: {TEST_PASSWORD}")
-        print(f"    Admin:    {ADMIN_EMAIL}")
-        print(f"    Reseller: {RESELLER_EMAIL}")
-        print(f"    Customer: {CUSTOMER_EMAIL}")
+        print(f"    Password:  {TEST_PASSWORD}")
+        print(f"    Admin:     {ADMIN_EMAIL}")
+        print(f"    Reseller:  {RESELLER_EMAIL}")
+        print(f"    Customer:  {CUSTOMER_EMAIL}")
+        print(f"    Tenant ID: {DEFAULT_TENANT_ID}")
         print("=" * 60)
 
     finally:
-        # Always close the connection even if an error occurred.
         await conn.close()
 
 

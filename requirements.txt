@@ -6,6 +6,7 @@ asyncpg==0.31.0
 bcrypt==5.0.0
 certifi==2026.5.20
 click==8.4.1
+cryptography==44.0.2
 ecdsa==0.19.2
 fastapi==0.137.1
 h11==0.16.0

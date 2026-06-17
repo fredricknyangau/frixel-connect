@@ -1,12 +1,19 @@
 """
 app/modules/payments/service.py
 ================================
-Service layer handling the business logic of payment processing,
-Daraja STK push integration, and payment history queries.
+Service layer for payment processing — fully tenant-scoped.
+
+MULTI-TENANCY CHANGE (Phase 1):
+  - initiate_stk_push: validates package belongs to caller's tenant before
+    charging; stores tenant_id on the payment row.
+  - All list/get functions scope their WHERE clauses to tenant_id.
+  - get_payment_status: returns 404 for cross-tenant payment UUIDs (same
+    principle as users — 404 reveals nothing, 403 confirms existence).
 """
 
 import logging
 from typing import Optional
+from uuid import UUID
 
 import asyncpg
 
@@ -19,64 +26,64 @@ logger = logging.getLogger(__name__)
 
 async def initiate_stk_push(
     conn: asyncpg.Connection,
+    tenant_id: UUID,
     customer_id: str,
     data: STKPushRequest,
 ) -> dict:
     """
-    Handles payment initialization:
-      1. Validates that the package exists and is active.
-      2. Creates a payment record in PostgreSQL with status="pending".
-      3. Triggers Lipa Na M-Pesa STK push via DarajaClient.
-      4. Updates the payment record with the CheckoutRequestID returned.
-      5. Returns the created payment record.
+    Initiates an M-Pesa STK push payment.
 
-    If Daraja rejects the request (e.g. whitelist failure or bad credentials),
-    we update the database record status to "failed" with the reason and
-    raise a PaymentException.
+    MULTI-TENANCY CHANGE: validates the package belongs to the caller's
+    tenant before proceeding. A customer cannot pay for a package from
+    a different ISP's tenant (which would be meaningless anyway, but we
+    enforce it defensively).
     """
-    # ── 1. Fetch and validate the package ─────────────────────────────────────
-    pkg_query = """
+    # ── 1. Fetch and validate the package within this tenant ──────────────────
+    package = await conn.fetchrow(
+        """
         SELECT id, name, price_kes, is_active
         FROM packages
         WHERE id = $1
-    """
-    package = await conn.fetchrow(pkg_query, data.package_id)
+          AND tenant_id = $2
+        """,
+        data.package_id,
+        tenant_id,
+    )
     if not package:
         raise NotFoundException("Package", str(data.package_id))
 
     if not package["is_active"]:
         raise ConflictException("Package is inactive and cannot be purchased.")
 
-    # ── 2. Create the payment record with status="pending" ────────────────────
-    insert_query = """
-        INSERT INTO payments (customer_id, package_id, amount_kes, status, phone_number)
-        VALUES ($1, $2, $3, 'pending', $4)
-        RETURNING id, customer_id, package_id, amount_kes, status, phone_number, created_at
-    """
+    # ── 2. Create the payment record with tenant_id ───────────────────────────
     payment = await conn.fetchrow(
-        insert_query,
+        """
+        INSERT INTO payments
+            (customer_id, package_id, amount_kes, status, phone_number, tenant_id)
+        VALUES ($1, $2, $3, 'pending', $4, $5)
+        RETURNING id, customer_id, package_id, amount_kes, status, phone_number, created_at
+        """,
         customer_id,
         data.package_id,
         package["price_kes"],
         data.phone,
+        tenant_id,
     )
     payment_id = payment["id"]
 
-    # Generate Lipa Na M-Pesa reference and description (truncating to Daraja limits)
-    # AccountReference: max 12 chars. e.g. "WIFI-" + first 7 chars of payment_id UUID
     account_reference = f"WIFI-{str(payment_id)[:7]}"
     description = "WiFi Payment"
 
-    # ── 3. Call Daraja STK Push ───────────────────────────────────────────────
     logger.info(
         f"Payment: initiating STK Push for customer {customer_id}, "
-        f"payment_id {payment_id}, amount KES {package['price_kes']} to {data.phone}"
+        f"payment_id {payment_id}, amount KES {package['price_kes']} to {data.phone}, "
+        f"tenant {tenant_id}"
     )
 
+    # ── 3. Call Daraja STK Push ───────────────────────────────────────────────
     try:
         response = await daraja_client.stk_push(
             phone=data.phone,
-            # Daraja expects an integer KES amount
             amount=int(package["price_kes"]),
             account_reference=account_reference,
             description=description,
@@ -84,43 +91,51 @@ async def initiate_stk_push(
 
         checkout_id = response.get("CheckoutRequestID")
 
-        # ── 4. Update the payment with CheckoutRequestID ─────────────────────
-        update_query = """
+        updated_payment = await conn.fetchrow(
+            """
             UPDATE payments
             SET mpesa_checkout_id = $1, updated_at = NOW()
             WHERE id = $2
             RETURNING id, customer_id, package_id, amount_kes, status, phone_number, created_at
-        """
-        updated_payment = await conn.fetchrow(update_query, checkout_id, payment_id)
-        logger.info(f"Payment: STK push initiated successfully. CheckoutRequestID={checkout_id}")
+            """,
+            checkout_id,
+            payment_id,
+        )
+        logger.info(f"Payment: STK push initiated. CheckoutRequestID={checkout_id}")
         return dict(updated_payment)
 
     except (DarajaError, Exception) as e:
-        # If the API call fails, we do NOT lose the payment log. We mark it as failed.
-        # This keeps the ledger complete for auditor purposes.
         failure_msg = str(e)
-        logger.error(f"Payment: Daraja STK Push initiation failed for payment {payment_id}: {failure_msg}")
+        logger.error(f"Payment: Daraja STK Push failed for payment {payment_id}: {failure_msg}")
 
-        fail_update_query = """
+        await conn.execute(
+            """
             UPDATE payments
             SET status = 'failed', failure_reason = $1, updated_at = NOW()
             WHERE id = $2
-        """
-        await conn.execute(fail_update_query, failure_msg, payment_id)
+            """,
+            failure_msg,
+            payment_id,
+        )
         raise PaymentException(f"M-Pesa payment initiation failed: {failure_msg}")
 
 
 async def get_payment_status(
     conn: asyncpg.Connection,
+    tenant_id: UUID,
     payment_id: str,
     customer_id: str,
 ) -> dict:
     """
     Fetches the status of a specific payment.
-    Ensures the customer requesting is the owner of the payment.
-    Includes the voucher code if the payment is confirmed and a voucher has been generated.
+
+    Scoped to tenant_id AND customer_id. Returns 404 for:
+      - Payment doesn't exist.
+      - Payment belongs to a different tenant (not 403 — see module docstring).
+      - Payment belongs to a different customer within the same tenant.
     """
-    query = """
+    row = await conn.fetchrow(
+        """
         SELECT
             p.id AS payment_id,
             p.status,
@@ -129,14 +144,16 @@ async def get_payment_status(
         FROM payments p
         LEFT JOIN vouchers v ON p.id = v.payment_id
         WHERE p.id = $1
-    """
-    row = await conn.fetchrow(query, payment_id)
+          AND p.tenant_id = $2
+        """,
+        payment_id,
+        tenant_id,
+    )
 
-    # 404 if the payment does not exist
     if not row:
         raise NotFoundException("Payment", payment_id)
 
-    # Enforce customer isolation
+    # Customer isolation within the tenant
     if str(row["customer_id"]) != str(customer_id):
         raise NotFoundException("Payment", payment_id)
 
@@ -147,37 +164,60 @@ async def get_payment_status(
     }
 
 
-async def get_customer_payments(conn: asyncpg.Connection, customer_id: str) -> list[dict]:
-    """Retrieves payment history for a specific customer."""
-    query = """
+async def get_customer_payments(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    customer_id: str,
+) -> list[dict]:
+    """Retrieves payment history for a customer within a tenant."""
+    rows = await conn.fetch(
+        """
         SELECT id, customer_id, package_id, amount_kes, status, phone_number, created_at
         FROM payments
         WHERE customer_id = $1
+          AND tenant_id = $2
         ORDER BY created_at DESC
-    """
-    rows = await conn.fetch(query, customer_id)
+        """,
+        customer_id,
+        tenant_id,
+    )
     return [dict(r) for r in rows]
 
 
-async def get_reseller_payments(conn: asyncpg.Connection, reseller_id: str) -> list[dict]:
-    """Retrieves payments for all customers belonging to a specific reseller."""
-    query = """
-        SELECT p.id, p.customer_id, p.package_id, p.amount_kes, p.status, p.phone_number, p.created_at
+async def get_reseller_payments(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    reseller_id: str,
+) -> list[dict]:
+    """Retrieves payments for a reseller's customers within a tenant."""
+    rows = await conn.fetch(
+        """
+        SELECT p.id, p.customer_id, p.package_id, p.amount_kes,
+               p.status, p.phone_number, p.created_at
         FROM payments p
         JOIN users u ON p.customer_id = u.id
         WHERE u.reseller_id = $1
+          AND p.tenant_id = $2
         ORDER BY p.created_at DESC
-    """
-    rows = await conn.fetch(query, reseller_id)
+        """,
+        reseller_id,
+        tenant_id,
+    )
     return [dict(r) for r in rows]
 
 
-async def get_all_payments(conn: asyncpg.Connection) -> list[dict]:
-    """Retrieves all payments in the system (admin view)."""
-    query = """
+async def get_all_payments(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+) -> list[dict]:
+    """Retrieves all payments in the tenant (admin view)."""
+    rows = await conn.fetch(
+        """
         SELECT id, customer_id, package_id, amount_kes, status, phone_number, created_at
         FROM payments
+        WHERE tenant_id = $1
         ORDER BY created_at DESC
-    """
-    rows = await conn.fetch(query)
+        """,
+        tenant_id,
+    )
     return [dict(r) for r in rows]

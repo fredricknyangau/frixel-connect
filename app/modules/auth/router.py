@@ -3,31 +3,19 @@ app/modules/auth/router.py
 ==========================
 HTTP endpoints for authentication.
 
-FastAPI's APIRouter is a mini-application: it groups related routes,
-applies shared prefixes/tags, and gets mounted onto the main app in main.py.
-
-Route handler anatomy:
-  @router.post("/register", status_code=201)
-   │             │               └── Default HTTP status on success.
-   │             └── Path relative to this router's prefix.
-   └── HTTP method.
-
-  async def register(data: RegisterRequest = Body(...), ...)
-   │                  └── Pydantic model — FastAPI parses and validates the
-   │                        JSON body, returns 422 automatically if invalid.
-   └── async def because we're using async I/O (asyncpg, not blocking psql).
-
-Why 201 for register and 200 for login?
-  201 Created: a new resource (user) was created in the database.
-  200 OK: we validated credentials and returned a token — no new resource.
-  HTTP semantics matter: they tell API consumers what happened without
-  reading the body. GET/200, POST new resource/201, POST action/200.
+MULTI-TENANCY CHANGE (Phase 1):
+  - register: caller must be an authenticated admin; their tenant_id from the
+    JWT is injected into RegisterRequest before calling the service. This
+    prevents self-registration of arbitrary users into arbitrary tenants.
+  - login: no change to the request body — email+password still the inputs.
+    The response now includes tenant_id.
 """
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
 from app.database import get_db
 from app.core.security import create_access_token
+from app.dependencies import require_role
 from app.modules.auth.schemas import RegisterRequest, LoginRequest, TokenResponse
 from app.modules.auth.service import register_user, authenticate_user
 
@@ -38,28 +26,40 @@ router = APIRouter()
     "/register",
     response_model=TokenResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Register a new user account",
+    summary="Register a new user within a tenant (admin only)",
 )
-async def register(data: RegisterRequest) -> TokenResponse:
+async def register(
+    data: RegisterRequest,
+    current_user: dict = Depends(require_role("admin")),
+) -> TokenResponse:
     """
-    Creates a new user account and returns an access token.
+    Creates a new user account within the authenticated admin's tenant.
 
-    Auto-login on register: the response is a TokenResponse identical to
-    the login response. The client stores the token and is immediately
-    authenticated — no second request needed.
+    WHY admin-only?
+    In a multi-tenant SaaS, self-registration of admin/reseller/customer users
+    is done through the admin portal, not an open endpoint. An ISP admin logs
+    into their portal and creates reseller and customer accounts. The public
+    tenant signup (POST /tenants/register) already creates the first admin.
+    Open /auth/register would let anyone create users in any tenant if they
+    knew the URL.
+
+    The tenant_id is taken from the admin's JWT — the caller cannot inject
+    a different tenant_id via the request body.
     """
+    # Inject tenant_id from the admin's token before passing to the service.
+    # data is a Pydantic model; we create a modified copy.
+    from uuid import UUID
+    data_with_tenant = data.model_copy(
+        update={"tenant_id": UUID(current_user["tenant_id"])}
+    )
+
     async with get_db() as conn:
-        # register_user raises ConflictException (409) if email/phone exists.
-        # FastAPI catches HTTPException subclasses automatically and returns
-        # the correct HTTP response — we don't need a try/except here.
-        user = await register_user(conn, data)
+        user = await register_user(conn, data_with_tenant)
 
-    # Build the JWT. The token contains user_id, role, and reseller_id so
-    # that every subsequent request can be authorised WITHOUT a database
-    # lookup — the token is self-contained.
     token = create_access_token(
         user_id=str(user["id"]),
         role=user["role"],
+        tenant_id=str(user["tenant_id"]),
         reseller_id=str(user["reseller_id"]) if user["reseller_id"] else None,
     )
 
@@ -68,6 +68,7 @@ async def register(data: RegisterRequest) -> TokenResponse:
         token_type="bearer",
         role=user["role"],
         user_id=user["id"],
+        tenant_id=user["tenant_id"],
     )
 
 
@@ -81,24 +82,20 @@ async def login(data: LoginRequest) -> TokenResponse:
     """
     Validates credentials and returns an access token.
 
-    The token is stateless — we don't store sessions in the database.
-    Logout is handled client-side by discarding the token.
+    The login endpoint is public (no JWT required). It finds the user by email,
+    verifies the password, checks the tenant is active, and issues a token with
+    tenant_id embedded so all subsequent requests are automatically scoped.
 
-    Trade-off of stateless JWTs vs session tokens:
-    - JWT CANNOT be invalidated before expiry without a token blacklist.
-    - Session tokens can be revoked instantly (delete from DB), but require
-      a DB lookup on EVERY request.
-    For a WiFi billing system where tokens expire in 30 minutes, the
-    simplicity of JWTs outweighs the limitation. If we need instant
-    revocation later (e.g. emergency account lockout), we add Redis.
+    If the tenant is suspended, the response is 403 "account suspended" — not
+    a generic 401 — so the ISP owner knows exactly why they can't log in.
     """
     async with get_db() as conn:
-        # authenticate_user raises UnauthorisedException (401) on bad creds.
         user = await authenticate_user(conn, data.email, data.password)
 
     token = create_access_token(
         user_id=str(user["id"]),
         role=user["role"],
+        tenant_id=str(user["tenant_id"]),
         reseller_id=str(user["reseller_id"]) if user["reseller_id"] else None,
     )
 
@@ -107,4 +104,5 @@ async def login(data: LoginRequest) -> TokenResponse:
         token_type="bearer",
         role=user["role"],
         user_id=user["id"],
+        tenant_id=user["tenant_id"],
     )

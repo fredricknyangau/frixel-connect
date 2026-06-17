@@ -25,6 +25,9 @@ class UserResponse(BaseModel):
 
     ConfigDict(from_attributes=True) allows Pydantic to build this model
     directly from asyncpg Record objects (database rows) without manual conversion.
+
+    PHASE 1 CHANGE: tenant_id is now included in the response so the admin
+    UI can display which tenant a user belongs to without a separate lookup.
     """
     model_config = ConfigDict(from_attributes=True)
 
@@ -33,6 +36,7 @@ class UserResponse(BaseModel):
     phone: str
     role: str
     reseller_id: Optional[UUID] = None
+    tenant_id: UUID
     is_active: bool
     created_at: datetime
 
