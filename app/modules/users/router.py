@@ -1,26 +1,24 @@
 """
 app/modules/users/router.py
 ============================
-Stub router for the users module — role guards wired, handlers not yet
-implemented (Phase 6 completes them).
+HTTP router and controllers for the users module.
 
-Route-to-role mapping:
-  GET  /customers/me         → customer only
-  PUT  /customers/me         → customer only
-  GET  /reseller/customers   → admin, reseller
-  POST /reseller/customers   → admin, reseller
-  GET  /admin/users          → admin only
+This module implements:
+  - Customer self-profile retrieval and partial updates.
+  - Reseller operations (listing/creating customers under their ID).
+  - Admin tools (listing all system accounts).
 
-Note on the prefix: this router is mounted at /api/v1 (no sub-prefix)
-in main.py, so the full paths are exactly as listed above. The
-/customers/, /reseller/, and /admin/ distinctions are in the path itself,
-not in separate routers. This is intentional — it keeps the role
-semantics visible in the URL, which makes nginx access log auditing easy.
+All routes enforce strict role guards (RBAC) via require_role dependencies.
 """
 
-from fastapi import APIRouter, Depends
+from uuid import UUID
 
+from fastapi import APIRouter, Depends, status
+
+from app.database import get_db
 from app.dependencies import require_role
+from app.modules.users.schemas import UserResponse, UserUpdate, CreateCustomerRequest
+from app.modules.users import service as users_service
 
 router = APIRouter()
 
@@ -29,54 +27,101 @@ router = APIRouter()
 
 @router.get(
     "/customers/me",
+    response_model=UserResponse,
     summary="Get own profile (customer only)",
 )
 async def get_my_profile(
-    _user: dict = Depends(require_role("customer")),
-):
-    return {"message": "not yet implemented — Phase 6"}
+    user: dict = Depends(require_role("customer")),
+) -> UserResponse:
+    """
+    Returns the authenticated customer's database profile.
+    Includes active status, role, and registered contact information.
+    """
+    async with get_db() as conn:
+        profile = await users_service.get_my_profile(conn, UUID(user["user_id"]))
+    return profile
 
 
 @router.put(
     "/customers/me",
+    response_model=UserResponse,
     summary="Update own contact info (customer only)",
 )
 async def update_my_profile(
-    _user: dict = Depends(require_role("customer")),
-):
-    return {"message": "not yet implemented — Phase 6"}
+    data: UserUpdate,
+    user: dict = Depends(require_role("customer")),
+) -> UserResponse:
+    """
+    Allows a customer to update their own phone number.
+    Returns the updated profile upon successful validation.
+    """
+    async with get_db() as conn:
+        profile = await users_service.update_my_profile(conn, UUID(user["user_id"]), data)
+    return profile
 
 
 # ── Reseller routes ────────────────────────────────────────────────────────────
 
 @router.get(
     "/reseller/customers",
+    response_model=list[UserResponse],
     summary="List customers (admin sees all, reseller sees own)",
 )
 async def list_customers(
-    _user: dict = Depends(require_role("admin", "reseller")),
-):
-    return {"message": "not yet implemented — Phase 6"}
+    user: dict = Depends(require_role("admin", "reseller")),
+) -> list[UserResponse]:
+    """
+    Lists customer accounts with role-based partitioning:
+      - Admin sees all customers.
+      - Reseller sees only customers created under their account.
+    """
+    async with get_db() as conn:
+        customers = await users_service.list_customers(
+            conn,
+            user["role"],
+            UUID(user["user_id"]),
+        )
+    return customers
 
 
 @router.post(
     "/reseller/customers",
-    status_code=201,
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
     summary="Create a customer under this reseller",
 )
 async def create_customer(
-    _user: dict = Depends(require_role("admin", "reseller")),
-):
-    return {"message": "not yet implemented — Phase 6"}
+    data: CreateCustomerRequest,
+    user: dict = Depends(require_role("admin", "reseller")),
+) -> UserResponse:
+    """
+    Registers a new customer account.
+    
+    If the caller is a Reseller:
+        - The new customer's `reseller_id` is automatically set to the reseller's user ID.
+    If the caller is an Admin:
+        - The `reseller_id` is set to None (customer belongs to the parent ISP).
+    """
+    reseller_id = UUID(user["user_id"]) if user["role"] == "reseller" else None
+    async with get_db() as conn:
+        customer = await users_service.create_customer(conn, data, reseller_id)
+    return customer
 
 
 # ── Admin routes ───────────────────────────────────────────────────────────────
 
 @router.get(
     "/admin/users",
+    response_model=list[UserResponse],
     summary="List all users of any role (admin only)",
 )
 async def list_all_users(
-    _user: dict = Depends(require_role("admin")),
-):
-    return {"message": "not yet implemented — Phase 6"}
+    user: dict = Depends(require_role("admin")),
+) -> list[UserResponse]:
+    """
+    Admin-only route listing every registered user (admins, resellers, and customers)
+    ordered by created date descending.
+    """
+    async with get_db() as conn:
+        users = await users_service.list_all_users(conn)
+    return users
