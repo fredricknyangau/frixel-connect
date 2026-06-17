@@ -8,13 +8,15 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SessionResponse(BaseModel):
     """
     Response schema representing a hotspot user session.
     """
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     voucher_id: UUID
     customer_id: UUID
@@ -25,11 +27,3 @@ class SessionResponse(BaseModel):
     started_at: datetime
     ended_at: Optional[datetime] = Field(None, description="Timestamp when the session was closed")
     created_at: datetime
-
-    class Config:
-        from_attributes = True
-        # Ensure that postgres INET type is serialised cleanly to string (e.g. IPv4/IPv6 address)
-        json_encoders = {
-            # In Pydantic v2, encoders are usually handled via model serializers,
-            # but standard ipaddress/asyncpg types serialise to str automatically.
-        }

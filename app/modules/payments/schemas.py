@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.security import normalise_phone
 
@@ -45,6 +45,8 @@ class PaymentResponse(BaseModel):
     """
     Serialization representation of a payment record.
     """
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     customer_id: UUID
     package_id: UUID
@@ -53,18 +55,14 @@ class PaymentResponse(BaseModel):
     phone_number: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class PaymentStatusResponse(BaseModel):
     """
     Response returned when polling a payment status.
     Includes the voucher code if the payment has been confirmed.
     """
+    model_config = ConfigDict(from_attributes=True)
+
     payment_id: UUID
     status: str
     voucher_code: Optional[str] = None
-
-    class Config:
-        from_attributes = True
