@@ -25,3 +25,12 @@ class VoucherResponse(BaseModel):
     customer_id: UUID
     activated_at: Optional[datetime] = None
     created_at: datetime
+
+
+class ResellerVoucherGenerateRequest(BaseModel):
+    """
+    Request schema for a reseller generating a voucher directly.
+    """
+    customer_id: UUID
+    package_id: UUID
+

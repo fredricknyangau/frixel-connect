@@ -75,21 +75,31 @@ async def register_user(conn: asyncpg.Connection, data: RegisterRequest) -> dict
     # ── Hash the password ──────────────────────────────────────────────────────
     hashed = hash_password(data.password)
 
-    # ── Insert the user with tenant_id ────────────────────────────────────────
+    # ── Generate unique wallet_reference if registering a reseller ───────────
+    wallet_ref = None
+    if data.role == "reseller":
+        from app.modules.vouchers.service import generate_voucher_code
+        wallet_ref = f"WS{generate_voucher_code(5)}"
+        while await conn.fetchval("SELECT COUNT(*) FROM users WHERE wallet_reference = $1", wallet_ref) > 0:
+            wallet_ref = f"WS{generate_voucher_code(5)}"
+
+    # ── Insert the user with tenant_id and wallet_reference ───────────────────
     user = await conn.fetchrow(
         """
-        INSERT INTO users (email, phone, hashed_password, role, tenant_id)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, email, phone, role, reseller_id, tenant_id, is_active, created_at
+        INSERT INTO users (email, phone, hashed_password, role, tenant_id, wallet_reference)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, email, phone, role, reseller_id, tenant_id, is_active, wallet_reference, created_at
         """,
         data.email,
         data.phone,
         hashed,
         data.role,
         data.tenant_id,
+        wallet_ref,
     )
 
     return dict(user)
+
 
 
 async def authenticate_user(

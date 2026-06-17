@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, status
 from app.database import get_db
 from app.dependencies import require_role
 from app.core.exceptions import NotFoundException
-from app.modules.vouchers.schemas import VoucherResponse
+from app.modules.vouchers.schemas import VoucherResponse, ResellerVoucherGenerateRequest
 from app.modules.vouchers.service import (
     get_customer_vouchers,
     get_voucher_by_id,
@@ -149,3 +149,85 @@ async def list_reseller_vouchers(
                 reseller_id=current_user["user_id"],
             )
     return vouchers
+
+
+@router.post(
+    "/reseller/vouchers/generate",
+    response_model=VoucherResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Generate a voucher directly spending reseller wallet balance (reseller only)",
+)
+async def generate_reseller_voucher(
+    data: ResellerVoucherGenerateRequest,
+    current_user: dict = Depends(require_role("reseller")),
+):
+    from uuid import UUID, uuid4
+    from app.modules.wallets.service import debit_wallet
+    from app.modules.vouchers.service import generate_voucher, generate_voucher_code
+
+    reseller_id = UUID(current_user["user_id"])
+    tenant_id = UUID(current_user["tenant_id"])
+
+    async with get_db() as conn:
+        # 1. Verify customer belongs to reseller's tenant
+        customer = await conn.fetchrow(
+            "SELECT id, phone, tenant_id FROM users WHERE id = $1 AND role = 'customer'",
+            data.customer_id,
+        )
+        if not customer or customer["tenant_id"] != tenant_id:
+            raise NotFoundException("Customer", str(data.customer_id))
+
+        # 2. Verify package exists in this tenant
+        package = await conn.fetchrow(
+            "SELECT id, name, price_kes, is_active FROM packages WHERE id = $1 AND tenant_id = $2",
+            data.package_id,
+            tenant_id,
+        )
+        if not package:
+            raise NotFoundException("Package", str(data.package_id))
+
+        if not package["is_active"]:
+            from app.core.exceptions import ConflictException
+            raise ConflictException("Package is inactive.")
+
+        # 3. Use transaction to execute debit, payment creation, and voucher generation
+        async with conn.transaction():
+            # We use voucher UUID as reference for the debit transaction
+            voucher_id = uuid4()
+
+            # Debit the wallet
+            await debit_wallet(conn, tenant_id, reseller_id, package["price_kes"], str(voucher_id))
+
+            # Insert corresponding payments row
+            payment_id = await conn.fetchval(
+                """
+                INSERT INTO payments
+                    (customer_id, package_id, amount_kes, status, phone_number, mpesa_checkout_id, mpesa_receipt_number, tenant_id)
+                VALUES ($1, $2, $3, 'confirmed', $4, $5, $6, $7)
+                RETURNING id
+                """,
+                data.customer_id,
+                data.package_id,
+                package["price_kes"],
+                customer["phone"],
+                f"WALLET-{str(voucher_id)[:20]}",
+                f"WAL-{generate_voucher_code(8)}",  # Unique reference for wallet payment receipt
+                tenant_id,
+            )
+
+            # Generate voucher (passes through standard get_mikrotik_client etc.)
+            code = await generate_voucher(conn, str(payment_id), is_final_attempt=True)
+
+        # Fetch full voucher response details to return
+        voucher_row = await conn.fetchrow(
+            """
+            SELECT v.id, v.code, v.status, v.expires_at, v.customer_id,
+                   v.activated_at, v.created_at, pkg.name AS package_name
+            FROM vouchers v
+            JOIN packages pkg ON v.package_id = pkg.id
+            WHERE v.payment_id = $1
+            """,
+            payment_id,
+        )
+        return dict(voucher_row)
+

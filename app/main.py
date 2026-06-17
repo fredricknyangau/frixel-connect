@@ -27,6 +27,7 @@ from app.modules.webhooks.router import router as webhooks_router
 from app.modules.tenants.router  import router as tenants_router   # Phase 1
 from app.modules.routers.router  import router as routers_router    # Phase 2
 from app.modules.routers.service import router_heartbeat_loop       # Phase 2
+from app.modules.wallets.router  import router as wallets_router    # Phase 4
 
 
 @asynccontextmanager
@@ -45,6 +46,10 @@ async def lifespan(app: FastAPI):
     
     # Shutdown sequence
     heartbeat_task.cancel()
+    try:
+        await heartbeat_task
+    except asyncio.CancelledError:
+        pass
     await close_redis()
     await close_pool()
 
@@ -119,6 +124,7 @@ app.include_router(payments_router, prefix=f"{PREFIX}",           tags=["Payment
 app.include_router(vouchers_router, prefix=f"{PREFIX}",           tags=["Vouchers"])
 app.include_router(sessions_router, prefix=f"{PREFIX}",           tags=["Sessions"])
 app.include_router(webhooks_router, prefix=f"{PREFIX}/webhooks",  tags=["Webhooks"])
+app.include_router(wallets_router,  prefix=f"{PREFIX}",           tags=["Wallets"])    # Phase 4
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

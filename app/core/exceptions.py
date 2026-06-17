@@ -40,3 +40,8 @@ class PaymentException(HTTPException):
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail=detail,
         )
+
+
+class InsufficientBalanceException(PaymentException):
+    def __init__(self, detail: str = "Insufficient balance."):
+        super().__init__(detail=detail)

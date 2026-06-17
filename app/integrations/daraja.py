@@ -299,6 +299,43 @@ class DarajaClient:
         )
         return result
 
+    async def register_c2b_url(
+        self,
+        confirmation_url: str,
+        validation_url: str,
+    ) -> dict:
+        """
+        Registers Validation and Confirmation URLs for C2B payments on Safaricom Daraja.
+
+        C2B is customer-initiated: the reseller pays via M-Pesa to the Paybill
+        with their wallet reference as the account number. Safaricom sends
+        validation and confirmation webhooks to check and complete the transaction.
+        """
+        token = await self.get_access_token()
+        logger.info(f"Daraja: registering C2B URLs with Confirmation={confirmation_url}, Validation={validation_url}")
+
+        async with httpx.AsyncClient(base_url=self.base_url, timeout=self._timeout) as client:
+            response = await client.post(
+                "/mpesa/c2b/v1/registerurl",
+                headers={"Authorization": f"Bearer {token}"},
+                json={
+                    "ShortCode": settings.DARAJA_SHORTCODE,
+                    "ResponseType": "Completed",
+                    "ConfirmationURL": confirmation_url,
+                    "ValidationURL": validation_url,
+                },
+            )
+
+        if not response.is_success:
+            raise DarajaError(
+                f"Daraja C2B URL registration failed: {response.status_code} {response.text}"
+            )
+
+        result = response.json()
+        logger.info(f"Daraja: C2B URL registration result: {result}")
+        return result
+
+
 
 # ── Module-level singleton ────────────────────────────────────────────────────
 # Single instance shared across all requests. The token cache is on this instance,

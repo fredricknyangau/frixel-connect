@@ -136,3 +136,72 @@ async def process_daraja_webhook(
         )
 
     return {"ResultCode": 0, "ResultDesc": "Accepted"}
+
+
+async def process_daraja_c2b_webhook(
+    conn: asyncpg.Connection,
+    body: dict,
+) -> dict:
+    """
+    Processes the Safaricom Daraja C2B webhook (Validation and Confirmation).
+
+    1. Validation: Checks if BillRefNumber matches a valid reseller. Returns
+       ResultCode 0 to accept, 1 to reject.
+    2. Confirmation: Topups the matched reseller's wallet, using TransID as
+       the unique reference for idempotency.
+    """
+    logger.info(f"Webhooks: received Daraja C2B payload: {body}")
+
+    trans_type = body.get("TransactionType")
+    bill_ref = body.get("BillRefNumber")
+    trans_id = body.get("TransID")
+    trans_amount = body.get("TransAmount")
+
+    if not bill_ref:
+        logger.warning("Webhooks: C2B webhook missing BillRefNumber.")
+        return {"ResultCode": 1, "ResultDesc": "Missing BillRefNumber"}
+
+    # Clean the wallet reference (strip whitespaces, uppercase)
+    bill_ref = bill_ref.strip().upper()
+
+    # Look up reseller globally by wallet reference
+    reseller = await conn.fetchrow(
+        "SELECT id, tenant_id FROM users WHERE wallet_reference = $1 AND role = 'reseller'",
+        bill_ref,
+    )
+
+    if not reseller:
+        logger.warning(f"Webhooks: C2B validation failed for reference '{bill_ref}': no reseller found.")
+        return {"ResultCode": 1, "ResultDesc": "Invalid wallet reference"}
+
+    # Handle Validation request
+    if trans_type == "Pay Bill Validation":
+        logger.info(f"Webhooks: C2B validation succeeded for reference '{bill_ref}'")
+        return {"ResultCode": 0, "ResultDesc": "Service completed successfully"}
+
+    # Handle Confirmation request
+    if not trans_id or not trans_amount:
+        logger.warning("Webhooks: C2B confirmation payload missing TransID or TransAmount.")
+        return {"ResultCode": 0, "ResultDesc": "Service completed successfully"}
+
+    from decimal import Decimal
+    from app.modules.wallets.service import topup_wallet
+
+    amount = Decimal(str(trans_amount))
+    reseller_id = reseller["id"]
+    tenant_id = reseller["tenant_id"]
+
+    try:
+        async with conn.transaction():
+            await topup_wallet(conn, tenant_id, reseller_id, amount, trans_id)
+        logger.info(f"Webhooks: successfully topped up reseller {reseller_id} with KES {amount} (reference: {trans_id})")
+    except asyncpg.exceptions.UniqueViolationError:
+        # A duplicate webhook confirmation delivery — absorb idempotently
+        logger.warning(f"Webhooks: C2B duplicate transaction detected for TransID '{trans_id}'. Webhook absorbed.")
+    except Exception as e:
+        logger.error(f"Webhooks: failed to process C2B confirmation for TransID '{trans_id}': {e}", exc_info=True)
+        # We still return ResultCode 0 to satisfy Safaricom's webhook acknowledgment
+        return {"ResultCode": 0, "ResultDesc": "Service completed successfully"}
+
+    return {"ResultCode": 0, "ResultDesc": "Service completed successfully"}
+

@@ -115,8 +115,8 @@ async def seed():
             # ── 2. Reseller user ──────────────────────────────────────────────
             reseller_row = await conn.fetchrow(
                 """
-                INSERT INTO users (email, phone, hashed_password, role, reseller_id, tenant_id)
-                VALUES ($1, $2, $3, 'reseller', $4, $5)
+                INSERT INTO users (email, phone, hashed_password, role, reseller_id, tenant_id, wallet_reference)
+                VALUES ($1, $2, $3, 'reseller', $4, $5, 'WS12345')
                 ON CONFLICT (email) DO NOTHING
                 RETURNING id, email, role
                 """,
@@ -131,6 +131,11 @@ async def seed():
                 reseller_row = await conn.fetchrow(
                     "SELECT id, email, role FROM users WHERE email = $1",
                     RESELLER_EMAIL,
+                )
+                # Ensure it has the WS12345 wallet reference even if already seeded
+                await conn.execute(
+                    "UPDATE users SET wallet_reference = 'WS12345' WHERE id = $1 AND wallet_reference IS NULL",
+                    reseller_row["id"],
                 )
                 print(f"⚠  Reseller already exists: {reseller_row['email']} ({reseller_row['id']})")
             else:
