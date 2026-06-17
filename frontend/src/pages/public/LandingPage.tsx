@@ -103,7 +103,7 @@ export default function LandingPage() {
             <Button size="lg" className="h-14 px-8 rounded-full text-base shadow-xl shadow-primary/25 transition-transform hover:-translate-y-1" render={<Link to="/register" />} nativeButton={false}>
                 Get Connected Now <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
-            <Button size="lg" variant="outline" className="h-14 px-8 rounded-full text-base bg-background/50 backdrop-blur-sm" render={<a href="#pricing" />}>
+            <Button size="lg" variant="outline" className="h-14 px-8 rounded-full text-base bg-background/50 backdrop-blur-sm" render={<a href="#pricing" />} nativeButton={false}>
               View Packages
             </Button>
           </div>
