@@ -34,7 +34,7 @@ export function useCustomerPayments() {
 
 export interface STKPushRequest {
   package_id: string;
-  phone_number: string;
+  phone: string;
 }
 
 export function useInitiateSTKPush() {

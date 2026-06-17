@@ -39,7 +39,7 @@ export default function BuyPackagePage() {
     try {
       const payment = await initiatePayment.mutateAsync({
         package_id: selectedPackageId,
-        phone_number: phoneNumber,
+        phone: phoneNumber,
       });
 
       setIsDialogOpen(false);
