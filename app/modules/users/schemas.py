@@ -85,3 +85,56 @@ class CreateCustomerRequest(BaseModel):
         if not v:
             raise ValueError("Phone number cannot be empty.")
         return v
+
+
+class AdminUserCreate(BaseModel):
+    """
+    Body schema for admins creating any type of user account.
+    (POST /admin/users)
+    """
+    email: EmailStr
+    phone: str
+    password: str
+    role: str
+    reseller_id: Optional[UUID] = None
+
+    @field_validator("password")
+    @classmethod
+    def password_must_be_strong_enough(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def role_must_be_valid(cls, v: str) -> str:
+        if v not in ["admin", "reseller", "customer"]:
+            raise ValueError("Role must be admin, reseller, or customer.")
+        return v
+
+
+class AdminUserUpdate(BaseModel):
+    """
+    Body schema for admins updating a user account.
+    (PUT /admin/users/{user_id})
+    """
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[str] = None
+    reseller_id: Optional[UUID] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("password")
+    @classmethod
+    def password_must_be_strong_enough(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and len(v) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def role_must_be_valid(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ["admin", "reseller", "customer"]:
+            raise ValueError("Role must be admin, reseller, or customer.")
+        return v

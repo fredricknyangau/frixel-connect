@@ -20,3 +20,20 @@ export interface CustomerCreateRequest {
   phone: string;
   password: string;
 }
+
+export interface AdminUserCreateRequest {
+  email: string;
+  phone: string;
+  password: string;
+  role: string;
+  reseller_id?: string | null;
+}
+
+export interface AdminUserUpdateRequest {
+  email?: string;
+  phone?: string;
+  password?: string;
+  role?: string;
+  reseller_id?: string | null;
+  is_active?: boolean;
+}

@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, status
 
 from app.database import get_db
 from app.dependencies import require_role
-from app.modules.users.schemas import UserResponse, UserUpdate, CreateCustomerRequest
+from app.modules.users.schemas import UserResponse, UserUpdate, CreateCustomerRequest, AdminUserCreate, AdminUserUpdate
 from app.modules.users import service as users_service
 
 router = APIRouter()
@@ -125,3 +125,52 @@ async def list_all_users(
     async with get_db() as conn:
         users = await users_service.list_all_users(conn)
     return users
+
+@router.post(
+    "/admin/users",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a user of any role (admin only)",
+)
+async def create_user_admin(
+    data: AdminUserCreate,
+    user: dict = Depends(require_role("admin")),
+) -> UserResponse:
+    """
+    Creates a user with arbitrary role, explicitly set by the admin.
+    """
+    async with get_db() as conn:
+        new_user = await users_service.admin_create_user(conn, data)
+    return new_user
+
+@router.put(
+    "/admin/users/{user_id}",
+    response_model=UserResponse,
+    summary="Update any user (admin only)",
+)
+async def update_user_admin(
+    user_id: UUID,
+    data: AdminUserUpdate,
+    user: dict = Depends(require_role("admin")),
+) -> UserResponse:
+    """
+    Partially updates any user account details.
+    """
+    async with get_db() as conn:
+        updated_user = await users_service.admin_update_user(conn, user_id, data)
+    return updated_user
+
+@router.delete(
+    "/admin/users/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Deactivate any user (admin only)",
+)
+async def deactivate_user_admin(
+    user_id: UUID,
+    user: dict = Depends(require_role("admin")),
+) -> None:
+    """
+    Soft-deletes (deactivates) a user account.
+    """
+    async with get_db() as conn:
+        await users_service.admin_deactivate_user(conn, user_id)

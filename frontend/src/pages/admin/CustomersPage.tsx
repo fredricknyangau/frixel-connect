@@ -1,7 +1,16 @@
-import { useState, useMemo } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Search, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
-import { useAdminCustomers } from '../../hooks/useUsers';
+import { 
+  useAdminCustomers, 
+  useAdminCreateUser, 
+  useAdminUpdateUser, 
+  useAdminDeleteUser 
+} from '../../hooks/useUsers';
 import { useAdminPayments } from '../../hooks/usePayments';
 import { useAdminVouchers } from '../../hooks/useVouchers';
 import { usePackages } from '../../hooks/usePackages';
@@ -11,13 +20,27 @@ import { Payment } from '../../types/payments';
 import { Voucher } from '../../types/vouchers';
 import { PageTitle } from '../../components/shared/PageTitle';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import { formatKES, formatNairobiDate } from '../../lib/utils';
+import { formatKES, formatNairobiDate, cn } from '../../lib/utils';
 
+import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../../components/ui/sheet';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+
+const userSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  phone: z.string().min(1, 'Phone is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters').optional().or(z.literal('')),
+  role: z.enum(['admin', 'reseller', 'customer']),
+});
+
+type UserFormValues = z.infer<typeof userSchema>;
 
 export default function CustomersPage() {
   const { data: users, isLoading } = useAdminCustomers();
@@ -25,10 +48,37 @@ export default function CustomersPage() {
   const { data: vouchers } = useAdminVouchers();
   const { data: packages } = usePackages();
 
+  const createUser = useAdminCreateUser();
+  const updateUser = useAdminUpdateUser();
+  const deactivateUser = useAdminDeleteUser();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+
+  const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<UserFormValues>({
+    resolver: zodResolver(userSchema),
+    defaultValues: { role: 'customer' }
+  });
+
+  useEffect(() => {
+    if (editingUser) {
+      reset({
+        email: editingUser.email,
+        phone: editingUser.phone,
+        role: editingUser.role,
+        password: '',
+      });
+    } else {
+      reset({ email: '', phone: '', password: '', role: 'customer' });
+    }
+  }, [editingUser, reset]);
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -52,6 +102,54 @@ export default function CustomersPage() {
   const handleRowClick = (user: User) => {
     setSelectedUser(user);
     setIsSheetOpen(true);
+  };
+
+  const handleOpenDialog = (e?: React.MouseEvent, user?: User) => {
+    if (e) e.stopPropagation();
+    setEditingUser(user || null);
+    setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setEditingUser(null);
+  };
+
+  const onSubmit = async (data: UserFormValues) => {
+    try {
+      if (editingUser) {
+        const updateData: any = { email: data.email, phone: data.phone, role: data.role };
+        if (data.password) {
+          updateData.password = data.password;
+        }
+        await updateUser.mutateAsync({ id: editingUser.id, data: updateData });
+        toast.success('User updated successfully');
+      } else {
+        if (!data.password) {
+          toast.error('Password is required for new users');
+          return;
+        }
+        await createUser.mutateAsync(data as any);
+        toast.success('User created successfully');
+      }
+      handleCloseDialog();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || 'Failed to save user');
+    }
+  };
+
+  const handleDeactivate = async () => {
+    if (deletingUserId) {
+      try {
+        await deactivateUser.mutateAsync(deletingUserId);
+        toast.success('User deactivated');
+      } catch (error) {
+        toast.error('Failed to deactivate user');
+      } finally {
+        setIsDeleteDialogOpen(false);
+        setDeletingUserId(null);
+      }
+    }
   };
 
   const selectedUserPayments = useMemo(() => {
@@ -78,6 +176,9 @@ export default function CustomersPage() {
           <h2 className="text-2xl font-bold tracking-tight">Users</h2>
           <p className="text-muted-foreground">Manage your customers, resellers, and admins.</p>
         </div>
+        <Button onClick={(e) => handleOpenDialog(e)}>
+          <Plus className="mr-2 h-4 w-4" /> Add User
+        </Button>
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -111,18 +212,19 @@ export default function CustomersPage() {
               <TableHead>Reseller</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Joined</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No users found matching your search.
                 </TableCell>
               </TableRow>
@@ -130,7 +232,7 @@ export default function CustomersPage() {
               filteredUsers.map((user: User) => (
                 <TableRow 
                   key={user.id} 
-                  className="cursor-pointer hover:bg-muted/50"
+                  className={cn("cursor-pointer hover:bg-muted/50", !user.is_active && 'text-muted-foreground opacity-60')}
                   onClick={() => handleRowClick(user)}
                 >
                   <TableCell className="font-medium">{user.phone}</TableCell>
@@ -153,12 +255,109 @@ export default function CustomersPage() {
                   <TableCell className="text-muted-foreground whitespace-nowrap">
                     {formatNairobiDate(user.created_at)}
                   </TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={(e) => handleOpenDialog(e, user)} disabled={!user.is_active}>
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">Edit</span>
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingUserId(user.id);
+                          setIsDeleteDialogOpen(true);
+                        }}
+                        disabled={!user.is_active}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Deactivate</span>
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{editingUser ? 'Edit User' : 'Add User'}</DialogTitle>
+            <DialogDescription>
+              {editingUser ? 'Update user profile and role.' : 'Create a new user. Default role is customer.'}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input id="email" type="email" placeholder="e.g. hello@example.com" {...register('email')} />
+              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input id="phone" placeholder="e.g. 0712345678" {...register('phone')} />
+              {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password {editingUser && '(Leave empty to keep current)'}</Label>
+              <Input id="password" type="password" placeholder="Min 8 characters" {...register('password')} />
+              {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Controller
+                name="role"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="customer">Customer</SelectItem>
+                      <SelectItem value="reseller">Reseller</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleCloseDialog}>Cancel</Button>
+              <Button type="submit" disabled={isSubmitting || createUser.isPending || updateUser.isPending}>
+                {isSubmitting || createUser.isPending || updateUser.isPending ? 'Saving...' : 'Save User'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate this user?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will disable their access to the system. Their history, payments, and vouchers will be preserved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeactivate} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent side="right" className="w-full sm:w-[400px] sm:max-w-none flex flex-col p-0">

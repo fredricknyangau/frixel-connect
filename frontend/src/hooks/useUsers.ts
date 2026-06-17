@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { User, CustomerCreateRequest, UserUpdateRequest } from '../types/users';
+import { User, CustomerCreateRequest, UserUpdateRequest, AdminUserCreateRequest, AdminUserUpdateRequest } from '../types/users';
 
 export function useAdminCustomers() {
   return useQuery({
@@ -54,6 +54,45 @@ export function useUpdateCustomerProfile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customerProfile'] });
+    },
+  });
+}
+
+export function useAdminCreateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: AdminUserCreateRequest) => {
+      const response = await api.post<User>('/admin/users', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminCustomers'] });
+    },
+  });
+}
+
+export function useAdminUpdateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: AdminUserUpdateRequest }) => {
+      const response = await api.put<User>(`/admin/users/${id}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminCustomers'] });
+    },
+  });
+}
+
+export function useAdminDeleteUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.delete(`/admin/users/${id}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminCustomers'] });
     },
   });
 }
