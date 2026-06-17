@@ -6,7 +6,7 @@ export function useAdminVouchers() {
   return useQuery({
     queryKey: ['adminVouchers'],
     queryFn: async () => {
-      const response = await api.get<Voucher[]>('/admin/vouchers');
+      const response = await api.get<Voucher[]>('/reseller/vouchers');
       return response.data;
     },
   });
