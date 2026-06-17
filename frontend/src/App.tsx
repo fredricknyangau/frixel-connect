@@ -1,15 +1,21 @@
-import { Button } from "@/components/ui/button";
+import { HelmetProvider } from 'react-helmet-async';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { RouterProvider } from 'react-router-dom';
 
-function App() {
+import { queryClient } from './lib/queryClient';
+import { AuthProvider } from './context/AuthContext';
+import { router } from './router';
+
+export default function App() {
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-gray-50">
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-blue-600">ZealSync WiFi Billing</h1>
-        <p className="text-gray-600">Frontend scaffolding complete.</p>
-        <Button>Click Me</Button>
-      </div>
-    </div>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </HelmetProvider>
   );
 }
-
-export default App;
