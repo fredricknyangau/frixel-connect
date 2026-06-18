@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     # RADIUS
     RADIUS_COA_SECRET: str = "testing123"
 
+    # KRA eTIMS
+    KRA_ETIMS_BASE_URL: str = "https://etims-api-sbx.kra.go.ke"
+    KRA_ETIMS_USERNAME: Optional[str] = None
+    KRA_ETIMS_PASSWORD: Optional[str] = None
+    KRA_ETIMS_MOCK: bool = True
+
     @property
     def DARAJA_BASE_URL(self) -> str:
         if self.DARAJA_ENVIRONMENT == "production":

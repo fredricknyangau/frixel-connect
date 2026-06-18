@@ -29,6 +29,7 @@ from app.modules.routers.router  import router as routers_router    # Phase 2
 from app.modules.routers.service import router_heartbeat_loop       # Phase 2
 from app.modules.wallets.router  import router as wallets_router    # Phase 4
 from app.modules.subscriptions.router import router as subscriptions_router # Phase 6
+from app.modules.invoices.router import router as invoices_router # Phase 6
 
 
 @asynccontextmanager
@@ -127,6 +128,7 @@ app.include_router(sessions_router, prefix=f"{PREFIX}",           tags=["Session
 app.include_router(webhooks_router, prefix=f"{PREFIX}/webhooks",  tags=["Webhooks"])
 app.include_router(wallets_router,  prefix=f"{PREFIX}",           tags=["Wallets"])    # Phase 4
 app.include_router(subscriptions_router, prefix=f"{PREFIX}",      tags=["Subscriptions"]) # Phase 6
+app.include_router(invoices_router, prefix=f"{PREFIX}",           tags=["Invoices"]) # Phase 7
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

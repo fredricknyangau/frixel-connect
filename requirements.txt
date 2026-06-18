@@ -40,3 +40,5 @@ websockets==16.0
 arq==0.26.1
 redis==5.0.4
 pyrad==2.4
+reportlab==4.2.0
+qrcode[pil]==7.4.2

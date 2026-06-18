@@ -353,7 +353,7 @@ async def admin_revoke_voucher(
     # Fetch active session and trigger CoA Disconnect-Request
     active_session = await conn.fetchrow(
         """
-        SELECT nasipaddress::text AS router_ip, acctsessionid
+        SELECT HOST(nasipaddress) AS router_ip, acctsessionid
         FROM radacct
         WHERE username = $1 AND acctstoptime IS NULL
         ORDER BY acctstarttime DESC

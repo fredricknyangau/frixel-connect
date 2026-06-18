@@ -13,6 +13,7 @@ import asyncpg
 
 from app.config import settings
 from app.modules.vouchers.service import generate_voucher
+from app.modules.invoices.service import generate_invoice_for_payment
 
 # Configure logging for worker process
 logging.basicConfig(level=logging.INFO)
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 async def generate_voucher_task(ctx, payment_id: str) -> str:
     """
     Durable background task to generate a voucher for a confirmed payment.
+    Also generates an invoice for the payment.
     Instead of internal sleep loops, uses job-level retries handled by arq.
     
     Retry Policy:
@@ -48,6 +50,14 @@ async def generate_voucher_task(ctx, payment_id: str) -> str:
                 f"Worker: generate_voucher_task succeeded for payment '{payment_id}' "
                 f"-> voucher '{code}'"
             )
+            
+            # Generate invoice for the payment
+            try:
+                await generate_invoice_for_payment(conn, payment_id)
+            except Exception as e:
+                # Invoice generation failure shouldn't fail the voucher, but log it
+                logger.error(f"Worker: invoice generation failed for payment '{payment_id}': {e}", exc_info=True)
+                
             return code
         except Exception as e:
             if is_final_attempt:
