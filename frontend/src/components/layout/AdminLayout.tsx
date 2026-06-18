@@ -10,7 +10,8 @@ import {
   Menu,
   Wifi,
   Repeat,
-  Receipt
+  Receipt,
+  ScrollText
 } from 'lucide-react';
 import { useAuthContext } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
@@ -34,6 +35,10 @@ const sidebarItems: SidebarItem[] = [
   { icon: Activity, label: 'Sessions', href: '/admin/sessions' },
   { icon: Wifi, label: 'Routers', href: '/admin/routers' },
   { icon: Repeat, label: 'Subscriptions', href: '/admin/subscriptions' },
+  
+  // Ops Section
+  { icon: Activity, label: 'System Health', href: '/admin/system-health' },
+  { icon: ScrollText, label: 'Audit Log', href: '/admin/audit-log' },
 ];
 
 export default function AdminLayout() {
