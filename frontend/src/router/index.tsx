@@ -24,6 +24,7 @@ import ResellerDashboard from '../pages/reseller/ResellerDashboard';
 import ResellerCustomers from '../pages/reseller/MyCustomersPage';
 import ResellerPayments from '../pages/reseller/ResellerPaymentsPage';
 import ResellerVouchers from '../pages/reseller/ResellerVouchersPage';
+import ResellerWallet from '../pages/reseller/WalletPage';
 
 import CustomerDashboard from '../pages/customer/DashboardPage';
 import CustomerBuyPackage from '../pages/customer/BuyPackagePage';
@@ -83,6 +84,7 @@ export const router = createBrowserRouter([
           { path: 'customers', element: <ResellerCustomers /> },
           { path: 'payments', element: <ResellerPayments /> },
           { path: 'vouchers', element: <ResellerVouchers /> },
+          { path: 'wallet', element: <ResellerWallet /> },
         ]
       }
     ]

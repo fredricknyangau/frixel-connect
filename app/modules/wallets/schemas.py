@@ -28,3 +28,5 @@ class WalletTransactionResponse(BaseModel):
 class WalletResponse(BaseModel):
     balance: Decimal = Field(..., max_digits=10, decimal_places=2)
     transactions: list[WalletTransactionResponse]
+    paybill_number: str
+    wallet_reference: str

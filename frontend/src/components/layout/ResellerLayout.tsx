@@ -5,7 +5,8 @@ import {
   CreditCard, 
   Ticket, 
   LogOut,
-  Menu
+  Menu,
+  Wallet
 } from 'lucide-react';
 import { useAuthContext } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
@@ -24,6 +25,7 @@ const sidebarItems: SidebarItem[] = [
   { icon: Users, label: 'My Customers', href: '/reseller/customers' },
   { icon: CreditCard, label: 'Payments', href: '/reseller/payments' },
   { icon: Ticket, label: 'Vouchers', href: '/reseller/vouchers' },
+  { icon: Wallet, label: 'Wallet', href: '/reseller/wallet' },
 ];
 
 export default function ResellerLayout() {

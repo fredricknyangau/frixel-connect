@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, Plus, Search, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Plus, Search, Eye, EyeOff, Ticket } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useResellerCustomers, useCreateResellerCustomer } from '../../hooks/useUsers';
@@ -17,6 +17,7 @@ import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import GenerateVoucherDialog from './GenerateVoucherDialog';
 
 const createCustomerSchema = z.object({
   email: z.string().email('Enter a valid email address'),
@@ -35,6 +36,10 @@ export default function MyCustomersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Voucher dialog states
+  const [isVoucherOpen, setIsVoucherOpen] = useState(false);
+  const [voucherCustId, setVoucherCustId] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, control, setError, formState: { errors, isSubmitting } } = useForm<CreateCustomerFormValues>({
     resolver: zodResolver(createCustomerSchema),
@@ -75,6 +80,11 @@ export default function MyCustomersPage() {
     }
   };
 
+  const handleSellPlan = (customerId: string) => {
+    setVoucherCustId(customerId);
+    setIsVoucherOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <PageTitle title="My Customers | ZealSync Reseller" />
@@ -110,18 +120,19 @@ export default function MyCustomersPage() {
               <TableHead>Site</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Joined</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={6} className="text-center py-8">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : filteredCustomers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No customers found. Add your first customer to get started.
                 </TableCell>
               </TableRow>
@@ -142,6 +153,17 @@ export default function MyCustomersPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
                     {formatNairobiDate(customer.created_at)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleSellPlan(customer.id)}
+                      disabled={!customer.is_active}
+                    >
+                      <Ticket className="h-4 w-4 mr-1 text-primary" />
+                      Sell Plan
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
@@ -231,6 +253,12 @@ export default function MyCustomersPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <GenerateVoucherDialog
+        open={isVoucherOpen}
+        onOpenChange={setIsVoucherOpen}
+        preselectedCustomerId={voucherCustId || undefined}
+      />
     </div>
   );
 }
