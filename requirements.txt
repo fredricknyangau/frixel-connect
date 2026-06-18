@@ -39,3 +39,4 @@ watchfiles==1.2.0
 websockets==16.0
 arq==0.26.1
 redis==5.0.4
+pyrad==2.4

@@ -82,6 +82,25 @@ services:
     networks:
       - wifi_billing_net
 
+  radius:
+    build: ./radius
+    container_name: wifi_billing_radius
+    ports:
+      - "1812:1812/udp"
+      - "1813:1813/udp"
+      - "3799:3799/udp"
+    env_file: .env
+    volumes:
+      - ./radius/clients.conf:/etc/raddb/clients.conf
+      - ./radius/sql_module_config:/etc/raddb/mods-enabled/sql
+      - ./radius/site_default_config:/etc/raddb/sites-enabled/default
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - wifi_billing_net
+
 volumes:
   postgres_data:
   redis_data:

@@ -38,6 +38,14 @@ class PackageCreate(BaseModel):
     price_kes:     Decimal
     duration_days: int
     speed_mbps:    int
+    data_quota_mb: Optional[int] = None
+
+    @field_validator("data_quota_mb")
+    @classmethod
+    def data_quota_must_be_positive(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v <= 0:
+            raise ValueError("data_quota_mb must be greater than 0.")
+        return v
 
     @field_validator("price_kes")
     @classmethod
@@ -90,6 +98,14 @@ class PackageUpdate(BaseModel):
     price_kes:     Optional[Decimal] = None
     duration_days: Optional[int]     = None
     speed_mbps:    Optional[int]     = None
+    data_quota_mb: Optional[int]     = None
+
+    @field_validator("data_quota_mb")
+    @classmethod
+    def data_quota_must_be_positive(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v <= 0:
+            raise ValueError("data_quota_mb must be greater than 0.")
+        return v
 
     # We reuse the same validators from PackageCreate.
     # A value of None passes validation (Optional means it can be absent).
@@ -144,6 +160,7 @@ class PackageResponse(BaseModel):
     price_kes:     Decimal
     duration_days: int
     speed_mbps:    int
+    data_quota_mb: Optional[int]
     is_active:     bool
     created_at:    datetime
     # updated_at is included so the admin UI can show "last modified"

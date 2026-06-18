@@ -165,6 +165,51 @@ class MikroTikClient:
 
         logger.info(f"MikroTik: deleted hotspot user '{username}' (id={mikrotik_id})")
 
+    async def disable_ppp_secret(self, username: str) -> None:
+        """
+        Disables a PPPoE secret on the router. 
+        We disable rather than delete to preserve the customer's history and allow instant re-enable on payment.
+        """
+        async with self._make_client() as client:
+            find_response = await client.get("/ip/ppp/secret", params={"name": username})
+            self._check_response(find_response, context=f"find ppp secret '{username}'")
+
+            secrets = find_response.json()
+            if not secrets:
+                logger.warning(f"MikroTik: PPPoE secret '{username}' not found — cannot disable")
+                return
+
+            mikrotik_id = secrets[0].get(".id")
+            if not mikrotik_id:
+                return
+
+            disable_response = await client.post(f"/ip/ppp/secret/disable", json={".id": mikrotik_id})
+            self._check_response(disable_response, context=f"disable ppp secret '{username}'")
+
+        logger.info(f"MikroTik: disabled PPPoE secret '{username}' (id={mikrotik_id})")
+
+    async def enable_ppp_secret(self, username: str) -> None:
+        """
+        Re-enables a suspended PPPoE secret on the router.
+        """
+        async with self._make_client() as client:
+            find_response = await client.get("/ip/ppp/secret", params={"name": username})
+            self._check_response(find_response, context=f"find ppp secret '{username}'")
+
+            secrets = find_response.json()
+            if not secrets:
+                logger.warning(f"MikroTik: PPPoE secret '{username}' not found — cannot enable")
+                return
+
+            mikrotik_id = secrets[0].get(".id")
+            if not mikrotik_id:
+                return
+
+            enable_response = await client.post(f"/ip/ppp/secret/enable", json={".id": mikrotik_id})
+            self._check_response(enable_response, context=f"enable ppp secret '{username}'")
+
+        logger.info(f"MikroTik: enabled PPPoE secret '{username}' (id={mikrotik_id})")
+
     async def get_active_sessions(self) -> list[dict]:
         """
         Returns all currently active hotspot sessions.

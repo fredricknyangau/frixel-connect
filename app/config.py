@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     # Redis URL for background task queue
     REDIS_URL: str = "redis://redis:6379/0"
 
+    # RADIUS
+    RADIUS_COA_SECRET: str = "testing123"
+
     @property
     def DARAJA_BASE_URL(self) -> str:
         if self.DARAJA_ENVIRONMENT == "production":

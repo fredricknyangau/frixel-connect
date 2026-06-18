@@ -28,6 +28,51 @@ def generate_voucher_code(length: int = 10) -> str:
     return "".join(secrets.choice(VOUCHER_ALPHABET) for _ in range(length))
 
 
+async def _provision_radius_credentials(
+    conn: asyncpg.Connection,
+    username: str,
+    password: str,
+    speed_mbps: int,
+    data_quota_mb: Optional[int] = None,
+) -> None:
+    """Helper to write RADIUS credentials to radcheck and radreply tables (idempotent)."""
+    # 1. Clear any existing records for this user to be safe
+    await conn.execute("DELETE FROM radcheck WHERE username = $1", username)
+    await conn.execute("DELETE FROM radreply WHERE username = $1", username)
+
+    # 2. Insert Cleartext-Password into radcheck
+    await conn.execute(
+        """
+        INSERT INTO radcheck (username, attribute, op, value)
+        VALUES ($1, 'Cleartext-Password', ':=', $2)
+        """,
+        username,
+        password,
+    )
+
+    # 3. Insert Mikrotik-Rate-Limit into radreply
+    await conn.execute(
+        """
+        INSERT INTO radreply (username, attribute, op, value)
+        VALUES ($1, 'Mikrotik-Rate-Limit', ':=', $2)
+        """,
+        username,
+        f"{speed_mbps}M",
+    )
+
+    # 4. Insert optional Mikrotik-Total-Limit into radreply
+    if data_quota_mb:
+        limit_bytes = data_quota_mb * 1024 * 1024
+        await conn.execute(
+            """
+            INSERT INTO radreply (username, attribute, op, value)
+            VALUES ($1, 'Mikrotik-Total-Limit', ':=', $2)
+            """,
+            username,
+            str(limit_bytes),
+        )
+
+
 async def generate_voucher(
     conn: asyncpg.Connection,
     payment_id: str,
@@ -58,7 +103,8 @@ async def generate_voucher(
             p.status AS payment_status,
             p.tenant_id,
             pkg.duration_days,
-            pkg.speed_mbps
+            pkg.speed_mbps,
+            pkg.data_quota_mb
         FROM payments p
         JOIN packages pkg ON p.package_id = pkg.id
         WHERE p.id = $1
@@ -73,6 +119,7 @@ async def generate_voucher(
     tenant_id   = row["tenant_id"]
     duration_days = row["duration_days"]
     speed_mbps    = row["speed_mbps"]
+    data_quota_mb = row["data_quota_mb"]
 
     # ── Step 2: Retrieve customer's assigned router_id ───────────────────────
     user_row = await conn.fetchrow(
@@ -138,6 +185,15 @@ async def generate_voucher(
     status = "active" if success else "pending_provision"
 
     try:
+        # Provision FreeRADIUS credentials within the database transaction
+        await _provision_radius_credentials(
+            conn=conn,
+            username=code,
+            password=code,
+            speed_mbps=speed_mbps,
+            data_quota_mb=data_quota_mb,
+        )
+
         await conn.execute(
             """
             INSERT INTO vouchers (payment_id, customer_id, package_id, code, status, tenant_id, router_id)
@@ -153,7 +209,7 @@ async def generate_voucher(
         )
         logger.info(f"Voucher: recorded '{code}' in DB with status '{status}' under router '{router_id or 'global'}'")
     except Exception as e:
-        logger.error(f"Voucher: failed to insert '{code}' into DB: {e}")
+        logger.error(f"Voucher: failed to insert '{code}' into DB or provision RADIUS: {e}")
         raise e
 
     # Raise original exception if provisioning failed to record task failure
@@ -290,6 +346,31 @@ async def admin_revoke_voucher(
         tenant_id,
     )
 
+    # Delete RADIUS credentials
+    await conn.execute("DELETE FROM radcheck WHERE username = $1", voucher["code"])
+    await conn.execute("DELETE FROM radreply WHERE username = $1", voucher["code"])
+
+    # Fetch active session and trigger CoA Disconnect-Request
+    active_session = await conn.fetchrow(
+        """
+        SELECT nasipaddress::text AS router_ip, acctsessionid
+        FROM radacct
+        WHERE username = $1 AND acctstoptime IS NULL
+        ORDER BY acctstarttime DESC
+        LIMIT 1
+        """,
+        voucher["code"]
+    )
+    if active_session:
+        from app.integrations.radius_coa import send_coa_disconnect
+        # Run synchronous network I/O in thread pool to avoid blocking the event loop
+        await asyncio.to_thread(
+            send_coa_disconnect,
+            active_session["router_ip"],
+            voucher["code"],
+            active_session["acctsessionid"]
+        )
+
     router_id = voucher["router_id"]
     router_row = None
     if router_id:
@@ -318,7 +399,7 @@ async def admin_retry_voucher(
     """Manually retries provisioning a stuck voucher within the tenant."""
     row = await conn.fetchrow(
         """
-        SELECT v.id, v.code, v.status, v.router_id, pkg.duration_days, pkg.speed_mbps
+        SELECT v.id, v.code, v.status, v.router_id, pkg.duration_days, pkg.speed_mbps, pkg.data_quota_mb
         FROM vouchers v
         JOIN packages pkg ON v.package_id = pkg.id
         WHERE v.id = $1
@@ -352,6 +433,15 @@ async def admin_retry_voucher(
     logger.info(f"Voucher Retry: provisioning '{code}' on router '{router_id or 'global'}'")
 
     try:
+        # Also ensure FreeRADIUS has the credentials on retry
+        await _provision_radius_credentials(
+            conn=conn,
+            username=code,
+            password=code,
+            speed_mbps=row["speed_mbps"],
+            data_quota_mb=row["data_quota_mb"],
+        )
+
         await client.generate_hotspot_user(
             username=code,
             password=code,
@@ -388,7 +478,7 @@ async def provision_retry_poller() -> None:
             async with get_db() as conn:
                 rows = await conn.fetch(
                     """
-                    SELECT v.id, v.code, v.tenant_id, v.router_id, pkg.duration_days, pkg.speed_mbps
+                    SELECT v.id, v.code, v.tenant_id, v.router_id, pkg.duration_days, pkg.speed_mbps, pkg.data_quota_mb
                     FROM vouchers v
                     JOIN packages pkg ON v.package_id = pkg.id
                     WHERE v.status = 'pending_provision'
@@ -416,6 +506,15 @@ async def provision_retry_poller() -> None:
                         client = get_mikrotik_client(dict(router_row) if router_row else None)
 
                         try:
+                            # Ensure FreeRADIUS credentials exist
+                            await _provision_radius_credentials(
+                                conn=conn,
+                                username=code,
+                                password=code,
+                                speed_mbps=v["speed_mbps"],
+                                data_quota_mb=v["data_quota_mb"],
+                            )
+
                             await client.generate_hotspot_user(
                                 username=code,
                                 password=code,

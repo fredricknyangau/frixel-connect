@@ -40,6 +40,20 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
     CONSTRAINT wallet_transactions_reference_unique UNIQUE (reference)
 );
 
+-- Ensure sequence_id exists on wallet_transactions (handles retrofitting)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'wallet_transactions'
+          AND column_name = 'sequence_id'
+    ) THEN
+        ALTER TABLE wallet_transactions ADD COLUMN sequence_id BIGSERIAL;
+    END IF;
+END $$;
+
 -- Index for querying transaction ledger history
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_reseller_id ON wallet_transactions (reseller_id);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_sequence_id ON wallet_transactions (sequence_id);
+

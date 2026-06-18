@@ -33,7 +33,7 @@ async def get_all_packages(
     rows = await conn.fetch(
         """
         SELECT id, name, description, price_kes, duration_days,
-               speed_mbps, is_active, created_at, updated_at
+               speed_mbps, data_quota_mb, is_active, created_at, updated_at
         FROM packages
         WHERE tenant_id = $1
           AND is_active = TRUE
@@ -60,7 +60,7 @@ async def get_package_by_id(
     row = await conn.fetchrow(
         """
         SELECT id, name, description, price_kes, duration_days,
-               speed_mbps, is_active, created_at, updated_at
+               speed_mbps, data_quota_mb, is_active, created_at, updated_at
         FROM packages
         WHERE id = $1
           AND tenant_id = $2
@@ -103,17 +103,18 @@ async def create_package(
     row = await conn.fetchrow(
         """
         INSERT INTO packages
-            (name, description, price_kes, duration_days, speed_mbps, created_by, tenant_id)
+            (name, description, price_kes, duration_days, speed_mbps, data_quota_mb, created_by, tenant_id)
         VALUES
-            ($1, $2, $3, $4, $5, $6, $7)
+            ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id, name, description, price_kes, duration_days,
-                  speed_mbps, is_active, created_at, updated_at
+                  speed_mbps, data_quota_mb, is_active, created_at, updated_at
         """,
         data.name,
         data.description,
         data.price_kes,
         data.duration_days,
         data.speed_mbps,
+        data.data_quota_mb,
         created_by_user_id,
         tenant_id,
     )
@@ -144,6 +145,7 @@ async def update_package(
         "price_kes":     data.price_kes,
         "duration_days": data.duration_days,
         "speed_mbps":    data.speed_mbps,
+        "data_quota_mb": data.data_quota_mb,
     }
 
     for column, value in updatable_fields.items():
@@ -167,7 +169,7 @@ async def update_package(
           AND tenant_id = ${param_index + 1}
           AND is_active = TRUE
         RETURNING id, name, description, price_kes, duration_days,
-                  speed_mbps, is_active, created_at, updated_at
+                  speed_mbps, data_quota_mb, is_active, created_at, updated_at
     """
 
     row = await conn.fetchrow(query, *values)
