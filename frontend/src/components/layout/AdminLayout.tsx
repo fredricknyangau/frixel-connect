@@ -8,7 +8,8 @@ import {
   Activity,
   LogOut,
   Menu,
-  Wifi
+  Wifi,
+  Repeat
 } from 'lucide-react';
 import { useAuthContext } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
@@ -30,6 +31,7 @@ const sidebarItems: SidebarItem[] = [
   { icon: Ticket, label: 'Vouchers', href: '/admin/vouchers' },
   { icon: Activity, label: 'Sessions', href: '/admin/sessions' },
   { icon: Wifi, label: 'Routers', href: '/admin/routers' },
+  { icon: Repeat, label: 'Subscriptions', href: '/admin/subscriptions' },
 ];
 
 export default function AdminLayout() {

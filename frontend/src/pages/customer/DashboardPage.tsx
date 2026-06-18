@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import SubscriptionCard from '../../components/customer/SubscriptionCard';
 
 export default function CustomerDashboard() {
   const navigate = useNavigate();
@@ -42,6 +43,10 @@ export default function CustomerDashboard() {
           <ShoppingCart className="mr-2 h-5 w-5" />
           Buy New Package
         </Button>
+      </div>
+
+      <div className="w-full">
+        <SubscriptionCard />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
