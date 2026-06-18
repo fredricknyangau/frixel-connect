@@ -84,7 +84,11 @@ class TokenResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     access_token: str
+    refresh_token: str
     token_type:   str = "bearer"
     role:         str
     user_id:      UUID
     tenant_id:    UUID
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str

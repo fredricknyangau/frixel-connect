@@ -24,6 +24,7 @@ from fastapi import APIRouter, Depends, status
 
 from app.database import get_db
 from app.dependencies import require_role
+from app.core.audit import audit
 from app.core.exceptions import NotFoundException
 from app.modules.vouchers.schemas import VoucherResponse, ResellerVoucherGenerateRequest
 from app.modules.vouchers.service import (
@@ -98,6 +99,7 @@ async def get_voucher(
     "/vouchers/{voucher_id}/revoke",
     summary="Revoke a voucher and remove from MikroTik (admin only)",
 )
+@audit(action="revoke_voucher", target_type="voucher")
 async def revoke_voucher(
     voucher_id: str,
     current_user: dict = Depends(require_role("admin")),
@@ -115,6 +117,7 @@ async def revoke_voucher(
     "/vouchers/{voucher_id}/retry",
     summary="Retry provisioning a pending voucher (admin only)",
 )
+@audit(action="retry_voucher", target_type="voucher")
 async def retry_voucher(
     voucher_id: str,
     current_user: dict = Depends(require_role("admin")),

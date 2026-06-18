@@ -15,9 +15,10 @@ from fastapi import APIRouter, Depends, status
 
 from app.database import get_db
 from app.core.security import create_access_token
+from app.core.rate_limit import RateLimiter
 from app.dependencies import require_role
-from app.modules.auth.schemas import RegisterRequest, LoginRequest, TokenResponse
-from app.modules.auth.service import register_user, authenticate_user
+from app.modules.auth.schemas import RegisterRequest, LoginRequest, TokenResponse, RefreshTokenRequest
+from app.modules.auth.service import register_user, authenticate_user, generate_refresh_token, rotate_refresh_token
 
 router = APIRouter()
 
@@ -55,6 +56,7 @@ async def register(
 
     async with get_db() as conn:
         user = await register_user(conn, data_with_tenant)
+        refresh_token = await generate_refresh_token(conn, user["id"])
 
     token = create_access_token(
         user_id=str(user["id"]),
@@ -65,6 +67,7 @@ async def register(
 
     return TokenResponse(
         access_token=token,
+        refresh_token=refresh_token,
         token_type="bearer",
         role=user["role"],
         user_id=user["id"],
@@ -77,6 +80,7 @@ async def register(
     response_model=TokenResponse,
     status_code=status.HTTP_200_OK,
     summary="Login and obtain an access token",
+    dependencies=[Depends(RateLimiter(requests=5, window=60))]
 )
 async def login(data: LoginRequest) -> TokenResponse:
     """
@@ -91,6 +95,7 @@ async def login(data: LoginRequest) -> TokenResponse:
     """
     async with get_db() as conn:
         user = await authenticate_user(conn, data.email, data.password)
+        refresh_token = await generate_refresh_token(conn, user["id"])
 
     token = create_access_token(
         user_id=str(user["id"]),
@@ -101,6 +106,39 @@ async def login(data: LoginRequest) -> TokenResponse:
 
     return TokenResponse(
         access_token=token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        role=user["role"],
+        user_id=user["id"],
+        tenant_id=user["tenant_id"],
+    )
+
+
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Obtain a new access and refresh token",
+)
+async def refresh(data: RefreshTokenRequest) -> TokenResponse:
+    """
+    Rotates the refresh token and issues a new access token.
+    Implements Token Family rotation. If a stolen, revoked refresh token is reused,
+    the entire family is revoked.
+    """
+    async with get_db() as conn:
+        user, new_refresh_token = await rotate_refresh_token(conn, data.refresh_token)
+
+    token = create_access_token(
+        user_id=str(user["id"]),
+        role=user["role"],
+        tenant_id=str(user["tenant_id"]),
+        reseller_id=str(user["reseller_id"]) if user["reseller_id"] else None,
+    )
+
+    return TokenResponse(
+        access_token=token,
+        refresh_token=new_refresh_token,
         token_type="bearer",
         role=user["role"],
         user_id=user["id"],

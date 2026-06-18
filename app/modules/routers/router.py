@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, status
 from app.database import get_db
 from app.dependencies import require_role
 from app.core.exceptions import NotFoundException
+from app.core.audit import audit
 from app.modules.routers.schemas import RouterCreate, RouterUpdate, RouterResponse
 from app.modules.routers import service
 
@@ -24,6 +25,7 @@ router = APIRouter()
     status_code=status.HTTP_201_CREATED,
     summary="Register a new MikroTik router (admin only)",
 )
+@audit(action="create_router", target_type="router")
 async def create_router(
     data: RouterCreate,
     user: dict = Depends(require_role("admin")),
@@ -70,6 +72,7 @@ async def get_router(
     response_model=RouterResponse,
     summary="Update router details (admin only)",
 )
+@audit(action="update_router", target_type="router")
 async def update_router(
     router_id: UUID,
     data: RouterUpdate,
@@ -86,6 +89,7 @@ async def update_router(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a router configuration (admin only)",
 )
+@audit(action="delete_router", target_type="router")
 async def delete_router(
     router_id: UUID,
     user: dict = Depends(require_role("admin")),

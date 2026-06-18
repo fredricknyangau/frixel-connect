@@ -59,6 +59,48 @@ async def update_my_profile(
     return profile
 
 
+@router.get(
+    "/customers/me/export",
+    summary="Export all personal data (customer only)",
+)
+async def export_my_data(
+    user: dict = Depends(require_role("customer")),
+):
+    """
+    Returns all PII tied to the customer as a structured JSON download.
+    Provides data portability compliance under the Data Protection Act.
+    """
+    async with get_db() as conn:
+        data = await users_service.export_customer_data(
+            conn,
+            tenant_id=UUID(user["tenant_id"]),
+            user_id=UUID(user["user_id"]),
+        )
+    return data
+
+
+@router.delete(
+    "/customers/me",
+    summary="Anonymize personal data (customer only)",
+)
+async def delete_my_account(
+    user: dict = Depends(require_role("customer")),
+):
+    """
+    Anonymizes PII fields (email, phone, name) while preserving financial records.
+    We cannot hard-delete the user because payments and vouchers reference customer_id 
+    by foreign key, and financial records cannot disappear.
+    This fulfills the Right to Erasure by destroying identifiers but leaving the mathematical financial trail intact.
+    """
+    async with get_db() as conn:
+        await users_service.anonymize_customer(
+            conn,
+            tenant_id=UUID(user["tenant_id"]),
+            user_id=UUID(user["user_id"]),
+        )
+    return {"message": "Your personal identifiers have been erased successfully. Transactional history is preserved for compliance."}
+
+
 # ── Reseller routes ────────────────────────────────────────────────────────────
 
 @router.get(

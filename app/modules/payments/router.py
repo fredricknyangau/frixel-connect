@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status, HTTPException
 
 from app.database import get_db
+from app.core.rate_limit import RateLimiter
 from app.dependencies import require_role
 from app.core.exceptions import NotFoundException
 from app.modules.payments.schemas import STKPushRequest, PaymentResponse, PaymentStatusResponse
@@ -29,6 +30,7 @@ router = APIRouter()
     response_model=PaymentResponse,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Initiate M-Pesa STK push payment (customer only)",
+    dependencies=[Depends(RateLimiter(requests=3, window=60))],
 )
 async def create_stk_push(
     data: STKPushRequest,

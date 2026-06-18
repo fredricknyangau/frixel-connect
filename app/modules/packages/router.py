@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, status
 
 from app.database import get_db
 from app.dependencies import require_role
+from app.core.audit import audit
 from app.modules.packages.schemas import PackageCreate, PackageUpdate, PackageResponse
 from app.modules.packages.service import (
     get_all_packages,
@@ -65,6 +66,7 @@ async def get_package(
     status_code=status.HTTP_201_CREATED,
     summary="Create a new package (admin only)",
 )
+@audit(action="create_package", target_type="package")
 async def create_package_route(
     data: PackageCreate,
     user: dict = Depends(require_role("admin")),
@@ -84,6 +86,7 @@ async def create_package_route(
     response_model=PackageResponse,
     summary="Update a package (admin only)",
 )
+@audit(action="update_package", target_type="package")
 async def update_package_route(
     package_id: UUID,
     data: PackageUpdate,
@@ -104,6 +107,7 @@ async def update_package_route(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Soft-delete a package (admin only)",
 )
+@audit(action="deactivate_package", target_type="package")
 async def delete_package_route(
     package_id: UUID,
     user: dict = Depends(require_role("admin")),

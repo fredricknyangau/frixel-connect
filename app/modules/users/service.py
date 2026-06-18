@@ -343,3 +343,68 @@ async def admin_deactivate_user(
         user_id,
         tenant_id,
     )
+
+
+async def export_customer_data(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    user_id: UUID,
+) -> dict:
+    """Exports all PII tied to a customer."""
+    user = await conn.fetchrow(
+        "SELECT id, email, phone, role, created_at FROM users WHERE id = $1 AND tenant_id = $2",
+        user_id, tenant_id
+    )
+    if not user:
+        raise NotFoundException("User", str(user_id))
+        
+    payments = await conn.fetch(
+        "SELECT id, amount_kes, status, mpesa_receipt_number, phone_number, created_at FROM payments WHERE customer_id = $1",
+        user_id
+    )
+    
+    vouchers = await conn.fetch(
+        "SELECT id, code, status, expires_at, created_at FROM vouchers WHERE customer_id = $1",
+        user_id
+    )
+    
+    subscriptions = await conn.fetch(
+        "SELECT id, status, current_period_end FROM subscriptions WHERE customer_id = $1",
+        user_id
+    )
+    
+    return {
+        "user": dict(user),
+        "payments": [dict(p) for p in payments],
+        "vouchers": [dict(v) for v in vouchers],
+        "subscriptions": [dict(s) for s in subscriptions]
+    }
+
+
+async def anonymize_customer(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    user_id: UUID,
+) -> None:
+    """Anonymizes a customer's PII without deleting financial records."""
+    user = await conn.fetchrow(
+        "SELECT id, role FROM users WHERE id = $1 AND tenant_id = $2",
+        user_id, tenant_id
+    )
+    if not user:
+        raise NotFoundException("User", str(user_id))
+        
+    anon_email = f"deleted-{user_id}@anonymized.local"
+    anon_phone = f"del-{str(user_id)[:8]}"
+    
+    await conn.execute(
+        """
+        UPDATE users 
+        SET email = $1, phone = $2, is_active = FALSE, hashed_password = 'DELETED', updated_at = NOW()
+        WHERE id = $3 AND tenant_id = $4
+        """,
+        anon_email, anon_phone, user_id, tenant_id
+    )
+    
+    # Revoke refresh tokens
+    await conn.execute("UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = $1", user_id)
