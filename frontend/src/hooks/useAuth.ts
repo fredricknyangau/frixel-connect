@@ -21,7 +21,7 @@ export const useLogin = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      login(data.access_token);
+      login(data.access_token, data.refresh_token);
       navigateBasedOnRole(data.role, navigate);
     },
   });
@@ -38,7 +38,7 @@ export const useRegister = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      login(data.access_token);
+      login(data.access_token, data.refresh_token);
       navigateBasedOnRole(data.role, navigate);
     },
   });

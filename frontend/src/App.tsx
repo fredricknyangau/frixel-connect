@@ -6,6 +6,7 @@ import { TooltipProvider } from './components/ui/tooltip';
 
 import { queryClient } from './lib/queryClient';
 import { AuthProvider } from './context/AuthContext';
+import TenantStatusGuard from './components/shared/TenantStatusGuard';
 import { router } from './router';
 
 export default function App() {
@@ -13,9 +14,11 @@ export default function App() {
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <TooltipProvider>
-            <RouterProvider router={router} />
-          </TooltipProvider>
+          <TenantStatusGuard>
+            <TooltipProvider>
+              <RouterProvider router={router} />
+            </TooltipProvider>
+          </TenantStatusGuard>
         </AuthProvider>
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>

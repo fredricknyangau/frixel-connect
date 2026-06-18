@@ -1,71 +1,85 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { UserRole } from '../types/auth';
-import { saveToken, clearToken, getToken, isTokenExpired, decodeToken } from '../lib/auth';
+import { saveToken, clearToken, getToken, isTokenExpired, decodeToken, saveRefreshToken, clearRefreshToken } from '../lib/auth';
 
 interface AuthUser {
   user_id: string;
   role: UserRole;
+  tenant_id: string | null;
 }
 
 interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
-  login: (token: string) => void;
+  login: (accessToken: string, refreshToken: string) => void;
   logout: () => void;
   isLoading: boolean;
+  refreshUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-/**
- * AuthProvider wraps the application and provides auth state.
- * 
- * Backend analogy: this is the frontend equivalent of the
- * `get_current_user` dependency in FastAPI — it runs once at the
- * app level and every component that needs auth info reads from it.
- */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // On mount: check localStorage for token
-    const initAuth = () => {
-      const token = getToken();
-      if (token && !isTokenExpired(token)) {
-        const decoded = decodeToken(token);
-        if (decoded) {
-          setUser({
-            user_id: decoded.sub,
-            role: decoded.role,
-          });
-        }
-      } else if (token) {
-        // Token exists but is expired
-        clearToken();
+  const initAuth = () => {
+    const token = getToken();
+    if (token && !isTokenExpired(token)) {
+      const decoded = decodeToken(token);
+      if (decoded) {
+        setUser({
+          user_id: decoded.sub,
+          role: decoded.role,
+          tenant_id: decoded.tenant_id,
+        });
       }
-      setIsLoading(false);
-    };
+    } else if (token) {
+      clearToken();
+      clearRefreshToken();
+      setUser(null);
+    } else {
+      setUser(null);
+    }
+    setIsLoading(false);
+  };
 
+  useEffect(() => {
     initAuth();
   }, []);
 
-  const login = (token: string) => {
-    saveToken(token);
-    const decoded = decodeToken(token);
+  const login = (accessToken: string, refreshToken: string) => {
+    saveToken(accessToken);
+    saveRefreshToken(refreshToken);
+    const decoded = decodeToken(accessToken);
     if (decoded) {
       setUser({
         user_id: decoded.sub,
         role: decoded.role,
+        tenant_id: decoded.tenant_id,
       });
     }
   };
 
   const logout = () => {
     clearToken();
+    clearRefreshToken();
     setUser(null);
-    // Redirect to login page
     window.location.href = '/login';
+  };
+
+  const refreshUser = () => {
+    const token = getToken();
+    if (token) {
+      const decoded = decodeToken(token);
+      if (decoded) {
+        setUser({
+          user_id: decoded.sub,
+          role: decoded.role,
+          tenant_id: decoded.tenant_id,
+        });
+      }
+    }
   };
 
   return (
@@ -76,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         isLoading,
+        refreshUser,
       }}
     >
       {children}

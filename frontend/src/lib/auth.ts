@@ -1,6 +1,7 @@
 import { DecodedToken, UserRole } from '../types/auth';
 
 const TOKEN_KEY = 'zealsync_access_token';
+const REFRESH_TOKEN_KEY = 'zealsync_refresh_token';
 
 // SECURITY: localStorage is vulnerable to XSS. An injected
 // script can read this token. In v1 we accept this risk for
@@ -19,6 +20,18 @@ export function getToken(): string | null {
 // SECURITY: see v2 cookie migration plan
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+}
+
+export function saveRefreshToken(token: string): void {
+  localStorage.setItem(REFRESH_TOKEN_KEY, token);
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function clearRefreshToken(): void {
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 /**

@@ -20,15 +20,21 @@ export interface RegisterRequest {
 
 export interface TokenResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
   role: UserRole;
   user_id: string;
+  tenant_id: string;
 }
+
+export type TenantStatus = 'active' | 'suspended' | 'cancelled';
 
 export interface DecodedToken {
   sub: string;
   role: UserRole;
   reseller_id: string | null;
+  tenant_id: string | null;
+  tenant_status: TenantStatus | null;
   exp: number;
   iat: number;
 }

@@ -9,7 +9,10 @@ type StatusType =
   | 'active'
   | 'used'
   | 'expired'
-  | 'revoked';
+  | 'revoked'
+  | 'pending_provision'
+  | 'grace'
+  | 'suspended';
 
 const statusColorMap: Record<StatusType, string> = {
   pending: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
@@ -20,6 +23,9 @@ const statusColorMap: Record<StatusType, string> = {
   used: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
   expired: 'bg-gray-100 text-gray-800 hover:bg-gray-100',
   revoked: 'bg-red-100 text-red-800 hover:bg-red-100',
+  pending_provision: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100',
+  grace: 'bg-orange-100 text-orange-800 hover:bg-orange-100',
+  suspended: 'bg-red-100 text-red-800 hover:bg-red-100',
 };
 
 interface StatusBadgeProps {
@@ -35,7 +41,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
       variant="outline"
       className={cn('capitalize border-transparent', colorClass, className)}
     >
-      {status}
+      {status.replace(/_/g, ' ')}
     </Badge>
   );
 }
