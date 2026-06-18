@@ -4,7 +4,8 @@ import {
   Wifi, 
   Ticket, 
   UserCircle,
-  LogOut
+  LogOut,
+  Receipt
 } from 'lucide-react';
 import { useAuthContext } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
@@ -20,6 +21,7 @@ const navItems: NavItem[] = [
   { icon: Home, label: 'Home', href: '/customer/dashboard' },
   { icon: Wifi, label: 'Buy WiFi', href: '/customer/buy' },
   { icon: Ticket, label: 'Vouchers', href: '/customer/vouchers' },
+  { icon: Receipt, label: 'Invoices', href: '/customer/invoices' },
   { icon: UserCircle, label: 'Profile', href: '/customer/profile' },
 ];
 

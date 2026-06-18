@@ -9,7 +9,8 @@ import {
   LogOut,
   Menu,
   Wifi,
-  Repeat
+  Repeat,
+  Receipt
 } from 'lucide-react';
 import { useAuthContext } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
@@ -29,6 +30,7 @@ const sidebarItems: SidebarItem[] = [
   { icon: Package, label: 'Packages', href: '/admin/packages' },
   { icon: CreditCard, label: 'Payments', href: '/admin/payments' },
   { icon: Ticket, label: 'Vouchers', href: '/admin/vouchers' },
+  { icon: Receipt, label: 'Invoices', href: '/admin/invoices' },
   { icon: Activity, label: 'Sessions', href: '/admin/sessions' },
   { icon: Wifi, label: 'Routers', href: '/admin/routers' },
   { icon: Repeat, label: 'Subscriptions', href: '/admin/subscriptions' },

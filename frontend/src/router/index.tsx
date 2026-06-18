@@ -20,6 +20,7 @@ import AdminVouchers from '../pages/admin/VouchersPage';
 import AdminSessions from '../pages/admin/SessionsPage';
 import AdminRouters from '../pages/admin/RoutersPage';
 import AdminSubscriptions from '../pages/admin/SubscriptionsPage';
+import AdminInvoices from '../pages/admin/InvoicesPage';
 
 import ResellerDashboard from '../pages/reseller/ResellerDashboard';
 import ResellerCustomers from '../pages/reseller/MyCustomersPage';
@@ -31,6 +32,7 @@ import CustomerDashboard from '../pages/customer/DashboardPage';
 import CustomerBuyPackage from '../pages/customer/BuyPackagePage';
 import CustomerPaymentStatus from '../pages/customer/PaymentStatusPage';
 import CustomerVouchers from '../pages/customer/VouchersPage';
+import CustomerInvoices from '../pages/customer/InvoicesPage';
 import CustomerProfile from '../pages/customer/ProfilePage';
 
 // Inline fallback 404 page
@@ -70,6 +72,7 @@ export const router = createBrowserRouter([
           { path: 'sessions', element: <AdminSessions /> },
           { path: 'routers', element: <AdminRouters /> },
           { path: 'subscriptions', element: <AdminSubscriptions /> },
+          { path: 'invoices', element: <AdminInvoices /> },
         ]
       }
     ]
@@ -103,6 +106,7 @@ export const router = createBrowserRouter([
           { path: 'buy', element: <CustomerBuyPackage /> },
           { path: 'status/:id', element: <CustomerPaymentStatus /> },
           { path: 'vouchers', element: <CustomerVouchers /> },
+          { path: 'invoices', element: <CustomerInvoices /> },
           { path: 'profile', element: <CustomerProfile /> },
         ]
       }
