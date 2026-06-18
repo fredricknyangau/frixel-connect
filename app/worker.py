@@ -244,6 +244,101 @@ async def pppoe_billing_cron(ctx) -> None:
             logger.error("PPPoE billing check failed", error=str(e), exc_info=True)
 
 
+async def tenant_billing_cron(ctx) -> None:
+    """
+    Daily cron running at midnight to process ZealSync's own platform billing.
+    - Meters active customers vs max_customers.
+    - Sends Daraja STK Push to tenant owner for their platform fee if next_billing_date is due.
+    - Suspends tenants whose next_billing_date is past the 7-day grace period.
+    """
+    pool = ctx["db_pool"]
+    clear_contextvars()
+    bind_contextvars(cron="tenant_billing_cron")
+    logger.info("running tenant metering and billing check...")
+
+    from app.integrations.daraja import daraja_client
+    
+    TIER_PRICING = {
+        "starter": 1000,
+        "growth": 5000,
+        "scale": 15000,
+        "enterprise": 50000,
+    }
+
+    async with pool.acquire() as conn:
+        try:
+            tenants = await conn.fetch("SELECT id, business_name, owner_phone, subscription_tier, max_customers, status, next_billing_date FROM tenants")
+            
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+            
+            for t in tenants:
+                tenant_id = t["id"]
+                
+                # 1. Metering
+                active_customers_count = await conn.fetchval(
+                    "SELECT COUNT(*) FROM users WHERE tenant_id = $1 AND role = 'customer' AND is_active = TRUE",
+                    tenant_id
+                )
+                if active_customers_count > t["max_customers"]:
+                    logger.warning(
+                        "tenant exceeded max_customers limit",
+                        tenant_id=str(tenant_id),
+                        business_name=t["business_name"],
+                        active_customers=active_customers_count,
+                        max_customers=t["max_customers"],
+                        subscription_tier=t["subscription_tier"]
+                    )
+            
+                # 2. Billing & Suspension
+                if t["status"] != "active":
+                    continue
+                
+                next_billing_date = t["next_billing_date"]
+                days_overdue = (now - next_billing_date).days
+                
+                if next_billing_date <= now:
+                    if days_overdue > 7:
+                        # Suspend
+                        logger.warning("suspending tenant due to non-payment past grace period", tenant_id=str(tenant_id))
+                        await conn.execute("UPDATE tenants SET status = 'suspended', updated_at = NOW() WHERE id = $1", tenant_id)
+                    else:
+                        # Bill
+                        recent_push = await conn.fetchval(
+                            """
+                            SELECT COUNT(*) FROM platform_payments 
+                            WHERE tenant_id = $1 
+                              AND created_at > NOW() - INTERVAL '24 hours'
+                              AND status IN ('pending', 'confirmed')
+                            """, tenant_id
+                        )
+                        if recent_push == 0:
+                            amount = TIER_PRICING.get(t["subscription_tier"], 1000)
+                            phone = t["owner_phone"]
+                            logger.info("initiating STK push for platform fee", tenant_id=str(tenant_id), amount=amount, phone=phone)
+                            try:
+                                result = await daraja_client.stk_push(
+                                    phone=phone,
+                                    amount=amount,
+                                    account_reference=f"ZEALSYNC",
+                                    description="ZealSync Platform"
+                                )
+                                await conn.execute(
+                                    """
+                                    INSERT INTO platform_payments (tenant_id, amount_kes, mpesa_checkout_id, phone_number, status)
+                                    VALUES ($1, $2, $3, $4, 'pending')
+                                    """,
+                                    tenant_id, amount, result["CheckoutRequestID"], phone
+                                )
+                            except Exception as e:
+                                logger.error("failed to initiate Daraja STK push for platform fee", tenant_id=str(tenant_id), error=str(e))
+
+            logger.info("tenant billing check completed")
+        except Exception as e:
+            logger.error("tenant billing check failed", error=str(e), exc_info=True)
+
+
+
 
 async def on_startup(ctx):
     """arq lifecycle hook triggered on worker container startup."""
@@ -280,5 +375,6 @@ class WorkerSettings:
         cron(reconcile_payments_cron, minute=set(range(0, 60, 5))),
         cron(sync_radius_sessions_cron, second=set(range(0, 60, 10))),
         cron(pppoe_billing_cron, hour={0}, minute={0}),  # Run at midnight
+        cron(tenant_billing_cron, hour={0}, minute={0}),  # Run at midnight
     ]
 

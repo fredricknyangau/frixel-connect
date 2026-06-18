@@ -106,7 +106,7 @@ def require_role(*allowed_roles: str):
 
     The returned dict is the same as get_current_user — it includes tenant_id.
     """
-    async def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
+    async def role_checker(current_user: dict = Depends(require_active_tenant)) -> dict:
         # Role check
         if current_user["role"] not in allowed_roles:
             raise ForbiddenException(

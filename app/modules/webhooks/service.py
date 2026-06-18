@@ -58,10 +58,18 @@ async def process_daraja_webhook(
         "SELECT id, status, tenant_id FROM payments WHERE mpesa_checkout_id = $1",
         checkout_id,
     )
+    is_platform_payment = False
 
     if not payment:
-        logger.warning("no payment found for CheckoutRequestID", checkout_id=checkout_id)
-        return {"ResultCode": 0, "ResultDesc": "Accepted"}
+        payment = await conn.fetchrow(
+            "SELECT id, status, tenant_id FROM platform_payments WHERE mpesa_checkout_id = $1",
+            checkout_id,
+        )
+        if payment:
+            is_platform_payment = True
+        else:
+            logger.warning("no payment found for CheckoutRequestID", checkout_id=checkout_id)
+            return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
     payment_id    = payment["id"]
     current_status = payment["status"]
@@ -97,17 +105,42 @@ async def process_daraja_webhook(
 
         try:
             async with conn.transaction():
-                await conn.execute(
-                    """
-                    UPDATE payments
-                    SET status = 'confirmed',
-                        mpesa_receipt_number = $1,
-                        updated_at = NOW()
-                    WHERE id = $2
-                    """,
-                    receipt_number,
-                    payment_id,
-                )
+                if is_platform_payment:
+                    await conn.execute(
+                        """
+                        UPDATE platform_payments
+                        SET status = 'confirmed',
+                            mpesa_receipt_number = $1,
+                            updated_at = NOW()
+                        WHERE id = $2
+                        """,
+                        receipt_number,
+                        payment_id,
+                    )
+                    # Extend billing date and restore access if suspended
+                    await conn.execute(
+                        """
+                        UPDATE tenants 
+                        SET next_billing_date = next_billing_date + INTERVAL '1 month',
+                            status = 'active',
+                            updated_at = NOW()
+                        WHERE id = $1
+                        """,
+                        payment["tenant_id"]
+                    )
+                    logger.info("platform fee confirmed, tenant reinstated/extended", tenant_id=str(payment["tenant_id"]))
+                else:
+                    await conn.execute(
+                        """
+                        UPDATE payments
+                        SET status = 'confirmed',
+                            mpesa_receipt_number = $1,
+                            updated_at = NOW()
+                        WHERE id = $2
+                        """,
+                        receipt_number,
+                        payment_id,
+                    )
 
         except asyncpg.exceptions.UniqueViolationError:
             # Duplicate webhook — receipt number already recorded.
@@ -119,12 +152,12 @@ async def process_daraja_webhook(
             return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
         # Enqueue voucher generation task to the durable arq/Redis queue
-        redis = get_redis_pool()
-        request_id = get_contextvars().get("request_id")
-        await redis.enqueue_job("generate_voucher_task", str(payment_id), _request_id=request_id)
-        logger.info("voucher generation job enqueued to Redis", payment_id=payment_id)
+        if not is_platform_payment:
+            redis = get_redis_pool()
+            request_id = get_contextvars().get("request_id")
+            await redis.enqueue_job("generate_voucher_task", str(payment_id), _request_id=request_id)
+            logger.info("voucher generation job enqueued to Redis", payment_id=payment_id)
 
-    # ── Failed / cancelled payment ────────────────────────────────────────────
     else:
         logger.warning(
             "STK push failed",
@@ -132,9 +165,10 @@ async def process_daraja_webhook(
             result_code=result_code,
             reason=result_desc
         )
+        table = "platform_payments" if is_platform_payment else "payments"
         await conn.execute(
-            """
-            UPDATE payments
+            f"""
+            UPDATE {table}
             SET status = 'failed',
                 failure_reason = $1,
                 updated_at = NOW()
