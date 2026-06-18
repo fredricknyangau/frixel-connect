@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /signup
+Disallow: /admin/
+Disallow: /customer/
+Disallow: /reseller/
+Disallow: /status/
+
+Sitemap: https://zealsync.com/sitemap.xml
