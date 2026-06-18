@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, CheckCircle2, XCircle, ArrowLeft, Ticket } from 'lucide-react';
+import { CheckCircle2, XCircle, ArrowLeft, Ticket } from 'lucide-react';
 
 import { usePaymentStatus } from '../../hooks/usePayments';
 import { PageTitle } from '../../components/shared/PageTitle';

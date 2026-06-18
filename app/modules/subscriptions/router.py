@@ -19,7 +19,7 @@ router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 async def get_proration(
     subscription_id: UUID,
     new_package_id: UUID,
-    current_user: dict = Depends(require_role(["admin", "reseller"]))
+    current_user: dict = Depends(require_role("admin", "reseller"))
 ):
     """
     Calculates proration if a customer upgrades/downgrades their package mid-period.
@@ -35,7 +35,7 @@ async def get_proration(
 @router.get("/{subscription_id}", response_model=schemas.SubscriptionResponse)
 async def get_subscription(
     subscription_id: UUID,
-    current_user: dict = Depends(require_role(["admin", "reseller"]))
+    current_user: dict = Depends(require_role("admin", "reseller"))
 ):
     """
     Gets a specific subscription.
@@ -43,3 +43,35 @@ async def get_subscription(
     async with get_db() as conn:
         sub = await service.get_subscription(conn, current_user["tenant_id"], subscription_id)
         return schemas.SubscriptionResponse.model_validate(sub)
+
+admin_router = APIRouter(prefix="/admin/subscriptions", tags=["Admin Subscriptions"])
+
+@admin_router.get("")
+async def list_subscriptions_admin(
+    status: str = None,
+    current_user: dict = Depends(require_role("admin", "reseller"))
+):
+    """List all subscriptions for the tenant, optionally filtered by status."""
+    async with get_db() as conn:
+        subs = await service.list_subscriptions_admin(conn, current_user["tenant_id"], status)
+        return subs
+
+@admin_router.post("/{subscription_id}/suspend")
+async def suspend_subscription(
+    subscription_id: UUID,
+    current_user: dict = Depends(require_role("admin", "reseller"))
+):
+    """Suspend a subscription."""
+    async with get_db() as conn:
+        await service.update_subscription_status(conn, current_user["tenant_id"], subscription_id, "suspended")
+        return {"status": "success", "message": "Subscription suspended."}
+
+@admin_router.post("/{subscription_id}/reactivate")
+async def reactivate_subscription(
+    subscription_id: UUID,
+    current_user: dict = Depends(require_role("admin", "reseller"))
+):
+    """Reactivate a suspended subscription."""
+    async with get_db() as conn:
+        await service.update_subscription_status(conn, current_user["tenant_id"], subscription_id, "active")
+        return {"status": "success", "message": "Subscription reactivated."}

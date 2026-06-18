@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Subscription, SubscriptionStatus } from '../types/subscriptions';
+import { Subscription } from '../types/subscriptions';
 import { AxiosError } from 'axios';
 
 export const useMySubscription = () => {

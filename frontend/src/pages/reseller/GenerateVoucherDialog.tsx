@@ -261,7 +261,7 @@ export default function GenerateVoucherDialog({
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>2. Select Package</Label>
-              <Select value={selectedPackageId} onValueChange={setSelectedPackageId}>
+              <Select value={selectedPackageId} onValueChange={(v) => { if(v) setSelectedPackageId(v); }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Choose a plan" />
                 </SelectTrigger>
@@ -352,7 +352,7 @@ export default function GenerateVoucherDialog({
             </Button>
           </div>
         )}
-      </Dialog>
+      </DialogContent>
     </Dialog>
   );
 }

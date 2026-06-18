@@ -175,3 +175,61 @@ async def process_renewal_payment(
             """,
             tenant_id, customer_id, package_id, new_end
         )
+
+async def list_subscriptions_admin(conn: asyncpg.Connection, tenant_id: UUID, status: Optional[str] = None) -> list[dict]:
+    query = """
+        SELECT 
+            s.*,
+            p.name as package_name,
+            u.id as customer_id,
+            u.email as customer_email,
+            u.phone as customer_phone
+        FROM subscriptions s
+        JOIN packages p ON s.package_id = p.id
+        JOIN users u ON s.customer_id = u.id
+        WHERE s.tenant_id = $1
+    """
+    args = [tenant_id]
+    if status:
+        query += " AND s.status = $2"
+        args.append(status)
+    query += " ORDER BY s.created_at DESC"
+    
+    rows = await conn.fetch(query, *args)
+    results = []
+    for row in rows:
+        d = dict(row)
+        d["customer"] = {
+            "id": str(d.pop("customer_id")),
+            "email": d.pop("customer_email"),
+            "phone": d.pop("customer_phone")
+        }
+        results.append(d)
+    return results
+
+async def update_subscription_status(conn: asyncpg.Connection, tenant_id: UUID, subscription_id: UUID, new_status: str) -> None:
+    # Verify exists
+    sub = await get_subscription(conn, tenant_id, subscription_id)
+    
+    await conn.execute(
+        "UPDATE subscriptions SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3",
+        new_status, subscription_id, tenant_id
+    )
+    
+    # If suspending or reactivating, update MikroTik
+    from app.integrations.mikrotik import get_mikrotik_client
+    
+    user_row = await conn.fetchrow("SELECT router_id, phone FROM users WHERE id = $1", sub["customer_id"])
+    if user_row and user_row["router_id"]:
+        router_row = await conn.fetchrow(
+            "SELECT host, port, username, password_encrypted FROM routers WHERE id = $1 AND tenant_id = $2",
+            user_row["router_id"], tenant_id
+        )
+        if router_row:
+            client = get_mikrotik_client(dict(router_row))
+            if new_status == "suspended":
+                await client.disable_ppp_secret(user_row["phone"])
+                logger.info(f"Subscription: Disabled PPPoE secret for customer {user_row['phone']}")
+            elif new_status == "active":
+                await client.enable_ppp_secret(user_row["phone"])
+                logger.info(f"Subscription: Enabled PPPoE secret for customer {user_row['phone']}")

@@ -3,7 +3,7 @@ import { PageTitle } from '../../components/shared/PageTitle';
 import { formatKES, formatNairobiDate } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../components/ui/card';
-import { Loader2, Receipt, Download } from 'lucide-react';
+import { Receipt, Download } from 'lucide-react';
 
 export default function CustomerInvoicesPage() {
   const { data: invoices, isLoading } = useMyInvoices();
@@ -53,10 +53,8 @@ export default function CustomerInvoicesPage() {
                 </div>
               </CardContent>
               <CardFooter className="pt-3 border-t">
-                <Button variant="outline" className="w-full" asChild>
-                  <a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer" download>
-                    <Download className="mr-2 h-4 w-4" /> Download Receipt
-                  </a>
+                <Button variant="outline" className="w-full" render={<a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer" download />}>
+                  <Download className="mr-2 h-4 w-4" /> Download Receipt
                 </Button>
               </CardFooter>
             </Card>

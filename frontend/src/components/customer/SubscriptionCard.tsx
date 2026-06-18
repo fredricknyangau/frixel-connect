@@ -1,7 +1,7 @@
 import { useMySubscription, useToggleAutoRenew } from '../../hooks/useSubscriptions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../ui/card';
 import { StatusBadge } from '../shared/StatusBadge';
-import { Switch } from '../ui/switch';
+// Removed missing Switch import
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
@@ -90,10 +90,12 @@ export default function SubscriptionCard() {
             <Label htmlFor="auto-renew" className="text-base">Auto-Renew</Label>
             <p className="text-sm text-muted-foreground">Automatically bill my next cycle</p>
           </div>
-          <Switch 
-            id="auto-renew" 
+          <input
+            type="checkbox"
+            id="auto-renew"
+            className="h-5 w-5 accent-primary rounded cursor-pointer"
             checked={subscription.auto_renew} 
-            onCheckedChange={handleToggleAutoRenew}
+            onChange={(e) => handleToggleAutoRenew(e.target.checked)}
             disabled={toggleAutoRenew.isPending || subscription.status === 'suspended'}
           />
         </div>

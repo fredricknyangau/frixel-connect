@@ -59,7 +59,7 @@ export default function AuditLogPage() {
         <CardContent>
           <div className="flex justify-between items-center mb-4">
             <div className="w-full md:w-64">
-              <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(0); }}>
+              <Select value={actionFilter} onValueChange={(v) => { if (v) { setActionFilter(v); setPage(0); } }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filter by action" />
                 </SelectTrigger>
@@ -136,8 +136,8 @@ export default function AuditLogPage() {
                           }
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium text-sm">{entry.actor_email}</div>
-                          <div className="text-xs text-muted-foreground font-mono">{entry.actor_user_id.substring(0, 8)}...</div>
+                          <div className="font-medium text-sm">{entry.actor?.email || (entry as any).actor_email || 'System'}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{entry.actor_user_id ? entry.actor_user_id.substring(0, 8) + '...' : 'System'}</div>
                         </TableCell>
                         <TableCell>
                           <span className="px-2 py-1 bg-muted rounded text-xs font-mono font-semibold">
@@ -146,7 +146,7 @@ export default function AuditLogPage() {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">{entry.target_type}</div>
-                          <div className="text-xs text-muted-foreground font-mono">{entry.target_id.substring(0, 8)}...</div>
+                          <div className="text-xs text-muted-foreground font-mono">{entry.target_id ? entry.target_id.substring(0, 8) + '...' : 'N/A'}</div>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                           {formatNairobiDate(entry.created_at)}

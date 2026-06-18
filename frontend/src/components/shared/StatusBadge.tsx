@@ -41,7 +41,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
       variant="outline"
       className={cn('capitalize border-transparent', colorClass, className)}
     >
-      {status.replace(/_/g, ' ')}
+      {(status || 'unknown').replace(/_/g, ' ')}
     </Badge>
   );
 }

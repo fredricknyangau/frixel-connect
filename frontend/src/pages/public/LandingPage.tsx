@@ -32,15 +32,11 @@ export default function LandingPage() {
           </p>
           
           <div className="mt-10 flex flex-col sm:flex-row items-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
-            <Button size="lg" className="h-14 px-8 rounded-full text-base shadow-xl shadow-primary/25 transition-transform hover:-translate-y-1" asChild>
-              <Link to="/signup">
-                Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
+            <Button size="lg" className="h-14 px-8 rounded-full text-base shadow-xl shadow-primary/25 transition-transform hover:-translate-y-1" render={<Link to="/signup" />}>
+              Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
-            <Button size="lg" variant="outline" className="h-14 px-8 rounded-full text-base bg-background/50 backdrop-blur-sm" asChild>
-              <a href="https://wa.me/254700000000" target="_blank" rel="noopener noreferrer">
-                Chat on WhatsApp
-              </a>
+            <Button size="lg" variant="outline" className="h-14 px-8 rounded-full text-base bg-background/50 backdrop-blur-sm" render={<a href="https://wa.me/254700000000" target="_blank" rel="noopener noreferrer" />}>
+              Chat on WhatsApp
             </Button>
           </div>
           
@@ -179,8 +175,8 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Button variant="outline" className="w-full rounded-full h-12" asChild>
-                <Link to="/signup?tier=starter">Start Free Trial</Link>
+              <Button variant="outline" className="w-full rounded-full h-12" render={<Link to="/signup?tier=starter" />}>
+                Start Free Trial
               </Button>
             </div>
 
@@ -202,8 +198,8 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Button className="w-full rounded-full h-12 shadow-lg shadow-primary/25" asChild>
-                <Link to="/signup?tier=pro">Start Free Trial</Link>
+              <Button className="w-full rounded-full h-12 shadow-lg shadow-primary/25" render={<Link to="/signup?tier=pro" />}>
+                Start Free Trial
               </Button>
             </div>
 
@@ -222,8 +218,8 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Button variant="outline" className="w-full rounded-full h-12" asChild>
-                <Link to="/signup?tier=scale">Start Free Trial</Link>
+              <Button variant="outline" className="w-full rounded-full h-12" render={<Link to="/signup?tier=scale" />}>
+                Start Free Trial
               </Button>
             </div>
           </div>
@@ -240,8 +236,8 @@ export default function LandingPage() {
           <p className="text-primary-foreground/80 text-lg mb-10 max-w-2xl mx-auto">
             Join hundreds of ISPs who have already made the switch. Create your tenant account today and go live in minutes.
           </p>
-          <Button size="lg" variant="secondary" className="h-14 px-10 rounded-full text-lg font-bold text-primary hover:bg-white shadow-xl transition-transform hover:scale-105" asChild>
-            <Link to="/signup">Create Free Account</Link>
+          <Button size="lg" variant="secondary" className="h-14 px-10 rounded-full text-lg font-bold text-primary hover:bg-white shadow-xl transition-transform hover:scale-105" render={<Link to="/signup" />}>
+            Create Free Account
           </Button>
         </div>
       </section>

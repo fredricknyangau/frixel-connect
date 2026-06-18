@@ -109,10 +109,8 @@ export default function InvoicesPage() {
                 </div>
               </div>
               
-              <Button asChild className="w-full">
-                <a href={selectedInvoice.pdf_url} target="_blank" rel="noopener noreferrer" download>
-                  <Download className="mr-2 h-4 w-4" /> Download PDF
-                </a>
+              <Button render={<a href={selectedInvoice.pdf_url} target="_blank" rel="noopener noreferrer" download />} className="w-full">
+                <Download className="mr-2 h-4 w-4" /> Download PDF
               </Button>
             </div>
           )}
