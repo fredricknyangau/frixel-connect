@@ -12,9 +12,18 @@ from app.config import settings
 from app.database import create_pool, close_pool
 from app.core.redis import init_redis, close_redis
 
-# Set up logging for main app module
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+import structlog
+import uuid
+from structlog.contextvars import bind_contextvars, clear_contextvars
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from fastapi import Response
+
+from app.core.logging import setup_logging
+from app.core.metrics import http_requests_total, http_request_duration_seconds
+
+# Set up structured logging based on environment
+setup_logging(json_logs=settings.APP_ENV == "production")
+logger = structlog.get_logger(__name__)
 
 # Module routers — imported here, registered below
 from app.modules.auth.router     import router as auth_router
@@ -81,16 +90,46 @@ app.add_middleware(
 )
 
 
-# ── Request Logging Middleware ────────────────────────────────────────────────
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
+async def observe_requests(request: Request, call_next):
+    clear_contextvars()
+    request_id = request.headers.get("X-Request-Id", str(uuid.uuid4()))
+    bind_contextvars(request_id=request_id)
+    
+    # Optional: we can bind tenant_id later in the request lifecycle if auth extracts it,
+    # but request_id is always available from the start.
+
     start_time = time.perf_counter()
-    response = await call_next(request)
-    process_time = (time.perf_counter() - start_time) * 1000
-    logger.info(
-        f"{request.method} {request.url.path} {response.status_code} {process_time:.0f}ms"
-    )
-    return response
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        response.headers["X-Request-Id"] = request_id
+        return response
+    finally:
+        process_time = time.perf_counter() - start_time
+        
+        # Log structured format
+        logger.info(
+            "http_request",
+            method=request.method,
+            path=request.url.path,
+            status=status_code,
+            duration_ms=round(process_time * 1000, 2)
+        )
+        
+        # Metrics (group paths to avoid high cardinality in a real system, but raw path is fine for MLP)
+        http_requests_total.labels(
+            method=request.method,
+            path=request.url.path,
+            status_code=status_code
+        ).inc()
+        
+        http_request_duration_seconds.labels(
+            method=request.method,
+            path=request.url.path
+        ).observe(process_time)
 
 
 # ── Global Exception Handler ──────────────────────────────────────────────────
@@ -140,3 +179,10 @@ async def health_check():
         "environment": settings.APP_ENV,
         "version": "2.0.0",
     }
+
+
+# ── Metrics ───────────────────────────────────────────────────────────────────
+@app.get("/metrics", tags=["Observability"])
+async def get_metrics():
+    """Exposes Prometheus metrics for scraping."""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

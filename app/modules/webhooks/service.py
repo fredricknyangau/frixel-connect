@@ -11,12 +11,13 @@ MULTI-TENANCY NOTE:
   so the webhook implicitly operates in the correct tenant context.
 """
 
-import logging
+import structlog
 import asyncpg
+from structlog.contextvars import get_contextvars
 
 from app.core.redis import get_redis_pool
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 async def process_daraja_webhook(
@@ -40,7 +41,7 @@ async def process_daraja_webhook(
       6. Always return {"ResultCode": 0, "ResultDesc": "Accepted"} so
          Safaricom stops retrying.
     """
-    logger.info(f"Webhooks: received Daraja callback: {body}")
+    logger.info("received Daraja callback", body=body)
 
     stk_callback = body.get("Body", {}).get("stkCallback", {})
     checkout_id  = stk_callback.get("CheckoutRequestID")
@@ -48,7 +49,7 @@ async def process_daraja_webhook(
     result_desc  = stk_callback.get("ResultDesc", "No description provided.")
 
     if not checkout_id:
-        logger.error("Webhooks: callback missing CheckoutRequestID.")
+        logger.error("callback missing CheckoutRequestID")
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
     # Look up payment by checkout_id (no tenant filter — we find the record
@@ -59,7 +60,7 @@ async def process_daraja_webhook(
     )
 
     if not payment:
-        logger.warning(f"Webhooks: no payment found for CheckoutRequestID '{checkout_id}'.")
+        logger.warning("no payment found for CheckoutRequestID", checkout_id=checkout_id)
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
     payment_id    = payment["id"]
@@ -68,8 +69,9 @@ async def process_daraja_webhook(
     # Already processed — idempotent skip
     if current_status != "pending":
         logger.info(
-            f"Webhooks: payment {payment_id} already has status '{current_status}'. "
-            f"Skipping (idempotent)."
+            "payment already processed, skipping",
+            payment_id=payment_id,
+            current_status=current_status
         )
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
@@ -82,12 +84,15 @@ async def process_daraja_webhook(
         phone_number   = metadata.get("PhoneNumber")
 
         if not receipt_number:
-            logger.error(f"Webhooks: checkout '{checkout_id}' success but no receipt number.")
+            logger.error("checkout success but no receipt number", checkout_id=checkout_id)
             return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
         logger.info(
-            f"Webhooks: payment {payment_id} confirmed. "
-            f"Receipt={receipt_number}, Phone={phone_number}, Amount={metadata.get('Amount')}"
+            "payment confirmed",
+            payment_id=payment_id,
+            receipt_number=receipt_number,
+            phone_number=phone_number,
+            amount=metadata.get('Amount')
         )
 
         try:
@@ -107,21 +112,25 @@ async def process_daraja_webhook(
         except asyncpg.exceptions.UniqueViolationError:
             # Duplicate webhook — receipt number already recorded.
             logger.warning(
-                f"Webhooks: UniqueViolation for receipt '{receipt_number}' "
-                f"(payment {payment_id}). Duplicate webhook absorbed."
+                "UniqueViolation for receipt, duplicate webhook absorbed",
+                receipt_number=receipt_number,
+                payment_id=payment_id
             )
             return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
         # Enqueue voucher generation task to the durable arq/Redis queue
         redis = get_redis_pool()
-        await redis.enqueue_job("generate_voucher_task", str(payment_id))
-        logger.info(f"Webhooks: voucher generation job enqueued to Redis for payment {payment_id}")
+        request_id = get_contextvars().get("request_id")
+        await redis.enqueue_job("generate_voucher_task", str(payment_id), _request_id=request_id)
+        logger.info("voucher generation job enqueued to Redis", payment_id=payment_id)
 
     # ── Failed / cancelled payment ────────────────────────────────────────────
     else:
         logger.warning(
-            f"Webhooks: STK push failed for payment {payment_id}. "
-            f"ResultCode={result_code}, Reason={result_desc}"
+            "STK push failed",
+            payment_id=payment_id,
+            result_code=result_code,
+            reason=result_desc
         )
         await conn.execute(
             """
@@ -150,7 +159,7 @@ async def process_daraja_c2b_webhook(
     2. Confirmation: Topups the matched reseller's wallet, using TransID as
        the unique reference for idempotency.
     """
-    logger.info(f"Webhooks: received Daraja C2B payload: {body}")
+    logger.info("received Daraja C2B payload", body=body)
 
     trans_type = body.get("TransactionType")
     bill_ref = body.get("BillRefNumber")
@@ -158,7 +167,7 @@ async def process_daraja_c2b_webhook(
     trans_amount = body.get("TransAmount")
 
     if not bill_ref:
-        logger.warning("Webhooks: C2B webhook missing BillRefNumber.")
+        logger.warning("C2B webhook missing BillRefNumber")
         return {"ResultCode": 1, "ResultDesc": "Missing BillRefNumber"}
 
     # Clean the wallet reference (strip whitespaces, uppercase)
@@ -171,17 +180,17 @@ async def process_daraja_c2b_webhook(
     )
 
     if not reseller:
-        logger.warning(f"Webhooks: C2B validation failed for reference '{bill_ref}': no reseller found.")
+        logger.warning("C2B validation failed: no reseller found", bill_ref=bill_ref)
         return {"ResultCode": 1, "ResultDesc": "Invalid wallet reference"}
 
     # Handle Validation request
     if trans_type == "Pay Bill Validation":
-        logger.info(f"Webhooks: C2B validation succeeded for reference '{bill_ref}'")
+        logger.info("C2B validation succeeded", bill_ref=bill_ref)
         return {"ResultCode": 0, "ResultDesc": "Service completed successfully"}
 
     # Handle Confirmation request
     if not trans_id or not trans_amount:
-        logger.warning("Webhooks: C2B confirmation payload missing TransID or TransAmount.")
+        logger.warning("C2B confirmation payload missing TransID or TransAmount")
         return {"ResultCode": 0, "ResultDesc": "Service completed successfully"}
 
     from decimal import Decimal
@@ -194,12 +203,12 @@ async def process_daraja_c2b_webhook(
     try:
         async with conn.transaction():
             await topup_wallet(conn, tenant_id, reseller_id, amount, trans_id)
-        logger.info(f"Webhooks: successfully topped up reseller {reseller_id} with KES {amount} (reference: {trans_id})")
+        logger.info("successfully topped up reseller", reseller_id=reseller_id, amount=str(amount), reference=trans_id)
     except asyncpg.exceptions.UniqueViolationError:
         # A duplicate webhook confirmation delivery — absorb idempotently
-        logger.warning(f"Webhooks: C2B duplicate transaction detected for TransID '{trans_id}'. Webhook absorbed.")
+        logger.warning("C2B duplicate transaction detected", trans_id=trans_id)
     except Exception as e:
-        logger.error(f"Webhooks: failed to process C2B confirmation for TransID '{trans_id}': {e}", exc_info=True)
+        logger.error("failed to process C2B confirmation", trans_id=trans_id, error=str(e), exc_info=True)
         # We still return ResultCode 0 to satisfy Safaricom's webhook acknowledgment
         return {"ResultCode": 0, "ResultDesc": "Service completed successfully"}
 

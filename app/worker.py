@@ -15,12 +15,16 @@ from app.config import settings
 from app.modules.vouchers.service import generate_voucher
 from app.modules.invoices.service import generate_invoice_for_payment
 
+import structlog
+from structlog.contextvars import bind_contextvars, clear_contextvars
+from app.core.logging import setup_logging
+
 # Configure logging for worker process
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+setup_logging(json_logs=settings.APP_ENV == "production")
+logger = structlog.get_logger(__name__)
 
 
-async def generate_voucher_task(ctx, payment_id: str) -> str:
+async def generate_voucher_task(ctx, payment_id: str, _request_id: str = None) -> str:
     """
     Durable background task to generate a voucher for a confirmed payment.
     Also generates an invoice for the payment.
@@ -36,9 +40,15 @@ async def generate_voucher_task(ctx, payment_id: str) -> str:
     delays = [5, 15, 45]
     is_final_attempt = (job_try >= max_tries)
 
+    clear_contextvars()
+    if _request_id:
+        bind_contextvars(request_id=_request_id)
+    bind_contextvars(payment_id=payment_id)
+
     logger.info(
-        f"Worker: processing generate_voucher_task for payment '{payment_id}' "
-        f"(attempt {job_try}/{max_tries})"
+        "processing generate_voucher_task",
+        job_try=job_try,
+        max_tries=max_tries
     )
 
     pool = ctx["db_pool"]
@@ -47,8 +57,8 @@ async def generate_voucher_task(ctx, payment_id: str) -> str:
             # We call generate_voucher. If it fails, it bubbles up.
             code = await generate_voucher(conn, payment_id, is_final_attempt=is_final_attempt)
             logger.info(
-                f"Worker: generate_voucher_task succeeded for payment '{payment_id}' "
-                f"-> voucher '{code}'"
+                "generate_voucher_task succeeded",
+                voucher_code=code
             )
             
             # Generate invoice for the payment
@@ -56,21 +66,24 @@ async def generate_voucher_task(ctx, payment_id: str) -> str:
                 await generate_invoice_for_payment(conn, payment_id)
             except Exception as e:
                 # Invoice generation failure shouldn't fail the voucher, but log it
-                logger.error(f"Worker: invoice generation failed for payment '{payment_id}': {e}", exc_info=True)
+                logger.error("invoice generation failed", error=str(e), exc_info=True)
                 
             return code
         except Exception as e:
             if is_final_attempt:
                 logger.error(
-                    f"Worker: final attempt {job_try} failed for payment '{payment_id}'. "
-                    f"Voucher marked as pending_provision: {e}"
+                    "final attempt failed, voucher pending_provision",
+                    job_try=job_try,
+                    error=str(e)
                 )
                 raise e
             else:
                 delay = delays[job_try - 1]
                 logger.warning(
-                    f"Worker: attempt {job_try} failed for payment '{payment_id}'. "
-                    f"Retrying in {delay}s: {e}"
+                    "attempt failed, retrying",
+                    job_try=job_try,
+                    delay_seconds=delay,
+                    error=str(e)
                 )
                 raise Retry(defer=delay)
 
@@ -84,7 +97,9 @@ async def reconcile_payments_cron(ctx) -> None:
     pool = ctx["db_pool"]
     redis = ctx["redis"]
 
-    logger.info("Cron: running payments reconciliation check...")
+    clear_contextvars()
+    bind_contextvars(cron="reconcile_payments_cron")
+    logger.info("running payments reconciliation check...")
 
     async with pool.acquire() as conn:
         stuck_payments = await conn.fetch(
@@ -100,15 +115,16 @@ async def reconcile_payments_cron(ctx) -> None:
 
         if stuck_payments:
             logger.info(
-                f"Cron: found {len(stuck_payments)} confirmed payments without vouchers. "
-                "Re-enqueueing provisioning tasks..."
+                "found confirmed payments without vouchers. Re-enqueueing provisioning tasks...",
+                count=len(stuck_payments)
             )
             for p in stuck_payments:
                 payment_id = str(p["id"])
+                # We do not pass _request_id from cron since it's an internal background event
                 await redis.enqueue_job("generate_voucher_task", payment_id)
-                logger.info(f"Cron: re-enqueued generate_voucher_task for payment '{payment_id}'")
+                logger.info("re-enqueued generate_voucher_task", payment_id=payment_id)
         else:
-            logger.info("Cron: no stuck payments found.")
+            logger.info("no stuck payments found")
 
 
 async def sync_radius_sessions_cron(ctx) -> None:
@@ -118,7 +134,9 @@ async def sync_radius_sessions_cron(ctx) -> None:
     into our local sessions table.
     """
     pool = ctx["db_pool"]
-    logger.info("Cron: running RADIUS sessions synchronization...")
+    clear_contextvars()
+    bind_contextvars(cron="sync_radius_sessions_cron")
+    logger.info("running RADIUS sessions synchronization...")
 
     async with pool.acquire() as conn:
         try:
@@ -152,9 +170,9 @@ async def sync_radius_sessions_cron(ctx) -> None:
                     mac_address = EXCLUDED.mac_address
                 """
             )
-            logger.info(f"Cron: RADIUS session sync completed: {result}")
+            logger.info("RADIUS session sync completed", result=result)
         except Exception as e:
-            logger.error(f"Cron: RADIUS session sync failed: {e}", exc_info=True)
+            logger.error("RADIUS session sync failed", error=str(e), exc_info=True)
 
 
 async def pppoe_billing_cron(ctx) -> None:
@@ -164,7 +182,9 @@ async def pppoe_billing_cron(ctx) -> None:
     - Suspends PPPoE secrets past grace period
     """
     pool = ctx["db_pool"]
-    logger.info("Cron: running PPPoE billing check...")
+    clear_contextvars()
+    bind_contextvars(cron="pppoe_billing_cron")
+    logger.info("running PPPoE billing check...")
     
     from app.integrations.africastalking import send_sms
     from app.integrations.mikrotik import get_mikrotik_client
@@ -219,15 +239,16 @@ async def pppoe_billing_cron(ctx) -> None:
                             
                     await send_sms(phone, "Your WiFi subscription has been suspended due to non-payment. Please pay to reconnect.")
 
-            logger.info("Cron: PPPoE billing check completed.")
+            logger.info("PPPoE billing check completed")
         except Exception as e:
-            logger.error(f"Cron: PPPoE billing check failed: {e}", exc_info=True)
+            logger.error("PPPoE billing check failed", error=str(e), exc_info=True)
 
 
 
 async def on_startup(ctx):
     """arq lifecycle hook triggered on worker container startup."""
-    logger.info("Worker: initialising database connection pool...")
+    clear_contextvars()
+    logger.info("initialising database connection pool...")
     # Initialize the database pool and bind to worker context
     pool = await asyncpg.create_pool(
         dsn=settings.DATABASE_URL,
@@ -236,16 +257,17 @@ async def on_startup(ctx):
         command_timeout=30,
     )
     ctx["db_pool"] = pool
-    logger.info("Worker: database connection pool created.")
+    logger.info("database connection pool created")
 
 
 async def on_shutdown(ctx):
     """arq lifecycle hook triggered on worker container shutdown."""
-    logger.info("Worker: closing database connection pool...")
+    clear_contextvars()
+    logger.info("closing database connection pool...")
     pool = ctx.get("db_pool")
     if pool:
         await pool.close()
-        logger.info("Worker: database connection pool closed.")
+        logger.info("database connection pool closed")
 
 
 class WorkerSettings:

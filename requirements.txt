@@ -42,3 +42,5 @@ redis==5.0.4
 pyrad==2.4
 reportlab==4.2.0
 qrcode[pil]==7.4.2
+structlog==24.4.0
+prometheus-client==0.20.0
