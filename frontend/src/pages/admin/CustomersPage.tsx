@@ -14,6 +14,7 @@ import {
 import { useAdminPayments } from '../../hooks/usePayments';
 import { useAdminVouchers } from '../../hooks/useVouchers';
 import { usePackages } from '../../hooks/usePackages';
+import { useRouters } from '../../hooks/useRouters';
 import { UserRole } from '../../types/auth';
 import { User } from '../../types/users';
 import { Payment } from '../../types/payments';
@@ -38,6 +39,7 @@ const userSchema = z.object({
   phone: z.string().min(1, 'Phone is required'),
   password: z.string().min(8, 'Password must be at least 8 characters').optional().or(z.literal('')),
   role: z.enum(['admin', 'reseller', 'customer']),
+  router_id: z.string().optional().or(z.literal('')),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -47,6 +49,7 @@ export default function CustomersPage() {
   const { data: payments } = useAdminPayments();
   const { data: vouchers } = useAdminVouchers();
   const { data: packages } = usePackages();
+  const { data: routers } = useRouters();
 
   const createUser = useAdminCreateUser();
   const updateUser = useAdminUpdateUser();
@@ -62,10 +65,12 @@ export default function CustomersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
-  const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<UserFormValues>({
+  const { register, handleSubmit, reset, control, watch, formState: { errors, isSubmitting } } = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
-    defaultValues: { role: 'customer' }
+    defaultValues: { role: 'customer', router_id: '' }
   });
+
+  const selectedRole = watch('role') || 'customer';
 
   useEffect(() => {
     if (editingUser) {
@@ -74,9 +79,10 @@ export default function CustomersPage() {
         phone: editingUser.phone,
         role: editingUser.role,
         password: '',
+        router_id: (editingUser as any).router_id || '',
       });
     } else {
-      reset({ email: '', phone: '', password: '', role: 'customer' });
+      reset({ email: '', phone: '', password: '', role: 'customer', router_id: '' });
     }
   }, [editingUser, reset]);
 
@@ -121,6 +127,9 @@ export default function CustomersPage() {
         const updateData: any = { email: data.email, phone: data.phone, role: data.role };
         if (data.password) {
           updateData.password = data.password;
+        }
+        if (data.role === 'customer') {
+          updateData.router_id = data.router_id || null;
         }
         await updateUser.mutateAsync({ id: editingUser.id, data: updateData });
         toast.success('User updated successfully');
@@ -332,6 +341,34 @@ export default function CustomersPage() {
               {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
             </div>
 
+            {selectedRole === 'customer' && (
+              <div className="space-y-2">
+                <Label htmlFor="router_id">Site/Router Assignment</Label>
+                <Controller
+                  name="router_id"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value || ''} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={routers?.length === 0 ? "No routers connected" : "Select a router site"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {routers?.map((router) => (
+                          <SelectItem key={router.id} value={router.id}>
+                            {router.name} ({router.site_name})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {routers?.length === 0 && (
+                  <p className="text-xs text-amber-500">Please connect a router first in Routers management.</p>
+                )}
+                {errors.router_id && <p className="text-sm text-destructive">{errors.router_id.message}</p>}
+              </div>
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleCloseDialog}>Cancel</Button>
               <Button type="submit" disabled={isSubmitting || createUser.isPending || updateUser.isPending}>
@@ -439,6 +476,14 @@ export default function CustomersPage() {
                       <div>
                         <div className="text-muted-foreground mb-1">Reseller ID</div>
                         <div className="truncate" title={selectedUser.reseller_id}>{selectedUser.reseller_id.substring(0, 8)}...</div>
+                      </div>
+                    )}
+                    {(selectedUser as any).router_id && (
+                      <div>
+                        <div className="text-muted-foreground mb-1">Router Site</div>
+                        <div>
+                          {routers?.find(r => r.id === (selectedUser as any).router_id)?.name || 'Unknown'}
+                        </div>
                       </div>
                     )}
                   </div>

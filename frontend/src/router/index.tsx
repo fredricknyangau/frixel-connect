@@ -18,6 +18,7 @@ import AdminPackages from '../pages/admin/PackagesPage';
 import AdminPayments from '../pages/admin/PaymentsPage';
 import AdminVouchers from '../pages/admin/VouchersPage';
 import AdminSessions from '../pages/admin/SessionsPage';
+import AdminRouters from '../pages/admin/RoutersPage';
 
 import ResellerDashboard from '../pages/reseller/ResellerDashboard';
 import ResellerCustomers from '../pages/reseller/MyCustomersPage';
@@ -65,6 +66,7 @@ export const router = createBrowserRouter([
           { path: 'payments', element: <AdminPayments /> },
           { path: 'vouchers', element: <AdminVouchers /> },
           { path: 'sessions', element: <AdminSessions /> },
+          { path: 'routers', element: <AdminRouters /> },
         ]
       }
     ]

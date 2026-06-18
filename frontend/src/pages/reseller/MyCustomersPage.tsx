@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Loader2, Plus, Search, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useResellerCustomers, useCreateResellerCustomer } from '../../hooks/useUsers';
+import { useRouters } from '../../hooks/useRouters';
 import { PageTitle } from '../../components/shared/PageTitle';
 import { formatNairobiDate } from '../../lib/utils';
-
 
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -16,25 +16,34 @@ import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 
 const createCustomerSchema = z.object({
   email: z.string().email('Enter a valid email address'),
   phone: z.string().regex(/^(?:0|254|\+254)[17]\d{8}$/, 'Enter a valid Kenyan phone number'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
+  router_id: z.string().min(1, 'Please select a router site'),
 });
 
 type CreateCustomerFormValues = z.infer<typeof createCustomerSchema>;
 
 export default function MyCustomersPage() {
   const { data: customers, isLoading } = useResellerCustomers();
+  const { data: routers } = useRouters();
   const createCustomer = useCreateResellerCustomer();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const { register, handleSubmit, reset, setError, formState: { errors, isSubmitting } } = useForm<CreateCustomerFormValues>({
+  const { register, handleSubmit, reset, control, setError, formState: { errors, isSubmitting } } = useForm<CreateCustomerFormValues>({
     resolver: zodResolver(createCustomerSchema),
+    defaultValues: {
+      email: '',
+      phone: '',
+      password: '',
+      router_id: '',
+    }
   });
 
   const filteredCustomers = customers?.filter(c => {
@@ -98,6 +107,7 @@ export default function MyCustomersPage() {
             <TableRow>
               <TableHead>Phone</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Site</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Joined</TableHead>
             </TableRow>
@@ -105,13 +115,13 @@ export default function MyCustomersPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8">
+                <TableCell colSpan={5} className="text-center py-8">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : filteredCustomers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                   No customers found. Add your first customer to get started.
                 </TableCell>
               </TableRow>
@@ -120,6 +130,9 @@ export default function MyCustomersPage() {
                 <TableRow key={customer.id}>
                   <TableCell className="font-medium">{customer.phone}</TableCell>
                   <TableCell>{customer.email}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {routers?.find(r => r.id === (customer as any).router_id)?.site_name || '-'}
+                  </TableCell>
                   <TableCell>
                     {customer.is_active ? (
                       <Badge variant="outline" className="border-transparent bg-green-100 text-green-800">Active</Badge>
@@ -175,6 +188,32 @@ export default function MyCustomersPage() {
                 </button>
               </div>
               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="router_id">Site/Router Assignment</Label>
+              <Controller
+                name="router_id"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={routers?.length === 0 ? "No router sites available" : "Select a site"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {routers?.map((router) => (
+                        <SelectItem key={router.id} value={router.id}>
+                          {router.name} ({router.site_name})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {routers?.length === 0 && (
+                <p className="text-xs text-amber-500">No router sites available. Contact your admin.</p>
+              )}
+              {errors.router_id && <p className="text-sm text-destructive">{errors.router_id.message}</p>}
             </div>
 
             {errors.root && (
