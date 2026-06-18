@@ -23,6 +23,7 @@ import AdminSubscriptions from '../pages/admin/SubscriptionsPage';
 import AdminInvoices from '../pages/admin/InvoicesPage';
 import AdminSystemHealth from '../pages/admin/SystemHealthPage';
 import AdminAuditLog from '../pages/admin/AuditLogPage';
+import AdminAccount from '../pages/admin/AccountPage';
 
 import ResellerDashboard from '../pages/reseller/ResellerDashboard';
 import ResellerCustomers from '../pages/reseller/MyCustomersPage';
@@ -77,6 +78,7 @@ export const router = createBrowserRouter([
           { path: 'invoices', element: <AdminInvoices /> },
           { path: 'system-health', element: <AdminSystemHealth /> },
           { path: 'audit-log', element: <AdminAuditLog /> },
+          { path: 'account', element: <AdminAccount /> },
         ]
       }
     ]

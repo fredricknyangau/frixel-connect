@@ -33,3 +33,16 @@ export const useTenantMe = () => {
     enabled: isAuthenticated,
   });
 };
+
+export const useTenantPayNow = () => {
+  return useMutation<
+    any,
+    AxiosError<{ detail: string }>,
+    void
+  >({
+    mutationFn: async () => {
+      const response = await api.post('/tenants/me/billing/pay-now');
+      return response.data;
+    },
+  });
+};

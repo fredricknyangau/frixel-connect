@@ -4,6 +4,7 @@ import { Loader2, CheckCircle2, XCircle, ArrowLeft, Ticket } from 'lucide-react'
 
 import { usePaymentStatus } from '../../hooks/usePayments';
 import { PageTitle } from '../../components/shared/PageTitle';
+import { StkPendingState } from '../../components/shared/StkPendingState';
 
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
@@ -40,33 +41,14 @@ export default function PaymentStatusPage() {
         
         <CardContent className="flex flex-col items-center justify-center py-8 space-y-6">
           {isLoading ? (
-            <div className="flex flex-col items-center space-y-4">
-              <div className="p-4 bg-muted rounded-full">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              </div>
-              <p className="text-sm text-muted-foreground text-center animate-pulse">
-                Please check your phone and enter your M-Pesa PIN.<br/>
-                We're waiting for the confirmation.
-              </p>
-            </div>
+            <StkPendingState />
           ) : isError ? (
             <div className="flex flex-col items-center space-y-4">
               <XCircle className="h-16 w-16 text-destructive" />
               <p className="text-center font-medium">Failed to fetch payment status.</p>
             </div>
           ) : statusInfo?.status === 'pending' ? (
-             <div className="flex flex-col items-center space-y-4">
-              <div className="relative">
-                <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
-                <div className="relative p-4 bg-primary/10 rounded-full">
-                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground text-center">
-                Waiting for M-Pesa...<br/>
-                This page will update automatically.
-              </p>
-            </div>
+            <StkPendingState />
           ) : statusInfo?.status === 'confirmed' ? (
             <div className="flex flex-col items-center space-y-6 w-full">
               <CheckCircle2 className="h-20 w-20 text-green-500" />
