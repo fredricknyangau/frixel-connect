@@ -1,4 +1,3 @@
-
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import ProtectedRoute from '../components/shared/ProtectedRoute';
@@ -10,7 +9,9 @@ import CustomerLayout from '../components/layout/CustomerLayout';
 import LandingPage from '../pages/public/LandingPage';
 import LoginPage from '../pages/public/LoginPage';
 import RegisterPage from '../pages/public/RegisterPage';
+import TenantSignupPage from '../pages/public/TenantSignupPage';
 
+import OnboardingWizard from '../pages/admin/onboarding/OnboardingWizard';
 import AdminDashboard from '../pages/admin/DashboardPage';
 import AdminCustomers from '../pages/admin/CustomersPage';
 import AdminPackages from '../pages/admin/PackagesPage';
@@ -46,12 +47,14 @@ export const router = createBrowserRouter([
       { index: true, element: <LandingPage /> },
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
+      { path: 'signup', element: <TenantSignupPage /> },
     ],
   },
   {
     path: '/admin',
     element: <ProtectedRoute allowedRoles={['admin']} />,
     children: [
+      { path: 'onboarding', element: <OnboardingWizard /> },
       {
         element: <AdminLayout />,
         children: [

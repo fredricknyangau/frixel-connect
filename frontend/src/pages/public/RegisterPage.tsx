@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -10,7 +10,6 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { UserRole } from '../../types/auth';
 
 const registerSchema = z
@@ -36,7 +35,6 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
-    control,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
@@ -56,8 +54,6 @@ export default function RegisterPage() {
       });
     } catch (error: any) {
       if (error.response?.status === 409) {
-        // We set root error because the API might not specify if it's email or phone that conflicts
-        // but showing it near the top is good enough, or we can map it to 'email' field explicitly
         setError('email', { message: 'This email or phone is already registered' });
       } else {
         setError('root', { message: 'An unexpected error occurred. Please try again.' });
@@ -78,27 +74,6 @@ export default function RegisterPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="role">I am a...</Label>
-              <Controller
-                control={control}
-                name="role"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="customer">WiFi Customer</SelectItem>
-                      <SelectItem value="reseller">Reseller</SelectItem>
-                      <SelectItem value="admin">ISP Owner</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
