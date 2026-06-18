@@ -37,6 +37,7 @@ import CustomerPaymentStatus from '../pages/customer/PaymentStatusPage';
 import CustomerVouchers from '../pages/customer/VouchersPage';
 import CustomerInvoices from '../pages/customer/InvoicesPage';
 import CustomerProfile from '../pages/customer/ProfilePage';
+import CustomerDataPrivacy from '../pages/customer/DataPrivacyPage';
 
 // Inline fallback 404 page
 const NotFound = () => (
@@ -114,6 +115,7 @@ export const router = createBrowserRouter([
           { path: 'vouchers', element: <CustomerVouchers /> },
           { path: 'invoices', element: <CustomerInvoices /> },
           { path: 'profile', element: <CustomerProfile /> },
+          { path: 'privacy', element: <CustomerDataPrivacy /> },
         ]
       }
     ]

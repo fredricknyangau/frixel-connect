@@ -21,22 +21,26 @@ export default function LandingPage() {
           </div>
           
           <h1 className="max-w-4xl text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl animate-in fade-in slide-in-from-bottom-6 duration-700">
-            Fast, Reliable WiFi <br className="hidden sm:block" />
+            Grow Your ISP <br className="hidden sm:block" />
             <span className="bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-              On Your Terms.
+              With Zero Code.
             </span>
           </h1>
           
           <p className="mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
-            Experience ultra-fast internet with instant M-Pesa payments. No contracts, no hidden fees, just seamless connectivity when you need it.
+            ZealSync is the all-in-one billing and management platform for Kenyan WiFi Hotspot providers. Automate M-Pesa payments, manage routers, and grow your customer base.
           </p>
           
           <div className="mt-10 flex flex-col sm:flex-row items-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
-            <Button size="lg" className="h-14 px-8 rounded-full text-base shadow-xl shadow-primary/25 transition-transform hover:-translate-y-1" render={<Link to="/register" />} nativeButton={false}>
-                Get Connected Now <ArrowRight className="ml-2 h-5 w-5" />
+            <Button size="lg" className="h-14 px-8 rounded-full text-base shadow-xl shadow-primary/25 transition-transform hover:-translate-y-1" asChild>
+              <Link to="/signup">
+                Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
             </Button>
-            <Button size="lg" variant="outline" className="h-14 px-8 rounded-full text-base bg-background/50 backdrop-blur-sm" render={<a href="#pricing" />} nativeButton={false}>
-              View Packages
+            <Button size="lg" variant="outline" className="h-14 px-8 rounded-full text-base bg-background/50 backdrop-blur-sm" asChild>
+              <a href="https://wa.me/254700000000" target="_blank" rel="noopener noreferrer">
+                Chat on WhatsApp
+              </a>
             </Button>
           </div>
           
@@ -57,9 +61,9 @@ export default function LandingPage() {
       <section id="features" className="py-24 bg-muted/30">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">Everything you need, nothing you don't</h2>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">Built for ISP Founders</h2>
             <p className="mt-4 text-lg text-muted-foreground">
-              We've built our network from the ground up to provide the most frictionless internet experience possible.
+              Everything you need to launch and scale your WiFi business, out of the box.
             </p>
           </div>
 
@@ -67,18 +71,18 @@ export default function LandingPage() {
             {[
               {
                 icon: Zap,
-                title: 'Blazing Fast Speeds',
-                description: 'Enjoy buffer-free streaming, smooth video calls, and lightning-fast downloads on our modern network infrastructure.',
+                title: 'Automated Provisioning',
+                description: 'Instantly generate vouchers and connect users on MikroTik routers right after payment.',
               },
               {
                 icon: Smartphone,
-                title: 'Instant M-Pesa Payments',
-                description: 'No waiting in lines or dealing with complex billing. Pay via M-Pesa STK push and get connected in seconds.',
+                title: 'M-Pesa Integration',
+                description: 'C2B Paybill and STK Push out of the box. Zero manual reconciliation needed.',
               },
               {
                 icon: Shield,
-                title: 'No Long-Term Contracts',
-                description: 'Pay only for what you use. Choose from daily, weekly, or monthly packages with zero cancellation fees.',
+                title: 'Multi-Tenant SaaS',
+                description: 'Secure, isolated environments for your business with role-based access for your team.',
               },
             ].map((feature, idx) => (
               <div key={idx} className="relative group rounded-3xl bg-background p-8 shadow-sm border transition-all hover:shadow-md hover:border-primary/30">
@@ -104,15 +108,15 @@ export default function LandingPage() {
           <div className="grid gap-16 lg:grid-cols-2 lg:gap-8 items-center">
             <div className="space-y-8">
               <div>
-                <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Get online in three simple steps</h2>
-                <p className="mt-4 text-lg text-muted-foreground">Our seamless onboarding process means you can go from offline to blazing fast internet in under two minutes.</p>
+                <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Launch your ISP in minutes</h2>
+                <p className="mt-4 text-lg text-muted-foreground">Skip the complex server setups and API integrations. We handle the heavy lifting so you can focus on sales.</p>
               </div>
               
               <div className="space-y-6">
                 {[
-                  { step: '01', title: 'Create an Account', desc: 'Sign up with just your email and M-Pesa phone number.' },
-                  { step: '02', title: 'Select a Package', desc: 'Choose a data plan that fits your current needs.' },
-                  { step: '03', title: 'Enter M-Pesa PIN', desc: 'Approve the prompt on your phone and instantly receive your voucher code.' },
+                  { step: '01', title: 'Register your Business', desc: 'Sign up for a ZealSync tenant account.' },
+                  { step: '02', title: 'Link your MikroTik', desc: 'Run our setup script on your router to establish a secure heartbeat.' },
+                  { step: '03', title: 'Start Selling', desc: 'Create your packages and let customers connect via your branded portal.' },
                 ].map((item, idx) => (
                   <div key={idx} className="flex gap-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold shadow-md">
@@ -153,30 +157,30 @@ export default function LandingPage() {
       <section id="pricing" className="py-24 bg-muted/30">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">Simple, transparent pricing</h2>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">Simple pricing for growing ISPs</h2>
             <p className="mt-4 text-lg text-muted-foreground">
-              No hidden fees, no surprise charges. Pay for exactly what you need.
+              Start for free, then upgrade as your customer base expands. Cancel anytime.
             </p>
           </div>
 
           <div className="grid gap-8 md:grid-cols-3 max-w-5xl mx-auto">
             {/* Bronze */}
             <div className="rounded-3xl bg-background border p-8 shadow-sm transition-transform hover:-translate-y-1">
-              <h3 className="text-xl font-semibold mb-2">Daily Bronze</h3>
+              <h3 className="text-xl font-semibold mb-2">Starter</h3>
               <div className="mb-6">
-                <span className="text-4xl font-extrabold">Ksh 50</span>
-                <span className="text-muted-foreground font-medium"> / day</span>
+                <span className="text-4xl font-extrabold">Ksh 1,500</span>
+                <span className="text-muted-foreground font-medium"> / month</span>
               </div>
               <ul className="mb-8 space-y-4">
-                {['10 Mbps Speeds', 'Unlimited Data', '1 Device', '24h Access'].map((feature, i) => (
+                {['Up to 50 Customers', '1 MikroTik Router', 'Basic Branding', 'Email Support'].map((feature, i) => (
                   <li key={i} className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-primary" />
                     <span className="text-muted-foreground">{feature}</span>
                   </li>
                 ))}
               </ul>
-              <Button variant="outline" className="w-full rounded-full h-12" render={<Link to="/register" />} nativeButton={false}>
-                Get Started
+              <Button variant="outline" className="w-full rounded-full h-12" asChild>
+                <Link to="/signup?tier=starter">Start Free Trial</Link>
               </Button>
             </div>
 
@@ -185,41 +189,41 @@ export default function LandingPage() {
               <div className="absolute top-0 right-8 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
                 Most Popular
               </div>
-              <h3 className="text-xl font-semibold mb-2 text-primary">Weekly Silver</h3>
+              <h3 className="text-xl font-semibold mb-2 text-primary">Pro</h3>
               <div className="mb-6">
-                <span className="text-4xl font-extrabold">Ksh 300</span>
-                <span className="text-muted-foreground font-medium"> / week</span>
+                <span className="text-4xl font-extrabold">Ksh 5,000</span>
+                <span className="text-muted-foreground font-medium"> / month</span>
               </div>
               <ul className="mb-8 space-y-4">
-                {['20 Mbps Speeds', 'Unlimited Data', '2 Devices', '7 Days Access'].map((feature, i) => (
+                {['Up to 500 Customers', '5 MikroTik Routers', 'Full Whitelabeling', 'Priority Support'].map((feature, i) => (
                   <li key={i} className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-primary" />
                     <span className="text-muted-foreground">{feature}</span>
                   </li>
                 ))}
               </ul>
-              <Button className="w-full rounded-full h-12 shadow-lg shadow-primary/25" render={<Link to="/register" />} nativeButton={false}>
-                Get Started
+              <Button className="w-full rounded-full h-12 shadow-lg shadow-primary/25" asChild>
+                <Link to="/signup?tier=pro">Start Free Trial</Link>
               </Button>
             </div>
 
             {/* Gold */}
             <div className="rounded-3xl bg-background border p-8 shadow-sm transition-transform hover:-translate-y-1">
-              <h3 className="text-xl font-semibold mb-2">Monthly Gold</h3>
+              <h3 className="text-xl font-semibold mb-2">Scale</h3>
               <div className="mb-6">
-                <span className="text-4xl font-extrabold">Ksh 1,000</span>
+                <span className="text-4xl font-extrabold">Ksh 15,000</span>
                 <span className="text-muted-foreground font-medium"> / month</span>
               </div>
               <ul className="mb-8 space-y-4">
-                {['50 Mbps Speeds', 'Unlimited Data', '5 Devices', '30 Days Access'].map((feature, i) => (
+                {['Unlimited Customers', 'Unlimited Routers', 'API Access', '24/7 Phone Support'].map((feature, i) => (
                   <li key={i} className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-primary" />
                     <span className="text-muted-foreground">{feature}</span>
                   </li>
                 ))}
               </ul>
-              <Button variant="outline" className="w-full rounded-full h-12" render={<Link to="/register" />} nativeButton={false}>
-                Get Started
+              <Button variant="outline" className="w-full rounded-full h-12" asChild>
+                <Link to="/signup?tier=scale">Start Free Trial</Link>
               </Button>
             </div>
           </div>
@@ -232,12 +236,12 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PHBhdGggZD0iTTAgMGgyMHYyMEgwem0xMCAxMGgxMHYxMEgxMHoiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==')] opacity-30 mix-blend-overlay" />
         
         <div className="container relative z-10 mx-auto px-4 md:px-6 text-center text-primary-foreground">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl mb-6">Ready to experience better WiFi?</h2>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl mb-6">Ready to scale your WiFi business?</h2>
           <p className="text-primary-foreground/80 text-lg mb-10 max-w-2xl mx-auto">
-            Join thousands of users who have already made the switch. Create your account today and get connected in seconds.
+            Join hundreds of ISPs who have already made the switch. Create your tenant account today and go live in minutes.
           </p>
-          <Button size="lg" variant="secondary" className="h-14 px-10 rounded-full text-lg font-bold text-primary hover:bg-white shadow-xl transition-transform hover:scale-105" render={<Link to="/register" />} nativeButton={false}>
-            Create Free Account
+          <Button size="lg" variant="secondary" className="h-14 px-10 rounded-full text-lg font-bold text-primary hover:bg-white shadow-xl transition-transform hover:scale-105" asChild>
+            <Link to="/signup">Create Free Account</Link>
           </Button>
         </div>
       </section>

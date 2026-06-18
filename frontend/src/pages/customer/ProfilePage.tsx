@@ -2,8 +2,9 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, User as UserIcon } from 'lucide-react';
+import { Loader2, User as UserIcon, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 import { useCustomerProfile, useUpdateCustomerProfile } from '../../hooks/useUsers';
 import { PageTitle } from '../../components/shared/PageTitle';
@@ -20,6 +21,7 @@ const updateProfileSchema = z.object({
 type UpdateProfileFormValues = z.infer<typeof updateProfileSchema>;
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
   const { data: profile, isLoading } = useCustomerProfile();
   const updateProfile = useUpdateCustomerProfile();
 
@@ -111,6 +113,23 @@ export default function ProfilePage() {
             ) : (
               'Save Changes'
             )}
+          </Button>
+        </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Data & Privacy</CardTitle>
+          </div>
+          <CardDescription>
+            Manage your personal data, download an archive, or delete your account.
+          </CardDescription>
+        </CardHeader>
+        <CardFooter className="pt-2">
+          <Button variant="outline" onClick={() => navigate('/customer/privacy')}>
+            Manage Privacy Settings
           </Button>
         </CardFooter>
       </Card>
