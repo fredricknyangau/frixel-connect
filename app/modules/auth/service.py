@@ -127,6 +127,22 @@ async def authenticate_user(
     dummy hash. This keeps the response time consistent whether the email
     exists or not — an attacker timing responses can't enumerate valid emails.
     """
+    # ── Handle Phone Number Variants ───────────────────────────────────────────
+    # A user might enter "07...", "2547...", or "7..." 
+    # and the database might have it stored differently.
+    variants = [email]
+    clean_input = email.strip().replace('+', '')
+    if clean_input.isdigit():
+        if clean_input.startswith('254') and len(clean_input) == 12:
+            variants.append('0' + clean_input[3:])
+            variants.append(clean_input[3:])
+        elif clean_input.startswith('0') and len(clean_input) == 10:
+            variants.append('254' + clean_input[1:])
+            variants.append(clean_input[1:])
+        elif len(clean_input) == 9 and clean_input[0] in ('7', '1'):
+            variants.append('254' + clean_input)
+            variants.append('0' + clean_input)
+
     user = await conn.fetchrow(
         """
         SELECT
@@ -141,9 +157,9 @@ async def authenticate_user(
             t.status AS tenant_status
         FROM users u
         JOIN tenants t ON u.tenant_id = t.id
-        WHERE u.email = $1
+        WHERE u.email = ANY($1::text[]) OR u.phone = ANY($1::text[])
         """,
-        email,
+        variants,
     )
 
     # ── Timing-safe failure path ───────────────────────────────────────────────
@@ -157,7 +173,7 @@ async def authenticate_user(
     if not user or not password_ok:
         # Same error message for "user not found" and "wrong password" to
         # prevent user enumeration attacks.
-        raise UnauthorisedException("Invalid email or password.")
+        raise UnauthorisedException("Invalid email/phone or password.")
 
     if not user["is_active"]:
         raise UnauthorisedException("This account has been deactivated. Contact support.")

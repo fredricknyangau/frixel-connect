@@ -66,8 +66,8 @@ class RegisterRequest(BaseModel):
 # ── Login ─────────────────────────────────────────────────────────────────────
 
 class LoginRequest(BaseModel):
-    """Body for POST /auth/login."""
-    email:    EmailStr
+    """Body for POST /auth/login. 'email' can be an actual email or a phone number."""
+    email:    str
     password: str
 
 

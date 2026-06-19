@@ -170,14 +170,14 @@ async def clean_and_seed_db(db_pool: asyncpg.Pool) -> AsyncGenerator[None, None]
         await conn.execute(
             """
             INSERT INTO packages
-                (id, name, description, price_kes, duration_days, speed_mbps, created_by, tenant_id)
+                (id, name, description, price_kes, duration_minutes, speed_mbps, created_by, tenant_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             """,
             "11111111-1111-1111-1111-111111111111",
             "Daily 10Mbps",
             "1-day internet access at 10 Mbps.",
             Decimal("50.00"),
-            1,
+            1440,
             10,
             admin_id,
             DEFAULT_TENANT_ID,
@@ -186,14 +186,14 @@ async def clean_and_seed_db(db_pool: asyncpg.Pool) -> AsyncGenerator[None, None]
         await conn.execute(
             """
             INSERT INTO packages
-                (id, name, description, price_kes, duration_days, speed_mbps, created_by, tenant_id)
+                (id, name, description, price_kes, duration_minutes, speed_mbps, created_by, tenant_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             """,
             "22222222-2222-2222-2222-222222222222",
             "Weekly 20Mbps",
             "7-day internet access at 20 Mbps.",
             Decimal("300.00"),
-            7,
+            10080,
             20,
             admin_id,
             DEFAULT_TENANT_ID,

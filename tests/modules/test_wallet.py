@@ -118,8 +118,8 @@ async def create_package_in_tenant(
     """Creates a package in the specified tenant."""
     pkg_id = await conn.fetchval(
         """
-        INSERT INTO packages (name, price_kes, duration_days, speed_mbps, created_by, tenant_id, is_active)
-        VALUES ($1, $2, 1, 10, NULL, $3, $4)
+        INSERT INTO packages (name, price_kes, duration_minutes, speed_mbps, created_by, tenant_id, is_active)
+        VALUES ($1, $2, 1440, 10, NULL, $3, $4)
         RETURNING id
         """,
         name,
@@ -280,14 +280,8 @@ async def test_daraja_c2b_confirmation_and_idempotency(client: TestClient, conn:
 
 
 @pytest.mark.asyncio
-@patch("app.modules.vouchers.service.get_mikrotik_client")
-async def test_generate_reseller_voucher_success(mock_get_client, client: TestClient, conn: asyncpg.Connection):
+async def test_generate_reseller_voucher_success(client: TestClient, conn: asyncpg.Connection):
     """Asserts that reseller voucher generation succeeds when wallet balance is sufficient."""
-    # Mock MikroTik
-    mock_mikrotik = MagicMock()
-    mock_get_client.return_value = mock_mikrotik
-    mock_mikrotik.generate_hotspot_user = AsyncMock(return_value={"ret": "*10"})
-
     # 1. Create reseller
     tenant_id, reseller_id, token, _ = await create_tenant_and_reseller(
         conn, "Voucher Gen ISP", "voucher_reseller@test.com", "254722000004"
@@ -346,17 +340,17 @@ async def test_generate_reseller_voucher_success(mock_get_client, client: TestCl
     assert payment_row["status"] == "confirmed"
     assert payment_row["mpesa_receipt_number"].startswith("WAL-")
 
-    # MikroTik API was invoked
-    mock_mikrotik.generate_hotspot_user.assert_called_once()
+    # RADIUS credentials were provisioned
+    radcheck_count = await conn.fetchval(
+        "SELECT COUNT(*) FROM radcheck WHERE username = $1",
+        data["code"],
+    )
+    assert radcheck_count == 1
 
 
 @pytest.mark.asyncio
-@patch("app.modules.vouchers.service.get_mikrotik_client")
-async def test_generate_reseller_voucher_insufficient_balance(mock_get_client, client: TestClient, conn: asyncpg.Connection):
+async def test_generate_reseller_voucher_insufficient_balance(client: TestClient, conn: asyncpg.Connection):
     """Asserts that voucher generation fails with HTTP 402 if wallet balance is too low."""
-    mock_mikrotik = MagicMock()
-    mock_get_client.return_value = mock_mikrotik
-
     # 1. Create reseller
     tenant_id, reseller_id, token, _ = await create_tenant_and_reseller(
         conn, "No Balance ISP", "no_bal_reseller@test.com", "254722000006"
@@ -388,7 +382,8 @@ async def test_generate_reseller_voucher_insufficient_balance(mock_get_client, c
     payment_count = await conn.fetchval("SELECT COUNT(*) FROM payments")
     assert payment_count == 0
 
-    mock_mikrotik.generate_hotspot_user.assert_not_called()
+    radcheck_count = await conn.fetchval("SELECT COUNT(*) FROM radcheck")
+    assert radcheck_count == 0
 
 
 @pytest.mark.asyncio

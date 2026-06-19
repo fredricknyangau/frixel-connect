@@ -1,7 +1,7 @@
 """
 app/modules/vouchers/service.py
 ================================
-Service logic for voucher code generation, MikroTik hotspot user creation,
+Service logic for voucher code generation, FreeRADIUS credential provisioning,
 and database persistence — fully tenant-scoped and router-scoped.
 """
 
@@ -14,7 +14,6 @@ from uuid import UUID
 import asyncpg
 
 from app.database import get_db
-from app.integrations.mikrotik import get_mikrotik_client, MikroTikError
 from app.core.exceptions import NotFoundException
 
 logger = logging.getLogger(__name__)
@@ -83,15 +82,14 @@ async def generate_voucher(
       1. Fetch payment + package details (scoped to payment's tenant_id).
       2. Retrieve customer's assigned router_id from users table.
       3. Generate a secure voucher code.
-      4. Call MikroTik against the assigned router.
+      4. Write FreeRADIUS credentials.
       5. Insert voucher with tenant_id and router_id.
       6. Return the voucher code.
 
     Task Queue Integration:
-      - If call fails and is_final_attempt=False, raises exception immediately
+      - If RADIUS/DB writes fail and is_final_attempt=False, raises immediately
         without writing to database (triggering arq retry).
-      - If call fails and is_final_attempt=True, records the voucher in DB
-        with status 'pending_provision' and raises the exception.
+      - The is_final_attempt argument is kept for worker API compatibility.
     """
     # ── Step 1: Fetch payment, package, and tenant ────────────────────────────
     row = await conn.fetchrow(
@@ -102,7 +100,7 @@ async def generate_voucher(
             p.amount_kes,
             p.status AS payment_status,
             p.tenant_id,
-            pkg.duration_days,
+            pkg.duration_minutes,
             pkg.speed_mbps,
             pkg.data_quota_mb
         FROM payments p
@@ -117,30 +115,19 @@ async def generate_voucher(
     customer_id = row["customer_id"]
     package_id  = row["package_id"]
     tenant_id   = row["tenant_id"]
-    duration_days = row["duration_days"]
+    duration_minutes = row["duration_minutes"]
     speed_mbps    = row["speed_mbps"]
     data_quota_mb = row["data_quota_mb"]
 
-    # ── Step 2: Retrieve customer's assigned router_id ───────────────────────
+    # ── Step 2: Retrieve customer's assigned router_id and details ─────────
     user_row = await conn.fetchrow(
-        "SELECT router_id FROM users WHERE id = $1 AND tenant_id = $2",
+        "SELECT router_id, phone, email FROM users WHERE id = $1 AND tenant_id = $2",
         customer_id,
         tenant_id,
     )
     router_id = user_row["router_id"] if user_row else None
-
-    # Fetch router credentials
-    router_row = None
-    if router_id:
-        router_row = await conn.fetchrow(
-            """
-            SELECT host, port, username, password_encrypted
-            FROM routers
-            WHERE id = $1 AND tenant_id = $2
-            """,
-            router_id,
-            tenant_id,
-        )
+    customer_phone = user_row["phone"] if user_row else None
+    customer_email = user_row["email"] if user_row else ""
 
     # ── Step 3: Generate globally unique voucher code ─────────────────────────
     code = generate_voucher_code()
@@ -151,41 +138,14 @@ async def generate_voucher(
     if collision > 0:
         code = generate_voucher_code()
 
-    # ── Step 4: Call MikroTik ─────────────────────────────────────────────────
-    profile    = f"{speed_mbps}Mbps"
-    time_limit = f"{duration_days}d"
-
-    # Instantiate client dynamically (falls back to settings if router_row is None)
-    client = get_mikrotik_client(dict(router_row) if router_row else None)
-
+    # ── Step 4: Provision RADIUS credentials ─────────────────────────────────
     logger.info(
-        f"Voucher: provisioning '{code}' on MikroTik router '{router_id or 'global'}' "
+        f"Voucher: provisioning RADIUS credentials for '{code}' on router '{router_id or 'global'}' "
         f"for payment {payment_id} (tenant {tenant_id})"
     )
 
-    success = False
-    provision_error = None
-    try:
-        await client.generate_hotspot_user(
-            username=code,
-            password=code,
-            profile=profile,
-            time_limit=time_limit,
-        )
-        success = True
-        logger.info(f"Voucher: successfully provisioned '{code}' on MikroTik")
-    except Exception as e:
-        provision_error = e
-        logger.warning(f"Voucher: MikroTik provisioning failed for '{code}': {e}")
-        # If not final attempt, raise immediately to let task queue retry
-        if not is_final_attempt:
-            raise e
-
     # ── Step 5: Insert voucher with tenant_id and router_id ──────────────────
-    status = "active" if success else "pending_provision"
-
     try:
-        # Provision FreeRADIUS credentials within the database transaction
         await _provision_radius_credentials(
             conn=conn,
             username=code,
@@ -203,24 +163,44 @@ async def generate_voucher(
             customer_id,
             package_id,
             code,
-            status,
+            "active",
             tenant_id,
             router_id,
         )
-        logger.info(f"Voucher: recorded '{code}' in DB with status '{status}' under router '{router_id or 'global'}'")
+        logger.info(f"Voucher: recorded '{code}' in DB with status 'active' under router '{router_id or 'global'}'")
+
+        # ── Step 6: Set user password to their first voucher code (Guest linking) ─
+        from app.core.security import hash_password
+        
+        if customer_email.endswith("@guest.example.com"):
+            await conn.execute(
+                """
+                UPDATE users 
+                SET hashed_password = $1 
+                WHERE id = $2
+                """,
+                hash_password(code),
+                customer_id
+            )
+            
+            # Send SMS with PIN to frictionless guest
+            from app.integrations.africastalking import send_sms
+            msg = f"ZealSync Wi-Fi: Payment successful! Your voucher code is {code}. You can also use this code as your PIN to log into the Customer Portal on the login page."
+            try:
+                await send_sms(customer_phone, msg)
+                logger.info(f"Voucher: Sent welcome SMS to guest {customer_phone} with PIN {code}")
+            except Exception as e:
+                logger.error(f"Voucher: Failed to send SMS to {customer_phone}: {e}")
+
     except Exception as e:
         logger.error(f"Voucher: failed to insert '{code}' into DB or provision RADIUS: {e}")
         raise e
-
-    # Raise original exception if provisioning failed to record task failure
-    if not success and provision_error:
-        raise provision_error
 
     return code
 
 
 async def generate_voucher_task(payment_id: str) -> None:
-    """FastAPI BackgroundTask wrapper (legacy fallback)."""
+    """Legacy compatibility wrapper; arq worker uses app.worker.generate_voucher_task."""
     try:
         async with get_db() as conn:
             await generate_voucher(conn, payment_id, is_final_attempt=True)
@@ -237,7 +217,7 @@ async def get_customer_vouchers(
     rows = await conn.fetch(
         """
         SELECT v.id, v.code, v.status, v.expires_at, v.customer_id,
-               v.activated_at, v.created_at, v.router_id,
+               v.activated_at, v.created_at, v.router_id, v.payment_id,
                pkg.name AS package_name
         FROM vouchers v
         JOIN packages pkg ON v.package_id = pkg.id
@@ -260,7 +240,7 @@ async def get_voucher_by_id(
     row = await conn.fetchrow(
         """
         SELECT v.id, v.code, v.status, v.expires_at, v.customer_id,
-               v.activated_at, v.created_at, v.router_id,
+               v.activated_at, v.created_at, v.router_id, v.payment_id,
                pkg.name AS package_name
         FROM vouchers v
         JOIN packages pkg ON v.package_id = pkg.id
@@ -282,7 +262,7 @@ async def get_reseller_vouchers(
     rows = await conn.fetch(
         """
         SELECT v.id, v.code, v.status, v.expires_at, v.customer_id,
-               v.activated_at, v.created_at, v.router_id,
+               v.activated_at, v.created_at, v.router_id, v.payment_id,
                pkg.name AS package_name
         FROM vouchers v
         JOIN packages pkg ON v.package_id = pkg.id
@@ -305,7 +285,7 @@ async def get_all_vouchers(
     rows = await conn.fetch(
         """
         SELECT v.id, v.code, v.status, v.expires_at, v.customer_id,
-               v.activated_at, v.created_at, v.router_id,
+               v.activated_at, v.created_at, v.router_id, v.payment_id,
                pkg.name AS package_name
         FROM vouchers v
         JOIN packages pkg ON v.package_id = pkg.id
@@ -364,29 +344,29 @@ async def admin_revoke_voucher(
     if active_session:
         from app.integrations.radius_coa import send_coa_disconnect
         # Run synchronous network I/O in thread pool to avoid blocking the event loop
-        await asyncio.to_thread(
+        coa_success = await asyncio.to_thread(
             send_coa_disconnect,
             active_session["router_ip"],
             voucher["code"],
             active_session["acctsessionid"]
         )
 
-    router_id = voucher["router_id"]
-    router_row = None
-    if router_id:
-        router_row = await conn.fetchrow(
-            "SELECT host, port, username, password_encrypted FROM routers WHERE id = $1 AND tenant_id = $2",
-            router_id,
-            tenant_id,
-        )
+        if not coa_success:
+            logger.info("CoA disconnect failed or unsupported. Falling back to MikroTik REST API.")
+            router_dict = None
+            if voucher["router_id"]:
+                router_row = await conn.fetchrow("SELECT * FROM routers WHERE id = $1", voucher["router_id"])
+                if router_row:
+                    router_dict = dict(router_row)
+            
+            from app.integrations.mikrotik import get_mikrotik_client
+            try:
+                mikrotik = get_mikrotik_client(router_dict)
+                await mikrotik.remove_active_hotspot_session(voucher["code"])
+            except Exception as e:
+                logger.error(f"Fallback disconnect via REST API failed for {voucher['code']}: {e}", exc_info=True)
 
-    client = get_mikrotik_client(dict(router_row) if router_row else None)
-
-    logger.info(
-        f"Voucher Revocation: deleting hotspot user '{voucher['code']}' "
-        f"from router '{router_id or 'global'}'"
-    )
-    await client.remove_hotspot_user(voucher["code"])
+    logger.info(f"Voucher Revocation: removed RADIUS credentials for '{voucher['code']}'")
 
     return dict(updated_row)
 
@@ -399,7 +379,7 @@ async def admin_retry_voucher(
     """Manually retries provisioning a stuck voucher within the tenant."""
     row = await conn.fetchrow(
         """
-        SELECT v.id, v.code, v.status, v.router_id, pkg.duration_days, pkg.speed_mbps, pkg.data_quota_mb
+        SELECT v.id, v.code, v.status, v.router_id, pkg.duration_minutes, pkg.speed_mbps, pkg.data_quota_mb
         FROM vouchers v
         JOIN packages pkg ON v.package_id = pkg.id
         WHERE v.id = $1
@@ -415,25 +395,12 @@ async def admin_retry_voucher(
     if row["status"] != "pending_provision":
         raise ValueError(f"Voucher {voucher_id} is not pending provision.")
 
-    code       = row["code"]
-    profile    = f"{row['speed_mbps']}Mbps"
-    time_limit = f"{row['duration_days']}d"
-    router_id  = row["router_id"]
+    code = row["code"]
+    router_id = row["router_id"]
 
-    router_row = None
-    if router_id:
-        router_row = await conn.fetchrow(
-            "SELECT host, port, username, password_encrypted FROM routers WHERE id = $1 AND tenant_id = $2",
-            router_id,
-            tenant_id,
-        )
-
-    client = get_mikrotik_client(dict(router_row) if router_row else None)
-
-    logger.info(f"Voucher Retry: provisioning '{code}' on router '{router_id or 'global'}'")
+    logger.info(f"Voucher Retry: provisioning RADIUS credentials for '{code}' on router '{router_id or 'global'}'")
 
     try:
-        # Also ensure FreeRADIUS has the credentials on retry
         await _provision_radius_credentials(
             conn=conn,
             username=code,
@@ -441,16 +408,9 @@ async def admin_retry_voucher(
             speed_mbps=row["speed_mbps"],
             data_quota_mb=row["data_quota_mb"],
         )
-
-        await client.generate_hotspot_user(
-            username=code,
-            password=code,
-            profile=profile,
-            time_limit=time_limit,
-        )
     except Exception as e:
-        logger.error(f"Voucher Retry: failed for '{code}' on router '{router_id or 'global'}': {e}")
-        raise ValueError(f"MikroTik provisioning failed: {e}")
+        logger.error(f"Voucher Retry: RADIUS provisioning failed for '{code}' on router '{router_id or 'global'}': {e}")
+        raise ValueError(f"RADIUS provisioning failed: {e}")
 
     updated_row = await conn.fetchrow(
         """
@@ -478,7 +438,7 @@ async def provision_retry_poller() -> None:
             async with get_db() as conn:
                 rows = await conn.fetch(
                     """
-                    SELECT v.id, v.code, v.tenant_id, v.router_id, pkg.duration_days, pkg.speed_mbps, pkg.data_quota_mb
+                    SELECT v.id, v.code, v.tenant_id, v.router_id, pkg.duration_minutes, pkg.speed_mbps, pkg.data_quota_mb
                     FROM vouchers v
                     JOIN packages pkg ON v.package_id = pkg.id
                     WHERE v.status = 'pending_provision'
@@ -492,18 +452,6 @@ async def provision_retry_poller() -> None:
                         code       = v["code"]
                         tenant_id  = v["tenant_id"]
                         router_id  = v["router_id"]
-                        profile    = f"{v['speed_mbps']}Mbps"
-                        time_limit = f"{v['duration_days']}d"
-
-                        router_row = None
-                        if router_id:
-                            router_row = await conn.fetchrow(
-                                "SELECT host, port, username, password_encrypted FROM routers WHERE id = $1 AND tenant_id = $2",
-                                router_id,
-                                tenant_id,
-                            )
-
-                        client = get_mikrotik_client(dict(router_row) if router_row else None)
 
                         try:
                             # Ensure FreeRADIUS credentials exist
@@ -514,18 +462,11 @@ async def provision_retry_poller() -> None:
                                 speed_mbps=v["speed_mbps"],
                                 data_quota_mb=v["data_quota_mb"],
                             )
-
-                            await client.generate_hotspot_user(
-                                username=code,
-                                password=code,
-                                profile=profile,
-                                time_limit=time_limit,
-                            )
                             await conn.execute(
                                 "UPDATE vouchers SET status = 'active' WHERE id = $1",
                                 v["id"],
                             )
-                            logger.info(f"Voucher Poller: recovered '{code}' on router '{router_id or 'global'}'")
+                            logger.info(f"Voucher Poller: recovered RADIUS credentials for '{code}' on router '{router_id or 'global'}'")
                         except Exception as e:
                             logger.warning(f"Voucher Poller: still failing '{code}' on router '{router_id or 'global'}': {e}")
 

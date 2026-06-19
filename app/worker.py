@@ -170,6 +170,129 @@ async def sync_radius_sessions_cron(ctx) -> None:
                     mac_address = EXCLUDED.mac_address
                 """
             )
+            
+            # Sync live bytes from MikroTik routers for active sessions
+            from app.integrations.mikrotik import get_mikrotik_client
+            routers = await conn.fetch("SELECT * FROM routers")
+            for router_row in routers:
+                try:
+                    mikrotik = get_mikrotik_client(dict(router_row))
+                    active_sessions = await mikrotik.get_active_sessions()
+                    
+                    for s_mk in active_sessions:
+                        voucher_code = s_mk.get("user")
+                        bytes_in = int(s_mk.get("bytes-in", 0))
+                        bytes_out = int(s_mk.get("bytes-out", 0))
+                        
+                        if not voucher_code or (bytes_in == 0 and bytes_out == 0):
+                            continue
+                            
+                        voucher_id = await conn.fetchval("SELECT id FROM vouchers WHERE code = $1", voucher_code)
+                        if not voucher_id:
+                            continue
+                            
+                        await conn.execute(
+                            """
+                            UPDATE sessions
+                            SET 
+                                bytes_uploaded = GREATEST(bytes_uploaded, $1),
+                                bytes_downloaded = GREATEST(bytes_downloaded, $2)
+                            WHERE voucher_id = $3 AND ended_at IS NULL
+                            """,
+                            bytes_in, bytes_out, voucher_id
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to sync live sessions from router {router_row['id']}", error=str(e))
+            
+            # Update vouchers with their activation and expiry times based on first session
+            await conn.execute(
+                """
+                UPDATE vouchers v
+                SET 
+                    activated_at = s.first_start,
+                    expires_at = s.first_start + (p.duration_minutes || ' minutes')::interval
+                FROM (
+                    SELECT voucher_id, MIN(started_at) as first_start
+                    FROM sessions
+                    GROUP BY voucher_id
+                ) s, packages p
+                WHERE v.id = s.voucher_id
+                  AND v.package_id = p.id
+                  AND v.activated_at IS NULL
+                """
+            )
+            
+            # Mark expired vouchers as 'expired' and forcefully disconnect them
+            expired_vouchers = await conn.fetch(
+                """
+                UPDATE vouchers
+                SET status = 'expired'
+                WHERE status IN ('active', 'used') 
+                  AND expires_at IS NOT NULL 
+                  AND expires_at <= NOW()
+                RETURNING id, code, router_id
+                """
+            )
+            
+            if expired_vouchers:
+                for v in expired_vouchers:
+                    # Remove from RADIUS to prevent reconnect
+                    await conn.execute("DELETE FROM radcheck WHERE username = $1", v["code"])
+                    await conn.execute("DELETE FROM radreply WHERE username = $1", v["code"])
+                    
+                    logger.info("Voucher expired. Revoking RADIUS credentials and disconnecting.", voucher=v["code"])
+                    
+                    # Forcefully disconnect active session
+                    active_session = await conn.fetchrow(
+                        """
+                        SELECT HOST(nasipaddress) AS router_ip, acctsessionid
+                        FROM radacct
+                        WHERE username = $1 AND acctstoptime IS NULL
+                        ORDER BY acctstarttime DESC
+                        LIMIT 1
+                        """,
+                        v["code"]
+                    )
+                    
+                    from app.integrations.mikrotik import get_mikrotik_client
+                    
+                    if active_session:
+                        from app.integrations.radius_coa import send_coa_disconnect
+                        # Attempt CoA disconnect
+                        coa_success = await asyncio.to_thread(
+                            send_coa_disconnect,
+                            active_session["router_ip"],
+                            v["code"],
+                            active_session["acctsessionid"]
+                        )
+                        
+                        if not coa_success:
+                            logger.info("CoA disconnect failed for expired voucher. Falling back to MikroTik REST API.", voucher=v["code"])
+                            router_dict = None
+                            if v["router_id"]:
+                                router_row = await conn.fetchrow("SELECT * FROM routers WHERE id = $1", v["router_id"])
+                                if router_row:
+                                    router_dict = dict(router_row)
+                            
+                            try:
+                                mikrotik = get_mikrotik_client(router_dict)
+                                await mikrotik.remove_active_hotspot_session(v["code"])
+                            except Exception as e:
+                                logger.error(f"Fallback disconnect via REST API failed for expired {v['code']}: {e}", exc_info=True)
+                    else:
+                        # Fallback directly to mikrotik API just in case
+                        router_dict = None
+                        if v["router_id"]:
+                            router_row = await conn.fetchrow("SELECT * FROM routers WHERE id = $1", v["router_id"])
+                            if router_row:
+                                router_dict = dict(router_row)
+                        
+                        try:
+                            mikrotik = get_mikrotik_client(router_dict)
+                            await mikrotik.remove_active_hotspot_session(v["code"])
+                        except Exception as e:
+                            pass
+
             logger.info("RADIUS session sync completed", result=result)
         except Exception as e:
             logger.error("RADIUS session sync failed", error=str(e), exc_info=True)

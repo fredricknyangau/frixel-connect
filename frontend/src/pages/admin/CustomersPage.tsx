@@ -13,7 +13,6 @@ import {
 } from '../../hooks/useUsers';
 import { useAdminPayments } from '../../hooks/usePayments';
 import { useAdminVouchers } from '../../hooks/useVouchers';
-import { usePackages } from '../../hooks/usePackages';
 import { useRouters } from '../../hooks/useRouters';
 import { UserRole } from '../../types/auth';
 import { User } from '../../types/users';
@@ -48,7 +47,7 @@ export default function CustomersPage() {
   const { data: users, isLoading } = useAdminCustomers();
   const { data: payments } = useAdminPayments();
   const { data: vouchers } = useAdminVouchers();
-  const { data: packages } = usePackages();
+  
   const { data: routers } = useRouters();
 
   const createUser = useAdminCreateUser();
@@ -173,8 +172,6 @@ export default function CustomersPage() {
     if (!selectedUser || !vouchers) return [];
     return vouchers.filter(v => v.customer_id === selectedUser.id && v.status === 'active');
   }, [selectedUser, vouchers]);
-
-  const getPackageName = (packageId: string) => packages?.find(p => p.id === packageId)?.name || 'Unknown';
 
   return (
     <div className="space-y-6">
@@ -430,7 +427,7 @@ export default function CustomersPage() {
                             </div>
                           </div>
                           <Badge variant="outline" className="border-primary text-primary">
-                            {getPackageName(voucher.package_id)}
+                            {voucher.package_name || 'Unknown'}
                           </Badge>
                         </div>
                       ))}
@@ -453,7 +450,7 @@ export default function CustomersPage() {
                               {formatNairobiDate(payment.created_at)}
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5">
-                              {getPackageName(payment.package_id)}
+                              {payment.package_name || 'Unknown'}
                             </div>
                           </div>
                           <StatusBadge status={payment.status} />

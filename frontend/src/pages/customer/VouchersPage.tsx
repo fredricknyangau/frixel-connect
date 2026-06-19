@@ -3,7 +3,6 @@ import { Loader2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useCustomerVouchers } from '../../hooks/useVouchers';
-import { usePackages } from '../../hooks/usePackages';
 import { VoucherStatus } from '../../types/vouchers';
 import { PageTitle } from '../../components/shared/PageTitle';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -16,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 
 export default function CustomerVouchersPage() {
   const { data: vouchers, isLoading } = useCustomerVouchers();
-  const { data: packages } = usePackages();
+  
 
   const [statusFilter, setStatusFilter] = useState<VoucherStatus | 'all'>('all');
 
@@ -30,8 +29,6 @@ export default function CustomerVouchersPage() {
 
     return filtered;
   }, [vouchers, statusFilter]);
-
-  const getPackageName = (packageId: string) => packages?.find(p => p.id === packageId)?.name || 'Unknown';
 
   const handleCopy = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -100,7 +97,7 @@ export default function CustomerVouchersPage() {
                       </Button>
                     </div>
                   </TableCell>
-                  <TableCell>{getPackageName(voucher.package_id)}</TableCell>
+                  <TableCell>{voucher.package_name || 'Unknown'}</TableCell>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
                     {formatNairobiDate(voucher.expires_at)}
                   </TableCell>

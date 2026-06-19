@@ -122,7 +122,7 @@ async def test_get_stuck_payments(conn: asyncpg.Connection, client: TestClient):
         "customer_b@test.com", "254711999913", hash_password(TEST_PASSWORD), UUID(tenant_b_id)
     )
     pkg_b_id = await conn.fetchval(
-        "INSERT INTO packages (name, price_kes, duration_days, speed_mbps, created_by, tenant_id) VALUES ($1, $2, 1, 10, $3, $4) RETURNING id",
+        "INSERT INTO packages (name, price_kes, duration_minutes, speed_mbps, created_by, tenant_id) VALUES ($1, $2, 1440, 10, $3, $4) RETURNING id",
         "B Daily", Decimal("50.00"), UUID(tenant_b_admin_id), UUID(tenant_b_id)
     )
     stuck_b_id = await conn.fetchval(
@@ -215,7 +215,7 @@ async def test_retry_provision_payment_endpoint(mock_get_redis, conn: asyncpg.Co
         "customer_b2@test.com", "254711999915", hash_password(TEST_PASSWORD), UUID(tenant_b_id)
     )
     pkg_b_id = await conn.fetchval(
-        "INSERT INTO packages (name, price_kes, duration_days, speed_mbps, created_by, tenant_id) VALUES ($1, $2, 1, 10, $3, $4) RETURNING id",
+        "INSERT INTO packages (name, price_kes, duration_minutes, speed_mbps, created_by, tenant_id) VALUES ($1, $2, 1440, 10, $3, $4) RETURNING id",
         "B Daily 2", Decimal("50.00"), UUID(tenant_b_admin_id), UUID(tenant_b_id)
     )
     stuck_b_id = await conn.fetchval(

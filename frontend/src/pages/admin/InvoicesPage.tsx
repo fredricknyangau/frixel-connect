@@ -99,7 +99,7 @@ export default function InvoicesPage() {
                 <p className="text-sm font-medium">KRA eTIMS QR Code</p>
                 <div className="border p-2 rounded-lg bg-white inline-block">
                   <img 
-                    src={selectedInvoice.kra_etims_qr_code} 
+                    src={selectedInvoice.kra_etims_qr_code || undefined} 
                     alt="KRA eTIMS QR Code" 
                     className="w-48 h-48 object-contain"
                     onError={(e) => {
@@ -109,7 +109,7 @@ export default function InvoicesPage() {
                 </div>
               </div>
               
-              <Button render={<a href={selectedInvoice.pdf_url} target="_blank" rel="noopener noreferrer" download />} className="w-full">
+              <Button render={<a href={selectedInvoice.pdf_url || undefined} target="_blank" rel="noopener noreferrer" download />} className="w-full">
                 <Download className="mr-2 h-4 w-4" /> Download PDF
               </Button>
             </div>

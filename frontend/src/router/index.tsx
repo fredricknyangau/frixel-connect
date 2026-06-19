@@ -10,8 +10,10 @@ import LandingPage from '../pages/public/LandingPage';
 import LoginPage from '../pages/public/LoginPage';
 import RegisterPage from '../pages/public/RegisterPage';
 import TenantSignupPage from '../pages/public/TenantSignupPage';
+import CaptivePortalPage from '../pages/public/CaptivePortalPage';
 
 import OnboardingWizard from '../pages/admin/onboarding/OnboardingWizard';
+import RouterOnboardingWizard from '../pages/admin/onboarding/RouterOnboardingWizard';
 import AdminDashboard from '../pages/admin/DashboardPage';
 import AdminCustomers from '../pages/admin/CustomersPage';
 import AdminPackages from '../pages/admin/PackagesPage';
@@ -57,6 +59,7 @@ export const router = createBrowserRouter([
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
       { path: 'signup', element: <TenantSignupPage /> },
+      { path: 'hotspot/login', element: <CaptivePortalPage /> },
     ],
   },
   {
@@ -64,6 +67,7 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute allowedRoles={['admin']} />,
     children: [
       { path: 'onboarding', element: <OnboardingWizard /> },
+      { path: 'onboarding/router', element: <RouterOnboardingWizard /> },
       {
         element: <AdminLayout />,
         children: [

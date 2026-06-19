@@ -41,6 +41,7 @@ from app.modules.subscriptions.router import router as subscriptions_router, adm
 from app.modules.invoices.router import router as invoices_router # Phase 6
 from app.modules.system_health.router import router as system_health_router
 from app.modules.audit_log.router import router as audit_log_router
+from app.modules.hotspot.router import router as hotspot_router
 
 
 @asynccontextmanager
@@ -173,6 +174,7 @@ app.include_router(subscriptions_admin_router, prefix=f"{PREFIX}", tags=["Admin 
 app.include_router(invoices_router, prefix=f"{PREFIX}",           tags=["Invoices"]) # Phase 7
 app.include_router(system_health_router, prefix=f"{PREFIX}",      tags=["System Health"])
 app.include_router(audit_log_router, prefix=f"{PREFIX}",          tags=["Audit Log"])
+app.include_router(hotspot_router, prefix=f"{PREFIX}/hotspot",    tags=["Hotspot"])
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

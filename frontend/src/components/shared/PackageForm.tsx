@@ -10,7 +10,7 @@ export const packageSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   description: z.string().optional(),
   price_kes: z.coerce.number().positive('Price must be greater than 0'),
-  duration_days: z.coerce.number().int().positive('Duration must be a positive number'),
+  duration_minutes: z.coerce.number().int().positive('Duration must be a positive number'),
   speed_mbps: z.coerce.number().int().positive('Speed must be a positive number'),
 });
 
@@ -41,7 +41,7 @@ export function PackageForm({
       name: '',
       description: '',
       price_kes: 0,
-      duration_days: 0,
+      duration_minutes: 0,
       speed_mbps: 0,
     },
   });
@@ -61,9 +61,9 @@ export function PackageForm({
           {errors.speed_mbps && <p className="text-sm text-destructive">{errors.speed_mbps.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="duration_days">Duration (Days)</Label>
-          <Input id="duration_days" type="number" {...register('duration_days')} />
-          {errors.duration_days && <p className="text-sm text-destructive">{errors.duration_days.message}</p>}
+          <Label htmlFor="duration_minutes">Duration (Minutes)</Label>
+          <Input id="duration_minutes" type="number" {...register('duration_minutes')} />
+          {errors.duration_minutes && <p className="text-sm text-destructive">{errors.duration_minutes.message}</p>}
         </div>
       </div>
 

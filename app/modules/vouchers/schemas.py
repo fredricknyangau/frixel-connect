@@ -23,6 +23,7 @@ class VoucherResponse(BaseModel):
     expires_at: Optional[datetime] = None
     package_name: str = Field(..., description="Name of the package this voucher is for")
     customer_id: UUID
+    payment_id: UUID
     activated_at: Optional[datetime] = None
     created_at: datetime
 

@@ -19,12 +19,65 @@ logger = logging.getLogger(__name__)
 
 async def get_subscription(conn: asyncpg.Connection, tenant_id: UUID, subscription_id: UUID) -> dict:
     row = await conn.fetchrow(
-        "SELECT * FROM subscriptions WHERE id = $1 AND tenant_id = $2",
+        """
+        SELECT s.*, p.name AS package_name
+        FROM subscriptions s
+        JOIN packages p ON s.package_id = p.id
+        WHERE s.id = $1 AND s.tenant_id = $2
+        """,
         subscription_id, tenant_id
     )
     if not row:
         raise NotFoundException("Subscription", str(subscription_id))
     return dict(row)
+
+
+async def get_customer_subscription(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    customer_id: UUID,
+) -> dict:
+    row = await conn.fetchrow(
+        """
+        SELECT s.*, p.name AS package_name
+        FROM subscriptions s
+        JOIN packages p ON s.package_id = p.id
+        WHERE s.tenant_id = $1
+          AND s.customer_id = $2
+          AND s.status IN ('active', 'grace', 'suspended')
+        ORDER BY s.created_at DESC
+        LIMIT 1
+        """,
+        tenant_id,
+        customer_id,
+    )
+    if not row:
+        raise NotFoundException("Subscription", "me")
+    return dict(row)
+
+
+async def update_customer_auto_renew(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+    customer_id: UUID,
+    auto_renew: bool,
+) -> dict:
+    sub = await get_customer_subscription(conn, tenant_id, customer_id)
+    row = await conn.fetchrow(
+        """
+        UPDATE subscriptions
+        SET auto_renew = $1, updated_at = NOW()
+        WHERE id = $2 AND tenant_id = $3 AND customer_id = $4
+        RETURNING *
+        """,
+        auto_renew,
+        sub["id"],
+        tenant_id,
+        customer_id,
+    )
+    updated = dict(row)
+    updated["package_name"] = sub["package_name"]
+    return updated
 
 async def calculate_proration(
     conn: asyncpg.Connection,
@@ -149,9 +202,12 @@ async def process_renewal_payment(
         # If it was suspended, re-enable PPPoE secret
         if sub["status"] == "suspended":
             from app.integrations.mikrotik import get_mikrotik_client
-            
-            # Fetch router for customer
-            user_row = await conn.fetchrow("SELECT router_id, email, phone FROM users WHERE id = $1", customer_id)
+
+            # Fetch router for customer, scoped to the tenant for defence-in-depth
+            user_row = await conn.fetchrow(
+                "SELECT router_id, email, phone FROM users WHERE id = $1 AND tenant_id = $2",
+                customer_id, tenant_id
+            )
             if user_row and user_row["router_id"]:
                 router_row = await conn.fetchrow(
                     "SELECT host, port, username, password_encrypted FROM routers WHERE id = $1 AND tenant_id = $2",
@@ -218,8 +274,14 @@ async def update_subscription_status(conn: asyncpg.Connection, tenant_id: UUID, 
     
     # If suspending or reactivating, update MikroTik
     from app.integrations.mikrotik import get_mikrotik_client
-    
-    user_row = await conn.fetchrow("SELECT router_id, phone FROM users WHERE id = $1", sub["customer_id"])
+
+    # Scope to tenant_id for defence-in-depth (customer_id already comes from
+    # a tenant-scoped subscription row, but explicit scoping prevents any
+    # future code-path confusion)
+    user_row = await conn.fetchrow(
+        "SELECT router_id, phone FROM users WHERE id = $1 AND tenant_id = $2",
+        sub["customer_id"], tenant_id
+    )
     if user_row and user_row["router_id"]:
         router_row = await conn.fetchrow(
             "SELECT host, port, username, password_encrypted FROM routers WHERE id = $1 AND tenant_id = $2",

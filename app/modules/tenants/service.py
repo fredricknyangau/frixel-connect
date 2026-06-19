@@ -22,8 +22,9 @@ from uuid import UUID
 
 import asyncpg
 
-from app.core.exceptions import ConflictException, NotFoundException
+from app.core.exceptions import ConflictException, NotFoundException, PaymentException
 from app.core.security import hash_password
+from app.integrations.daraja import daraja_client, DarajaError
 from app.modules.tenants.schemas import TenantRegisterRequest
 
 
@@ -33,6 +34,13 @@ TIER_MAX_CUSTOMERS = {
     "growth":     500,
     "scale":      5000,
     "enterprise": 999999,
+}
+
+TIER_MONTHLY_FEES = {
+    "starter":    1500,
+    "growth":     5000,
+    "scale":      15000,
+    "enterprise": 50000,
 }
 
 
@@ -103,14 +111,16 @@ async def register_tenant(
                 business_name, owner_email, owner_phone,
                 subscription_tier, max_customers, status
             )
-            VALUES ($1, $2, $3, 'starter', $4, 'active')
+            VALUES ($1, $2, $3, $4, $5, 'active')
             RETURNING id, business_name, owner_email, owner_phone,
-                      subscription_tier, max_customers, status, created_at
+                      subscription_tier, max_customers, status,
+                      next_billing_date, created_at
             """,
             data.business_name,
             str(data.owner_email),
             data.owner_phone,
-            TIER_MAX_CUSTOMERS["starter"],
+            data.subscription_tier,
+            TIER_MAX_CUSTOMERS[data.subscription_tier],
         )
 
         tenant_id = tenant_row["id"]
@@ -149,16 +159,98 @@ async def get_tenant_by_id(
     """
     row = await conn.fetchrow(
         """
-        SELECT id, business_name, owner_email, owner_phone,
-               subscription_tier, max_customers, status, created_at
-        FROM tenants
-        WHERE id = $1
+        SELECT
+            t.id,
+            t.business_name,
+            t.owner_email,
+            t.owner_phone,
+            t.subscription_tier,
+            t.max_customers,
+            t.status,
+            t.next_billing_date,
+            t.created_at,
+            COUNT(u.id) FILTER (
+                WHERE u.role = 'customer' AND u.is_active = TRUE
+            ) AS current_customer_count
+        FROM tenants t
+        LEFT JOIN users u ON u.tenant_id = t.id
+        WHERE t.id = $1
+        GROUP BY t.id
         """,
         tenant_id,
     )
     if not row:
         raise NotFoundException("Tenant", str(tenant_id))
-    return dict(row)
+    data = dict(row)
+    data["billing_status"] = _billing_status(data["status"], data["next_billing_date"])
+    return data
+
+
+def _billing_status(status: str, next_billing_date) -> str:
+    if status == "suspended":
+        return "suspended"
+    if status == "cancelled":
+        return "suspended"
+    if next_billing_date is not None:
+        from datetime import datetime, timezone, timedelta
+        now = datetime.now(timezone.utc)
+        if next_billing_date < now:
+            if next_billing_date >= now - timedelta(days=7):
+                return "grace"
+            return "suspended"
+    return "active"
+
+
+async def initiate_platform_billing_payment(
+    conn: asyncpg.Connection,
+    tenant_id: UUID,
+) -> dict:
+    tenant = await get_tenant_by_id(conn, tenant_id)
+    amount = TIER_MONTHLY_FEES.get(tenant["subscription_tier"], TIER_MONTHLY_FEES["starter"])
+    payment = await conn.fetchrow(
+        """
+        INSERT INTO platform_payments (tenant_id, amount_kes, status, phone_number)
+        VALUES ($1, $2, 'pending', $3)
+        RETURNING id, tenant_id, amount_kes, status, phone_number, mpesa_checkout_id, created_at
+        """,
+        tenant_id,
+        amount,
+        tenant["owner_phone"],
+    )
+
+    try:
+        response = await daraja_client.stk_push(
+            phone=tenant["owner_phone"],
+            amount=amount,
+            account_reference=f"ZS-{str(payment['id'])[:8]}",
+            description="ZealSync Fee",
+        )
+        checkout_id = response.get("CheckoutRequestID")
+        updated = await conn.fetchrow(
+            """
+            UPDATE platform_payments
+            SET mpesa_checkout_id = $1, updated_at = NOW()
+            WHERE id = $2 AND tenant_id = $3
+            RETURNING id, tenant_id, amount_kes, status, phone_number, mpesa_checkout_id, created_at
+            """,
+            checkout_id,
+            payment["id"],
+            tenant_id,
+        )
+        return dict(updated)
+    except (DarajaError, Exception) as e:
+        failure_msg = str(e)
+        await conn.execute(
+            """
+            UPDATE platform_payments
+            SET status = 'failed', failure_reason = $1, updated_at = NOW()
+            WHERE id = $2 AND tenant_id = $3
+            """,
+            failure_msg,
+            payment["id"],
+            tenant_id,
+        )
+        raise PaymentException(f"Platform billing payment initiation failed: {failure_msg}")
 
 
 async def get_tenant_stats(

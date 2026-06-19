@@ -3,7 +3,6 @@ import { ShoppingCart, Ticket, Wifi, Activity } from 'lucide-react';
 
 import { useCustomerVouchers } from '../../hooks/useVouchers';
 import { useCustomerSessions } from '../../hooks/useSessions';
-import { usePackages } from '../../hooks/usePackages';
 import { PageTitle } from '../../components/shared/PageTitle';
 import { formatBytes, formatNairobiDate } from '../../lib/utils';
 
@@ -17,7 +16,7 @@ export default function CustomerDashboard() {
   const navigate = useNavigate();
   const { data: vouchers, isLoading: loadingVouchers } = useCustomerVouchers();
   const { data: sessions, isLoading: loadingSessions } = useCustomerSessions();
-  const { data: packages } = usePackages();
+  
 
   const activeVouchers = vouchers?.filter(v => v.status === 'active') || [];
   
@@ -26,7 +25,7 @@ export default function CustomerDashboard() {
   const totalBytesUploaded = sessions?.reduce((sum, s) => sum + s.bytes_uploaded, 0) || 0;
   const totalDataUsage = totalBytesDownloaded + totalBytesUploaded;
 
-  const getPackageName = (packageId: string) => packages?.find(p => p.id === packageId)?.name || 'Unknown';
+  
 
   const recentSessions = sessions ? [...sessions].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()).slice(0, 3) : [];
 
@@ -133,7 +132,7 @@ export default function CustomerDashboard() {
                   <div key={voucher.id} className="flex items-center justify-between p-3 rounded-lg border">
                     <div>
                       <div className="font-mono font-bold text-lg">{voucher.code}</div>
-                      <div className="text-xs text-muted-foreground">{getPackageName(voucher.package_id)}</div>
+                      <div className="text-xs text-muted-foreground">{voucher.package_name || 'Unknown'}</div>
                     </div>
                     <div className="text-right">
                       <StatusBadge status={voucher.status} />

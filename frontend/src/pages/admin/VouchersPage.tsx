@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 
 import { useAdminVouchers, useRevokeVoucher, useRetryVoucher } from '../../hooks/useVouchers';
 import { useAdminCustomers } from '../../hooks/useUsers';
-import { usePackages } from '../../hooks/usePackages';
 import { VoucherStatus } from '../../types/vouchers';
 import { PageTitle } from '../../components/shared/PageTitle';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -18,7 +17,6 @@ import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 export default function VouchersPage() {
   const { data: vouchers, isLoading } = useAdminVouchers();
   const { data: customers } = useAdminCustomers();
-  const { data: packages } = usePackages();
   const revokeVoucher = useRevokeVoucher();
   const retryVoucher = useRetryVoucher();
 
@@ -35,7 +33,6 @@ export default function VouchersPage() {
     return filtered;
   }, [vouchers, statusFilter]);
 
-  const getPackageName = (packageId: string) => packages?.find(p => p.id === packageId)?.name || 'Unknown';
   const getCustomerPhone = (customerId: string) => customers?.find(c => c.id === customerId)?.phone || 'Unknown';
 
   const handleCopy = (code: string) => {
@@ -128,9 +125,9 @@ export default function VouchersPage() {
                     </div>
                   </TableCell>
                   <TableCell>{getCustomerPhone(voucher.customer_id)}</TableCell>
-                  <TableCell>{getPackageName(voucher.package_id)}</TableCell>
+                  <TableCell>{voucher.package_name}</TableCell>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
-                    {formatNairobiDate(voucher.expires_at)}
+                    {voucher.expires_at ? formatNairobiDate(voucher.expires_at) : '-'}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={voucher.status} />

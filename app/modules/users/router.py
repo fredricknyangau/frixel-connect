@@ -15,7 +15,14 @@ from fastapi import APIRouter, Depends, status
 
 from app.database import get_db
 from app.dependencies import require_role
-from app.modules.users.schemas import UserResponse, UserUpdate, CreateCustomerRequest, AdminUserCreate, AdminUserUpdate
+from app.modules.users.schemas import (
+    UserResponse,
+    UserUpdate,
+    CreateCustomerRequest,
+    AdminUserCreate,
+    AdminResellerCreate,
+    AdminUserUpdate,
+)
 from app.modules.users import service as users_service
 
 router = APIRouter()
@@ -177,6 +184,32 @@ async def create_user_admin(
             data=data,
         )
     return new_user
+
+
+@router.post(
+    "/admin/resellers",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a reseller in this tenant (admin only)",
+)
+async def create_reseller_admin(
+    data: AdminResellerCreate,
+    user: dict = Depends(require_role("admin")),
+) -> UserResponse:
+    reseller_data = AdminUserCreate(
+        email=data.email,
+        phone=data.phone,
+        password=data.password,
+        role="reseller",
+        reseller_id=None,
+    )
+    async with get_db() as conn:
+        reseller = await users_service.admin_create_user(
+            conn,
+            tenant_id=UUID(user["tenant_id"]),
+            data=reseller_data,
+        )
+    return reseller
 
 
 @router.put(

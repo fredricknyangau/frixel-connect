@@ -12,13 +12,16 @@ import {
   Repeat,
   Receipt,
   ScrollText,
-  Building2
+  Building2,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { useAuthContext } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '../ui/sheet';
 import { Badge } from '../ui/badge';
+import { useTheme } from '@/hooks/useTheme';
 
 interface SidebarItem {
   icon: typeof LayoutDashboard;
@@ -54,35 +57,57 @@ export default function AdminLayout() {
     navigate('/login');
   };
 
-  const NavItems = ({ isMobile = false }: { isMobile?: boolean }) => (
-    <nav className={cn('flex flex-col gap-2', isMobile ? 'mt-4' : 'mt-8')}>
-      {sidebarItems.map((item) => (
-        <NavLink
-          key={item.href}
-          to={item.href}
-          className={({ isActive }) =>
-            cn(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )
-          }
-        >
-          <item.icon className="h-5 w-5" />
-          {item.label}
-        </NavLink>
-      ))}
-      <Button 
-        variant="ghost" 
-        className="mt-auto flex justify-start gap-3 text-muted-foreground hover:text-foreground md:mt-8"
-        onClick={handleLogout}
-      >
-        <LogOut className="h-5 w-5" />
-        Logout
-      </Button>
-    </nav>
-  );
+  const NavItems = ({ isMobile = false }: { isMobile?: boolean }) => {
+    const { theme, setTheme } = useTheme();
+
+    return (
+      <nav className={cn('flex flex-col gap-2 flex-1', isMobile ? 'mt-4' : 'mt-8')}>
+        <div className="flex-1 flex flex-col gap-2">
+          {sidebarItems.map((item) => (
+            <NavLink
+              key={item.href}
+              to={item.href}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )
+              }
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+        
+        <div className="mt-auto flex flex-col gap-2 pt-4 border-t">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="w-full justify-start gap-2 px-2"
+          >
+            {theme === 'dark'
+              ? <Sun className="w-4 h-4" />
+              : <Moon className="w-4 h-4" />
+            }
+            <span className="text-sm">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+          </Button>
+
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-5 w-5" />
+            Logout
+          </Button>
+        </div>
+      </nav>
+    );
+  };
 
   return (
     <div className="flex min-h-screen bg-muted/20">

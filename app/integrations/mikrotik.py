@@ -221,6 +221,27 @@ class MikroTikClient:
         sessions = response.json()
         return sessions if isinstance(sessions, list) else []
 
+    async def remove_active_hotspot_session(self, username: str) -> None:
+        """
+        Force-disconnects an active hotspot user.
+        """
+        async with self._make_client() as client:
+            find_response = await client.get("/ip/hotspot/active", params={"user": username})
+            self._check_response(find_response, context=f"find active session '{username}'")
+            
+            sessions = find_response.json()
+            if not sessions:
+                logger.info(f"MikroTik: no active session found for '{username}'")
+                return
+
+            for session in sessions:
+                mikrotik_id = session.get(".id")
+                if mikrotik_id:
+                    delete_response = await client.delete(f"/ip/hotspot/active/{mikrotik_id}")
+                    self._check_response(delete_response, context=f"disconnect session '{username}'")
+                    
+        logger.info(f"MikroTik: forcefully disconnected active session for '{username}'")
+
     async def get_user_profile_names(self) -> list[str]:
         """
         Returns the names of all hotspot user profiles configured on the router.

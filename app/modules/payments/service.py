@@ -172,11 +172,13 @@ async def get_customer_payments(
     """Retrieves payment history for a customer within a tenant."""
     rows = await conn.fetch(
         """
-        SELECT id, customer_id, package_id, amount_kes, status, phone_number, created_at
-        FROM payments
-        WHERE customer_id = $1
-          AND tenant_id = $2
-        ORDER BY created_at DESC
+        SELECT p.id, p.customer_id, p.package_id, p.amount_kes, p.status, p.phone_number, p.created_at,
+               pkg.name AS package_name
+        FROM payments p
+        JOIN packages pkg ON p.package_id = pkg.id
+        WHERE p.customer_id = $1
+          AND p.tenant_id = $2
+        ORDER BY p.created_at DESC
         """,
         customer_id,
         tenant_id,
@@ -193,9 +195,11 @@ async def get_reseller_payments(
     rows = await conn.fetch(
         """
         SELECT p.id, p.customer_id, p.package_id, p.amount_kes,
-               p.status, p.phone_number, p.created_at
+               p.status, p.phone_number, p.created_at,
+               pkg.name AS package_name
         FROM payments p
         JOIN users u ON p.customer_id = u.id
+        JOIN packages pkg ON p.package_id = pkg.id
         WHERE u.reseller_id = $1
           AND p.tenant_id = $2
         ORDER BY p.created_at DESC
@@ -213,10 +217,12 @@ async def get_all_payments(
     """Retrieves all payments in the tenant (admin view)."""
     rows = await conn.fetch(
         """
-        SELECT id, customer_id, package_id, amount_kes, status, phone_number, created_at
-        FROM payments
-        WHERE tenant_id = $1
-        ORDER BY created_at DESC
+        SELECT p.id, p.customer_id, p.package_id, p.amount_kes, p.status, p.phone_number, p.created_at,
+               pkg.name AS package_name
+        FROM payments p
+        JOIN packages pkg ON p.package_id = pkg.id
+        WHERE p.tenant_id = $1
+        ORDER BY p.created_at DESC
         """,
         tenant_id,
     )

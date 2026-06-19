@@ -4,6 +4,7 @@ export interface Payment {
   id: string;
   customer_id: string;
   package_id: string;
+  package_name: string;
   amount_kes: number;
   status: PaymentStatus;
   phone_number: string;

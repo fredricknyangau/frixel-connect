@@ -46,8 +46,8 @@ async def test_invoice_generation_and_tenant_isolation(conn: Connection):
     """, "c2@zealsync.dev", "254700000010", tenant2_id)
     
     package2_id = await conn.fetchval("""
-        INSERT INTO packages (name, price_kes, duration_days, speed_mbps, tenant_id)
-        VALUES ('T2Pkg', 100, 1, 5, $1)
+        INSERT INTO packages (name, price_kes, duration_minutes, speed_mbps, tenant_id)
+        VALUES ('T2Pkg', 100, 1440, 5, $1)
         RETURNING id
     """, tenant2_id)
     

@@ -15,7 +15,9 @@ import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../components/ui/card';
 
 const updateProfileSchema = z.object({
-  phone: z.string().regex(/^(?:0|254|\+254)[17]\d{8}$/, 'Enter a valid Kenyan phone number'),
+  email: z.string().email('Enter a valid email address').optional().or(z.literal('')),
+  phone: z.string().regex(/^(?:0|254|\+254)[17]\d{8}$/, 'Enter a valid Kenyan phone number').optional().or(z.literal('')),
+  password: z.string().min(8, 'Password must be at least 8 characters').optional().or(z.literal('')),
 });
 
 type UpdateProfileFormValues = z.infer<typeof updateProfileSchema>;
@@ -32,15 +34,25 @@ export default function ProfilePage() {
   useEffect(() => {
     if (profile) {
       reset({
+        email: profile.email.endsWith('@guest.example.com') ? '' : profile.email,
         phone: profile.phone,
+        password: '',
       });
     }
   }, [profile, reset]);
 
   const onSubmit = async (data: UpdateProfileFormValues) => {
     try {
-      await updateProfile.mutateAsync(data);
+      const payload: any = {};
+      if (data.email) payload.email = data.email;
+      if (data.phone) payload.phone = data.phone;
+      if (data.password) payload.password = data.password;
+
+      await updateProfile.mutateAsync(payload);
       toast.success('Profile updated successfully');
+      
+      // If they changed their email or password, clear the password field
+      reset({ ...data, password: '' });
     } catch (error: any) {
       toast.error(error.response?.data?.detail || 'Failed to update profile');
     }
@@ -79,11 +91,13 @@ export default function ProfilePage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  value={profile?.email || ''} 
-                  disabled 
-                  className="bg-muted"
+                  placeholder={profile?.email.endsWith('@guest.example.com') ? 'Please provide a real email' : 'you@example.com'}
+                  {...register('email')}
                 />
-                <p className="text-xs text-muted-foreground">Email address cannot be changed.</p>
+                {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+                {profile?.email.endsWith('@guest.example.com') && (
+                  <p className="text-xs text-amber-500">You are using a temporary guest email. Please update it.</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -95,6 +109,17 @@ export default function ProfilePage() {
                   {...register('phone')} 
                 />
                 {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">New Password (Leave blank to keep current)</Label>
+                <Input 
+                  id="password" 
+                  type="password" 
+                  placeholder="••••••••" 
+                  {...register('password')} 
+                />
+                {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
               </div>
             </form>
           )}

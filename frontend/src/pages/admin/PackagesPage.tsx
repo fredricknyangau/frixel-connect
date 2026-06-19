@@ -9,6 +9,7 @@ import { usePackages, useCreatePackage, useUpdatePackage, useDeactivatePackage }
 import { Package } from '../../types/packages';
 import { PageTitle } from '../../components/shared/PageTitle';
 import { formatKES } from '../../lib/utils';
+import { formatDuration } from '../../lib/formatDuration';
 import { cn } from '../../lib/utils';
 
 import { Button } from '../../components/ui/button';
@@ -23,7 +24,7 @@ const packageSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   description: z.string().optional(),
   price_kes: z.coerce.number().positive('Price must be greater than 0'),
-  duration_days: z.coerce.number().int().positive('Duration must be a positive number'),
+  duration_minutes: z.coerce.number().int().positive('Duration must be a positive number'),
   speed_mbps: z.coerce.number().int().positive('Speed must be a positive number'),
 });
 
@@ -51,11 +52,11 @@ export default function PackagesPage() {
         name: editingPackage.name,
         description: editingPackage.description || '',
         price_kes: editingPackage.price_kes,
-        duration_days: editingPackage.duration_days,
+        duration_minutes: editingPackage.duration_minutes,
         speed_mbps: editingPackage.speed_mbps,
       });
     } else {
-      reset({ name: '', description: '', price_kes: 0, duration_days: 0, speed_mbps: 0 });
+      reset({ name: '', description: '', price_kes: 0, duration_minutes: 0, speed_mbps: 0 });
     }
   }, [editingPackage, reset]);
 
@@ -118,7 +119,7 @@ export default function PackagesPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Speed (Mbps)</TableHead>
-              <TableHead>Duration (Days)</TableHead>
+              <TableHead>Duration</TableHead>
               <TableHead>Price</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -142,7 +143,7 @@ export default function PackagesPage() {
                 <TableRow key={pkg.id} className={cn(!pkg.is_active && 'text-muted-foreground opacity-60')}>
                   <TableCell className="font-medium">{pkg.name}</TableCell>
                   <TableCell>{pkg.speed_mbps} Mbps</TableCell>
-                  <TableCell>{pkg.duration_days} Days</TableCell>
+                  <TableCell>{formatDuration(pkg.duration_minutes)}</TableCell>
                   <TableCell>{formatKES(pkg.price_kes)}</TableCell>
                   <TableCell>
                     {pkg.is_active ? (
@@ -201,9 +202,9 @@ export default function PackagesPage() {
                 {errors.speed_mbps && <p className="text-sm text-destructive">{errors.speed_mbps.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="duration_days">Duration (Days)</Label>
-                <Input id="duration_days" type="number" {...register('duration_days')} />
-                {errors.duration_days && <p className="text-sm text-destructive">{errors.duration_days.message}</p>}
+                <Label htmlFor="duration_minutes">Duration (Minutes)</Label>
+                <Input id="duration_minutes" type="number" {...register('duration_minutes')} />
+                {errors.duration_minutes && <p className="text-sm text-destructive">{errors.duration_minutes.message}</p>}
               </div>
             </div>
 

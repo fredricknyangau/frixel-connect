@@ -47,16 +47,10 @@ async def sample_payment(conn: asyncpg.Connection) -> str:
 
 
 @pytest.mark.asyncio
-@patch("app.modules.vouchers.service.get_mikrotik_client")
 async def test_voucher_generation_provisions_radius(
-    mock_get_client, client: TestClient, conn: asyncpg.Connection, sample_payment: str
+    client: TestClient, conn: asyncpg.Connection, sample_payment: str
 ):
     """Asserts that generating a voucher inserts Cleartext-Password into radcheck and Rate-Limit into radreply."""
-    # Mock MikroTik
-    mock_mikrotik = AsyncMock()
-    mock_mikrotik.generate_hotspot_user.return_value = {".id": "*F"}
-    mock_get_client.return_value = mock_mikrotik
-
     # Generate voucher directly via service
     async with conn.transaction():
         code = await generate_voucher(conn, sample_payment, is_final_attempt=True)
@@ -77,15 +71,10 @@ async def test_voucher_generation_provisions_radius(
 
 @pytest.mark.asyncio
 @patch("app.modules.vouchers.service.asyncio.to_thread")
-@patch("app.modules.vouchers.service.get_mikrotik_client")
 async def test_voucher_revocation_triggers_coa(
-    mock_get_client, mock_to_thread, client: TestClient, conn: asyncpg.Connection, sample_payment: str
+    mock_to_thread, client: TestClient, conn: asyncpg.Connection, sample_payment: str
 ):
     """Asserts that revoking a voucher deletes radcheck/radreply and sends a CoA disconnect."""
-    # Mock MikroTik
-    mock_mikrotik = AsyncMock()
-    mock_get_client.return_value = mock_mikrotik
-
     # Generate a voucher first
     async with conn.transaction():
         code = await generate_voucher(conn, sample_payment, is_final_attempt=True)
@@ -134,13 +123,10 @@ async def test_voucher_revocation_triggers_coa(
 
 
 @pytest.mark.asyncio
-@patch("app.modules.vouchers.service.get_mikrotik_client")
 async def test_sync_radius_sessions_cron(
-    mock_get_client, conn: asyncpg.Connection, sample_payment: str
+    conn: asyncpg.Connection, sample_payment: str
 ):
     """Asserts that the session sync cron job copies radacct rows into the local sessions table."""
-    mock_get_client.return_value = AsyncMock()
-
     # Generate a voucher
     async with conn.transaction():
         code = await generate_voucher(conn, sample_payment, is_final_attempt=True)
@@ -193,4 +179,3 @@ async def test_sync_radius_sessions_cron(
     session_row_updated = await conn.fetchrow("SELECT * FROM sessions WHERE acct_unique_id = 'uniq_sync'")
     assert session_row_updated["ended_at"] is not None
     assert session_row_updated["bytes_uploaded"] == 5000
-

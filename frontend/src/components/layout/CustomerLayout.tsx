@@ -8,6 +8,7 @@ import {
   Receipt
 } from 'lucide-react';
 import { useAuthContext } from '../../context/AuthContext';
+import { useCustomerProfile } from '../../hooks/useUsers';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
 export default function CustomerLayout() {
   const { logout } = useAuthContext();
   const navigate = useNavigate();
+  const { data: profile } = useCustomerProfile();
 
   const handleLogout = () => {
     logout();
@@ -69,6 +71,17 @@ export default function CustomerLayout() {
 
       {/* Main Content */}
       <main className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full">
+        {profile?.email.endsWith('@guest.example.com') && (
+          <div className="mb-6 bg-amber-50 border border-amber-200 p-4 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h4 className="font-semibold text-amber-800">Complete your profile</h4>
+              <p className="text-sm text-amber-700">You are currently using a guest account. Update your email and password to secure your account.</p>
+            </div>
+            <Button size="sm" variant="outline" className="shrink-0 bg-white" onClick={() => navigate('/customer/profile')}>
+              Update Profile
+            </Button>
+          </div>
+        )}
         <Outlet />
       </main>
 

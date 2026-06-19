@@ -53,7 +53,7 @@ export default function CustomerInvoicesPage() {
                 </div>
               </CardContent>
               <CardFooter className="pt-3 border-t">
-                <Button variant="outline" className="w-full" render={<a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer" download />}>
+                <Button variant="outline" className="w-full" render={<a href={invoice.pdf_url || undefined} target="_blank" rel="noopener noreferrer" download />}>
                   <Download className="mr-2 h-4 w-4" /> Download Receipt
                 </Button>
               </CardFooter>

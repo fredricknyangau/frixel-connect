@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Redirecting...</title>
+</head>
+
+<body>
+    <script>
+        window.location.href =
+            "http://10.10.10.254/portal" +
+            "?mac=$(mac-esc)" +
+            "&ip=$(ip)" +
+            "&link-login=$(link-login-esc)" +
+            "&link-orig=$(link-orig-esc)";
+    </script>
+    <noscript>
+        <meta http-equiv="refresh"
+            content="0;url=http://10.10.10.254/portal?mac=$(mac-esc)&ip=$(ip)&link-login=$(link-login-esc)&link-orig=$(link-orig-esc)">
+    </noscript>
+</body>
+
+</html>

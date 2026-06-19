@@ -186,8 +186,11 @@ async def generate_invoice_for_payment(conn: Connection, payment_id: str) -> Non
 
 async def get_invoice_by_id(conn: Connection, invoice_id: str, tenant_id: str):
     row = await conn.fetchrow("""
-        SELECT * FROM invoices 
-        WHERE id = $1 AND tenant_id = $2
+        SELECT i.*, p.amount_kes,
+               CASE WHEN i.pdf_path IS NULL THEN NULL ELSE '/api/v1/invoices/' || i.id::text || '/pdf' END AS pdf_url
+        FROM invoices i
+        JOIN payments p ON i.payment_id = p.id
+        WHERE i.id = $1 AND i.tenant_id = $2
     """, invoice_id, tenant_id)
     
     if not row:
@@ -196,8 +199,42 @@ async def get_invoice_by_id(conn: Connection, invoice_id: str, tenant_id: str):
 
 async def list_invoices(conn: Connection, tenant_id: str):
     rows = await conn.fetch("""
-        SELECT * FROM invoices 
-        WHERE tenant_id = $1
-        ORDER BY created_at DESC
+        SELECT i.*, p.amount_kes,
+               CASE WHEN i.pdf_path IS NULL THEN NULL ELSE '/api/v1/invoices/' || i.id::text || '/pdf' END AS pdf_url
+        FROM invoices i
+        JOIN payments p ON i.payment_id = p.id
+        WHERE i.tenant_id = $1
+        ORDER BY i.created_at DESC
     """, tenant_id)
     return [dict(r) for r in rows]
+
+
+async def list_customer_invoices(conn: Connection, tenant_id: str, customer_id: str):
+    rows = await conn.fetch("""
+        SELECT i.*, p.amount_kes,
+               CASE WHEN i.pdf_path IS NULL THEN NULL ELSE '/api/v1/invoices/' || i.id::text || '/pdf' END AS pdf_url
+        FROM invoices i
+        JOIN payments p ON i.payment_id = p.id
+        WHERE i.tenant_id = $1
+          AND p.tenant_id = $1
+          AND p.customer_id = $2
+        ORDER BY i.created_at DESC
+    """, tenant_id, customer_id)
+    return [dict(r) for r in rows]
+
+
+async def get_customer_invoice_by_id(conn: Connection, invoice_id: str, tenant_id: str, customer_id: str):
+    row = await conn.fetchrow("""
+        SELECT i.*, p.amount_kes,
+               CASE WHEN i.pdf_path IS NULL THEN NULL ELSE '/api/v1/invoices/' || i.id::text || '/pdf' END AS pdf_url
+        FROM invoices i
+        JOIN payments p ON i.payment_id = p.id
+        WHERE i.id = $1
+          AND i.tenant_id = $2
+          AND p.tenant_id = $2
+          AND p.customer_id = $3
+    """, invoice_id, tenant_id, customer_id)
+
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    return dict(row)

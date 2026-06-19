@@ -18,8 +18,13 @@ from app.modules.tenants.schemas import (
     TenantRegisterRequest,
     TenantResponse,
     TenantRegisterResponse,
+    TenantBillingPaymentResponse,
 )
-from app.modules.tenants.service import register_tenant, get_tenant_by_id
+from app.modules.tenants.service import (
+    register_tenant,
+    get_tenant_by_id,
+    initiate_platform_billing_payment,
+)
 
 router = APIRouter()
 
@@ -77,3 +82,20 @@ async def get_my_tenant(
     async with get_db() as conn:
         tenant = await get_tenant_by_id(conn, UUID(current_user["tenant_id"]))
     return TenantResponse(**tenant)
+
+
+@router.post(
+    "/me/billing/pay-now",
+    response_model=TenantBillingPaymentResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Initiate ZealSync platform subscription payment (admin only)",
+)
+async def pay_platform_bill_now(
+    current_user: dict = Depends(require_role("admin")),
+) -> TenantBillingPaymentResponse:
+    async with get_db() as conn:
+        payment = await initiate_platform_billing_payment(
+            conn,
+            UUID(current_user["tenant_id"]),
+        )
+    return TenantBillingPaymentResponse(**payment)

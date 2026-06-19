@@ -47,18 +47,18 @@ DEFAULT_TENANT_ID = "aaaaaaaa-0000-0000-0000-000000000001"
 
 PACKAGES = [
     {
-        "name":          "Daily 10Mbps",
-        "description":   "1-day internet access at 10 Mbps. Perfect for light browsing.",
-        "price_kes":     50.00,
-        "duration_days": 1,
-        "speed_mbps":    10,
+        "name":             "Daily 10Mbps",
+        "description":      "1-day internet access at 10 Mbps. Perfect for light browsing.",
+        "price_kes":        50.00,
+        "duration_minutes": 1440,
+        "speed_mbps":       10,
     },
     {
-        "name":          "Weekly 20Mbps",
-        "description":   "7-day internet access at 20 Mbps. Great for regular users.",
-        "price_kes":     300.00,
-        "duration_days": 7,
-        "speed_mbps":    20,
+        "name":             "Weekly 20Mbps",
+        "description":      "7-day internet access at 20 Mbps. Great for regular users.",
+        "price_kes":        300.00,
+        "duration_minutes": 10080,
+        "speed_mbps":       20,
     },
 ]
 
@@ -82,7 +82,7 @@ async def seed():
             )
             if not tenant:
                 print("⚠  Default tenant not found. Run migrations first:")
-                print("     ./run_migrations.sh")
+                print("     ./scripts/run_migrations.sh")
                 return
             print(f"✓  Default tenant:          {tenant['business_name']} ({tenant['id']})")
 
@@ -173,15 +173,15 @@ async def seed():
                 pkg_row = await conn.fetchrow(
                     """
                     INSERT INTO packages
-                        (name, description, price_kes, duration_days, speed_mbps, created_by, tenant_id)
+                        (name, description, price_kes, duration_minutes, speed_mbps, created_by, tenant_id)
                     VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    ON CONFLICT (name) DO NOTHING
+                    ON CONFLICT (tenant_id, name) DO NOTHING
                     RETURNING id, name, price_kes
                     """,
                     pkg["name"],
                     pkg["description"],
                     pkg["price_kes"],
-                    pkg["duration_days"],
+                    pkg["duration_minutes"],
                     pkg["speed_mbps"],
                     admin_id,
                     DEFAULT_TENANT_ID,

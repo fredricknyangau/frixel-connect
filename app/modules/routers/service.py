@@ -45,7 +45,8 @@ async def create_router(
         """
         INSERT INTO routers (tenant_id, name, host, port, username, password_encrypted, site_name, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'unknown')
-        RETURNING id, tenant_id, name, host, port, username, site_name, status, last_heartbeat_at, created_at
+        RETURNING id, tenant_id, name, host, port, username, site_name, status, last_heartbeat_at, created_at,
+                  wireguard_public_key, wireguard_assigned_ip, wireguard_peer_public_key
         """,
         tenant_id,
         payload.name,
@@ -65,7 +66,8 @@ async def get_routers(
     """Retrieves all routers registered to the tenant."""
     rows = await conn.fetch(
         """
-        SELECT id, tenant_id, name, host, port, username, site_name, status, last_heartbeat_at, created_at
+        SELECT id, tenant_id, name, host, port, username, site_name, status, last_heartbeat_at, created_at,
+               wireguard_public_key, wireguard_assigned_ip, wireguard_peer_public_key
         FROM routers
         WHERE tenant_id = $1
         ORDER BY created_at DESC
@@ -86,7 +88,8 @@ async def get_router_by_id(
     """
     row = await conn.fetchrow(
         """
-        SELECT id, tenant_id, name, host, port, username, site_name, status, last_heartbeat_at, created_at
+        SELECT id, tenant_id, name, host, port, username, site_name, status, last_heartbeat_at, created_at,
+               wireguard_public_key, wireguard_assigned_ip, wireguard_peer_public_key
         FROM routers
         WHERE id = $1 AND tenant_id = $2
         """,
@@ -151,7 +154,8 @@ async def update_router(
         UPDATE routers
         SET {', '.join(updates)}
         WHERE id = $1 AND tenant_id = $2
-        RETURNING id, tenant_id, name, host, port, username, site_name, status, last_heartbeat_at, created_at
+        RETURNING id, tenant_id, name, host, port, username, site_name, status, last_heartbeat_at, created_at,
+                  wireguard_public_key, wireguard_assigned_ip, wireguard_peer_public_key
     """
     row = await conn.fetchrow(query, *params)
     return dict(row)
@@ -164,12 +168,20 @@ async def delete_router(
 ) -> None:
     """Deletes a router configuration."""
     existing = await conn.fetchrow(
-        "SELECT id FROM routers WHERE id = $1 AND tenant_id = $2",
+        "SELECT id, wireguard_peer_public_key FROM routers WHERE id = $1 AND tenant_id = $2",
         router_id,
         tenant_id,
     )
     if not existing:
         raise NotFoundException("Router", str(router_id))
+
+    # Remove WireGuard peer first if present
+    if existing["wireguard_peer_public_key"]:
+        from app.integrations.wireguard import remove_wireguard_peer
+        try:
+            remove_wireguard_peer(existing["wireguard_peer_public_key"])
+        except Exception as e:
+            logger.error(f"Failed to remove WireGuard peer for router {router_id} during delete: {e}")
 
     await conn.execute(
         "DELETE FROM routers WHERE id = $1 AND tenant_id = $2",
@@ -196,9 +208,13 @@ async def router_heartbeat_loop() -> None:
             await asyncio.sleep(60)
 
             async with get_db() as conn:
-                # Fetch all registered routers across all tenants
+                # Fetch all registered routers across all tenants that are not in pending_setup or testing
                 routers = await conn.fetch(
-                    "SELECT id, tenant_id, name, host, port, username, password_encrypted FROM routers"
+                    """
+                    SELECT id, tenant_id, name, host, port, username, password_encrypted 
+                    FROM routers
+                    WHERE status NOT IN ('pending_setup', 'testing')
+                    """
                 )
 
                 for r in routers:

@@ -8,6 +8,7 @@ import { useInitiateSTKPush } from '../../hooks/usePayments';
 
 import { PageTitle } from '../../components/shared/PageTitle';
 import { formatKES } from '../../lib/utils';
+import { formatDuration } from '../../lib/formatDuration';
 
 
 import { Button } from '../../components/ui/button';
@@ -87,7 +88,7 @@ export default function BuyPackagePage() {
               <CardContent className="flex-1 space-y-4">
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span>Duration: <span className="font-semibold">{pkg.duration_days} Days</span></span>
+                  <span>Duration: <span className="font-semibold">{formatDuration(pkg.duration_minutes)}</span></span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Zap className="h-4 w-4 text-muted-foreground" />

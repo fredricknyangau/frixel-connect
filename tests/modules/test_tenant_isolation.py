@@ -113,8 +113,8 @@ async def create_package_in_tenant(
     """Creates a package in the specified tenant. Returns package_id."""
     pkg_id = await conn.fetchval(
         """
-        INSERT INTO packages (name, price_kes, duration_days, speed_mbps, created_by, tenant_id)
-        VALUES ($1, 100.00, 7, 20, $2, $3)
+        INSERT INTO packages (name, price_kes, duration_minutes, speed_mbps, created_by, tenant_id)
+        VALUES ($1, 100.00, 10080, 20, $2, $3)
         RETURNING id
         """,
         name,

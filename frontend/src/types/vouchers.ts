@@ -9,5 +9,6 @@ export interface Voucher {
   created_at: string;
   customer_id: string;
   package_id: string;
+  package_name: string;
   payment_id: string;
 }

@@ -49,7 +49,8 @@ DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
 
 # The directory containing the migration files, relative to this script.
-MIGRATIONS_DIR="$(cd "$(dirname "$0")/migrations" && pwd)"
+MIGRATIONS_DIR="$(cd "$(dirname "$0")/../migrations" && pwd)"
+
 
 echo "============================================================"
 echo "  WiFi Billing System — Database Migration Runner"

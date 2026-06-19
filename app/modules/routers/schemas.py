@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class RouterCreate(BaseModel):
@@ -76,10 +76,61 @@ class RouterResponse(BaseModel):
     id: UUID
     tenant_id: UUID
     name: str
-    host: str
-    port: int
-    username: str
+    host: Optional[str] = None
+    port: Optional[int] = None
+    username: Optional[str] = None
     site_name: str
     status: str
     last_heartbeat_at: Optional[datetime] = None
     created_at: datetime
+    wireguard_public_key: Optional[str] = None
+    wireguard_assigned_ip: Optional[str] = None
+    wireguard_peer_public_key: Optional[str] = None
+
+    @field_validator("wireguard_assigned_ip", mode="before")
+    @classmethod
+    def serialize_ip(cls, v):
+        if v is not None:
+            return str(v)
+        return v
+
+
+class OnboardingInitRequest(BaseModel):
+    name: str
+    site_name: str
+
+
+class OnboardingInitResponse(BaseModel):
+    router_id: UUID
+    zealsync_server_endpoint: str
+    zealsync_public_key: str
+    assigned_ip: str
+    server_wg_ip: str
+
+
+class RegisterPeerRequest(BaseModel):
+    router_id: UUID
+    peer_public_key: str
+
+
+class SaveCredentialsRequest(BaseModel):
+    router_id: UUID
+    username: str
+    password: str
+    port: int
+
+
+class SetupProfileItem(BaseModel):
+    name: str
+    rate_limit: str
+
+
+class SetupProfilesRequest(BaseModel):
+    router_id: UUID
+    profiles: list[SetupProfileItem]
+
+
+class RouterOnboardingRequest(BaseModel):
+    router_id: UUID
+
+

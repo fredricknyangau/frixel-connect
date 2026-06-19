@@ -32,7 +32,7 @@ async def get_all_packages(
     """Returns all active packages for this tenant, ordered by price."""
     rows = await conn.fetch(
         """
-        SELECT id, name, description, price_kes, duration_days,
+        SELECT id, name, description, price_kes, duration_minutes,
                speed_mbps, data_quota_mb, is_active, created_at, updated_at
         FROM packages
         WHERE tenant_id = $1
@@ -59,7 +59,7 @@ async def get_package_by_id(
     """
     row = await conn.fetchrow(
         """
-        SELECT id, name, description, price_kes, duration_days,
+        SELECT id, name, description, price_kes, duration_minutes,
                speed_mbps, data_quota_mb, is_active, created_at, updated_at
         FROM packages
         WHERE id = $1
@@ -103,16 +103,16 @@ async def create_package(
     row = await conn.fetchrow(
         """
         INSERT INTO packages
-            (name, description, price_kes, duration_days, speed_mbps, data_quota_mb, created_by, tenant_id)
+            (name, description, price_kes, duration_minutes, speed_mbps, data_quota_mb, created_by, tenant_id)
         VALUES
             ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id, name, description, price_kes, duration_days,
+        RETURNING id, name, description, price_kes, duration_minutes,
                   speed_mbps, data_quota_mb, is_active, created_at, updated_at
         """,
         data.name,
         data.description,
         data.price_kes,
-        data.duration_days,
+        data.duration_minutes,
         data.speed_mbps,
         data.data_quota_mb,
         created_by_user_id,
@@ -143,7 +143,7 @@ async def update_package(
         "name":          data.name,
         "description":   data.description,
         "price_kes":     data.price_kes,
-        "duration_days": data.duration_days,
+        "duration_minutes": data.duration_minutes,
         "speed_mbps":    data.speed_mbps,
         "data_quota_mb": data.data_quota_mb,
     }
@@ -168,7 +168,7 @@ async def update_package(
         WHERE id = ${param_index}
           AND tenant_id = ${param_index + 1}
           AND is_active = TRUE
-        RETURNING id, name, description, price_kes, duration_days,
+        RETURNING id, name, description, price_kes, duration_minutes,
                   speed_mbps, data_quota_mb, is_active, created_at, updated_at
     """
 

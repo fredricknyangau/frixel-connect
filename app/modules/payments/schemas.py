@@ -50,6 +50,7 @@ class PaymentResponse(BaseModel):
     id: UUID
     customer_id: UUID
     package_id: UUID
+    package_name: Optional[str] = None
     amount_kes: Decimal
     status: str
     phone_number: str

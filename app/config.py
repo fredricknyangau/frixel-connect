@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     # RADIUS
     RADIUS_COA_SECRET: str = "testing123"
 
+    # WireGuard Settings
+    WIREGUARD_SERVER_PUBLIC_KEY: Optional[str] = "zealsyncServerPublicKeyWgPlaceholderBase64="
+    WIREGUARD_ENDPOINT: str = "102.219.208.5:51820"
+    MOCK_WIREGUARD: bool = True
+
     # KRA eTIMS
     KRA_ETIMS_BASE_URL: str = "https://etims-api-sbx.kra.go.ke"
     KRA_ETIMS_USERNAME: Optional[str] = None

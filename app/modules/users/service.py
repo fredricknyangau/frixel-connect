@@ -72,6 +72,15 @@ async def update_my_profile(
     # Fetch current profile (also validates ownership + tenant membership)
     user = await get_my_profile(conn, user_id, tenant_id)
 
+    # Handle password update
+    if hasattr(data, 'password') and data.password is not None:
+        hashed = hash_password(data.password)
+        await conn.execute(
+            "UPDATE users SET hashed_password = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3",
+            hashed, user_id, tenant_id
+        )
+
+    # Handle phone update
     if data.phone is not None and data.phone != user["phone"]:
         # Phone uniqueness within the same tenant
         existing = await conn.fetchrow(
@@ -88,20 +97,35 @@ async def update_my_profile(
         if existing:
             raise ConflictException("An account with this phone number already exists.")
 
-        row = await conn.fetchrow(
-            """
-            UPDATE users
-            SET phone = $1, updated_at = NOW()
-            WHERE id = $2 AND tenant_id = $3
-            RETURNING id, email, phone, role, reseller_id, tenant_id, is_active, created_at
-            """,
-            data.phone,
-            user_id,
-            tenant_id,
+        await conn.execute(
+            "UPDATE users SET phone = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3",
+            data.phone, user_id, tenant_id
         )
-        return dict(row)
 
-    return user
+    # Handle email update
+    if hasattr(data, 'email') and data.email is not None and data.email != user["email"]:
+        # Email uniqueness
+        existing = await conn.fetchrow(
+            """
+            SELECT id FROM users
+            WHERE email = $1
+              AND tenant_id = $2
+              AND id != $3
+            """,
+            data.email,
+            tenant_id,
+            user_id,
+        )
+        if existing:
+            raise ConflictException("An account with this email address already exists.")
+
+        await conn.execute(
+            "UPDATE users SET email = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3",
+            data.email, user_id, tenant_id
+        )
+
+    # Return updated user
+    return await get_my_profile(conn, user_id, tenant_id)
 
 
 async def list_customers(
@@ -302,12 +326,46 @@ async def admin_update_user(
         )
         return dict(row)
 
-    # Build dynamic SET clause
+    # ── Build dynamic SET clause using an explicit column allowlist ─────────────
+    # WHY NOT f-string column names?
+    #   asyncpg parameterises VALUES ($1, $2, ...) but column names in SET must be
+    #   interpolated as SQL text. Using f"{key} = $N" with keys sourced from
+    #   model_dump() is safe today (Pydantic validates the keys), but is an unsafe
+    #   pattern by convention — a future schema change could accidentally admit a
+    #   malicious column name. An explicit allowlist is the correct defence.
+    #
+    #   The allowlist maps AdminUserUpdate field names → actual column names.
+    #   "password" is handled above (converted to hashed_password already).
+    ALLOWED_COLUMNS = {
+        "email":          "email",
+        "phone":          "phone",
+        "hashed_password": "hashed_password",
+        "role":           "role",
+        "reseller_id":    "reseller_id",
+        "is_active":      "is_active",
+    }
+
     set_clauses = []
     values = []
-    for i, (key, value) in enumerate(update_data.items(), start=1):
-        set_clauses.append(f"{key} = ${i}")
+    for key, value in update_data.items():
+        col = ALLOWED_COLUMNS.get(key)
+        if col is None:
+            # Silently skip any key not in the allowlist (unknown or injected)
+            continue
         values.append(value)
+        set_clauses.append(f"{col} = ${len(values)}")
+
+    if not set_clauses:
+        # Nothing safe to update — return current record unchanged
+        row = await conn.fetchrow(
+            """
+            SELECT id, email, phone, role, reseller_id, tenant_id, is_active, created_at
+            FROM users WHERE id = $1 AND tenant_id = $2
+            """,
+            user_id,
+            tenant_id,
+        )
+        return dict(row)
 
     # updated_at always refreshed
     set_clauses.append("updated_at = NOW()")
@@ -350,29 +408,52 @@ async def export_customer_data(
     tenant_id: UUID,
     user_id: UUID,
 ) -> dict:
-    """Exports all PII tied to a customer."""
+    """
+    Exports all PII tied to a customer.
+
+    TENANT ISOLATION: all three sub-queries scope to BOTH customer_id AND tenant_id.
+    Although the user-existence check above already gates cross-tenant calls
+    (a user not in this tenant raises NotFoundException), adding AND tenant_id = $2
+    to the sub-queries is defence-in-depth: it ensures the sub-queries produce
+    correct results even if this function is ever called from a different code path.
+    """
     user = await conn.fetchrow(
         "SELECT id, email, phone, role, created_at FROM users WHERE id = $1 AND tenant_id = $2",
         user_id, tenant_id
     )
     if not user:
         raise NotFoundException("User", str(user_id))
-        
+
     payments = await conn.fetch(
-        "SELECT id, amount_kes, status, mpesa_receipt_number, phone_number, created_at FROM payments WHERE customer_id = $1",
-        user_id
+        """
+        SELECT id, amount_kes, status, mpesa_receipt_number, phone_number, created_at
+        FROM payments
+        WHERE customer_id = $1
+          AND tenant_id = $2
+        """,
+        user_id, tenant_id
     )
-    
+
     vouchers = await conn.fetch(
-        "SELECT id, code, status, expires_at, created_at FROM vouchers WHERE customer_id = $1",
-        user_id
+        """
+        SELECT id, code, status, expires_at, created_at
+        FROM vouchers
+        WHERE customer_id = $1
+          AND tenant_id = $2
+        """,
+        user_id, tenant_id
     )
-    
+
     subscriptions = await conn.fetch(
-        "SELECT id, status, current_period_end FROM subscriptions WHERE customer_id = $1",
-        user_id
+        """
+        SELECT id, status, current_period_end
+        FROM subscriptions
+        WHERE customer_id = $1
+          AND tenant_id = $2
+        """,
+        user_id, tenant_id
     )
-    
+
     return {
         "user": dict(user),
         "payments": [dict(p) for p in payments],

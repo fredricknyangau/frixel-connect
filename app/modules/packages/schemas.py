@@ -36,7 +36,7 @@ class PackageCreate(BaseModel):
     name:          str
     description:   Optional[str] = None
     price_kes:     Decimal
-    duration_days: int
+    duration_minutes: int
     speed_mbps:    int
     data_quota_mb: Optional[int] = None
 
@@ -56,11 +56,11 @@ class PackageCreate(BaseModel):
         # when comparing against DB NUMERIC(10,2) values.
         return round(v, 2)
 
-    @field_validator("duration_days")
+    @field_validator("duration_minutes")
     @classmethod
     def duration_must_be_positive(cls, v: int) -> int:
         if v <= 0:
-            raise ValueError("duration_days must be greater than 0.")
+            raise ValueError("duration_minutes must be greater than 0.")
         return v
 
     @field_validator("speed_mbps")
@@ -96,7 +96,7 @@ class PackageUpdate(BaseModel):
     name:          Optional[str]     = None
     description:   Optional[str]     = None
     price_kes:     Optional[Decimal] = None
-    duration_days: Optional[int]     = None
+    duration_minutes: Optional[int]     = None
     speed_mbps:    Optional[int]     = None
     data_quota_mb: Optional[int]     = None
 
@@ -118,11 +118,11 @@ class PackageUpdate(BaseModel):
             raise ValueError("price_kes must be greater than 0.")
         return round(v, 2) if v is not None else None
 
-    @field_validator("duration_days")
+    @field_validator("duration_minutes")
     @classmethod
     def duration_must_be_positive(cls, v: Optional[int]) -> Optional[int]:
         if v is not None and v <= 0:
-            raise ValueError("duration_days must be greater than 0.")
+            raise ValueError("duration_minutes must be greater than 0.")
         return v
 
     @field_validator("speed_mbps")
@@ -158,7 +158,7 @@ class PackageResponse(BaseModel):
     name:          str
     description:   Optional[str]
     price_kes:     Decimal
-    duration_days: int
+    duration_minutes: int
     speed_mbps:    int
     data_quota_mb: Optional[int]
     is_active:     bool

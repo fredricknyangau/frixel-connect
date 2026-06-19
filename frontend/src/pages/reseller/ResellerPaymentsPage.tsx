@@ -3,7 +3,6 @@ import { Loader2, Ticket } from 'lucide-react';
 
 import { useResellerPayments } from '../../hooks/usePayments';
 import { useResellerVouchers } from '../../hooks/useVouchers';
-import { usePackages } from '../../hooks/usePackages';
 import { PaymentStatus } from '../../types/payments';
 import { PageTitle } from '../../components/shared/PageTitle';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -16,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/too
 export default function ResellerPaymentsPage() {
   const { data: payments, isLoading } = useResellerPayments();
   const { data: vouchers } = useResellerVouchers();
-  const { data: packages } = usePackages();
+  
 
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'all'>('all');
 
@@ -31,7 +30,6 @@ export default function ResellerPaymentsPage() {
     return filtered;
   }, [payments, statusFilter]);
 
-  const getPackageName = (packageId: string) => packages?.find(p => p.id === packageId)?.name || 'Unknown';
   const getVoucherForPayment = (paymentId: string) => vouchers?.find(v => v.payment_id === paymentId);
 
   return (
@@ -88,7 +86,7 @@ export default function ResellerPaymentsPage() {
                 return (
                   <TableRow key={payment.id}>
                     <TableCell className="font-medium">{payment.phone_number}</TableCell>
-                    <TableCell>{getPackageName(payment.package_id)}</TableCell>
+                    <TableCell>{payment.package_name || 'Unknown'}</TableCell>
                     <TableCell>{formatKES(payment.amount_kes)}</TableCell>
                     <TableCell className="text-muted-foreground whitespace-nowrap">
                       {formatNairobiDate(payment.created_at)}

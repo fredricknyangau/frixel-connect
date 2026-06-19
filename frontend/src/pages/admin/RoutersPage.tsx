@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 import { useRouters, useCreateRouter, useUpdateRouter, useDeleteRouter } from '../../hooks/useRouters';
 import { MikrotikRouter } from '../../types/routers';
@@ -15,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { RouterForm, RouterFormValues } from '../../components/shared/RouterForm';
 
 export default function RoutersPage() {
+  const navigate = useNavigate();
   const { data: routers, isLoading } = useRouters();
   const createRouter = useCreateRouter();
   const updateRouter = useUpdateRouter();
@@ -24,11 +26,6 @@ export default function RoutersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingRouter, setEditingRouter] = useState<MikrotikRouter | null>(null);
   const [deletingRouterId, setDeletingRouterId] = useState<string | null>(null);
-
-  const handleOpenAddDialog = () => {
-    setEditingRouter(null);
-    setIsDialogOpen(true);
-  };
 
   const handleOpenEditDialog = (router: MikrotikRouter) => {
     setEditingRouter(router);
@@ -95,7 +92,7 @@ export default function RoutersPage() {
           <h2 className="text-2xl font-bold tracking-tight">MikroTik Routers</h2>
           <p className="text-muted-foreground">Manage your router site configurations and credentials.</p>
         </div>
-        <Button onClick={handleOpenAddDialog}>
+        <Button onClick={() => navigate('/admin/onboarding/router')}>
           <Plus className="mr-2 h-4 w-4" /> Connect Router
         </Button>
       </div>
@@ -139,10 +136,21 @@ export default function RoutersPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(router)}>
-                        <Pencil className="h-4 w-4" />
-                        <span className="sr-only">Edit</span>
-                      </Button>
+                      {router.status === 'pending_setup' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate(`/admin/onboarding/router?router_id=${router.id}`)}
+                          className="text-xs h-7"
+                        >
+                          Resume Setup
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(router)}>
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -180,9 +188,9 @@ export default function RoutersPage() {
               editingRouter
                 ? {
                     name: editingRouter.name,
-                    host: editingRouter.host,
-                    port: editingRouter.port,
-                    username: 'admin',
+                    host: editingRouter.host ?? '',
+                    port: editingRouter.port ?? 80,
+                    username: editingRouter.username ?? 'admin',
                     site_name: editingRouter.site_name,
                   }
                 : undefined
@@ -200,7 +208,7 @@ export default function RoutersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Disconnect this router?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action will remove the router credentials and sever live provisioning links. Any customers on this site will be unable to authenticate.
+              Deleting this router will remove the VPN connection and disconnect all customers currently using it. Active sessions will be terminated. Are you sure?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

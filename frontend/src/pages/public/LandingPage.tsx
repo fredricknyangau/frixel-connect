@@ -12,7 +12,7 @@ export default function LandingPage() {
       <section className="relative overflow-hidden bg-background pt-24 pb-32 lg:pt-36 lg:pb-40">
         {/* Abstract background blobs */}
         <div className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80" aria-hidden="true">
-          <div className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-primary to-[#9089fc] opacity-20 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]" style={{ clipPath: 'polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)' }}></div>
+          <div className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-primary to-chart-2 opacity-20 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]" style={{ clipPath: 'polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)' }}></div>
         </div>
 
         <div className="container mx-auto px-4 md:px-6 flex flex-col items-center text-center">
@@ -22,7 +22,7 @@ export default function LandingPage() {
           
           <h1 className="max-w-4xl text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl animate-in fade-in slide-in-from-bottom-6 duration-700">
             Grow Your ISP <br className="hidden sm:block" />
-            <span className="bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-primary to-chart-2 bg-clip-text text-transparent">
               With Zero Code.
             </span>
           </h1>
@@ -32,7 +32,7 @@ export default function LandingPage() {
           </p>
           
           <div className="mt-10 flex flex-col sm:flex-row items-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
-            <Button size="lg" className="h-14 px-8 rounded-full text-base shadow-xl shadow-primary/25 transition-transform hover:-translate-y-1" render={<Link to="/signup" />}>
+            <Button size="lg" className="h-14 px-8 rounded-full text-base shadow-xl shadow-primary/25 transition-transform hover:-translate-y-1 bg-primary text-primary-foreground hover:bg-primary/90" render={<Link to="/signup" />}>
               Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             <Button size="lg" variant="outline" className="h-14 px-8 rounded-full text-base bg-background/50 backdrop-blur-sm" render={<a href="https://wa.me/254700000000" target="_blank" rel="noopener noreferrer" />}>
@@ -142,7 +142,7 @@ export default function LandingPage() {
               </div>
               
               {/* Decorative blobs */}
-              <div className="absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-blue-400 opacity-20 blur-2xl" />
+              <div className="absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-chart-2 opacity-20 blur-2xl" />
               <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary opacity-20 blur-2xl" />
             </div>
           </div>
@@ -198,7 +198,7 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Button className="w-full rounded-full h-12 shadow-lg shadow-primary/25" render={<Link to="/signup?tier=pro" />}>
+              <Button className="w-full rounded-full h-12 shadow-lg shadow-primary/25 bg-primary text-primary-foreground hover:bg-primary/90" render={<Link to="/signup?tier=pro" />}>
                 Start Free Trial
               </Button>
             </div>
@@ -236,7 +236,7 @@ export default function LandingPage() {
           <p className="text-primary-foreground/80 text-lg mb-10 max-w-2xl mx-auto">
             Join hundreds of ISPs who have already made the switch. Create your tenant account today and go live in minutes.
           </p>
-          <Button size="lg" variant="secondary" className="h-14 px-10 rounded-full text-lg font-bold text-primary hover:bg-white shadow-xl transition-transform hover:scale-105" render={<Link to="/signup" />}>
+          <Button size="lg" className="h-14 px-10 rounded-full text-lg font-bold bg-background text-primary hover:bg-background/90 shadow-xl transition-transform hover:scale-105" render={<Link to="/signup" />}>
             Create Free Account
           </Button>
         </div>

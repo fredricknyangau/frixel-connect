@@ -7,6 +7,7 @@ Pydantic schemas for the tenants module.
 from uuid import UUID
 from typing import Optional
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 
@@ -33,6 +34,7 @@ class TenantRegisterRequest(BaseModel):
     owner_email:   EmailStr
     owner_phone:   str
     password:      str
+    subscription_tier: str = "starter"
 
     @field_validator("password")
     @classmethod
@@ -57,13 +59,20 @@ class TenantRegisterRequest(BaseModel):
             raise ValueError("Business name cannot be empty.")
         return v
 
+    @field_validator("subscription_tier")
+    @classmethod
+    def tier_must_be_valid(cls, v: str) -> str:
+        if v not in {"starter", "growth", "scale", "enterprise"}:
+            raise ValueError("Subscription tier must be starter, growth, scale, or enterprise.")
+        return v
+
 
 # ── Response ───────────────────────────────────────────────────────────────────
 
 class TenantResponse(BaseModel):
     """
     Returned by GET /tenants/me and embedded in register responses.
-    Does NOT include any payment or billing detail — that is Phase 10.
+    Includes the usage and billing fields consumed by the admin account UI.
     """
     model_config = ConfigDict(from_attributes=True)
 
@@ -74,6 +83,9 @@ class TenantResponse(BaseModel):
     subscription_tier: str
     max_customers:     int
     status:            str
+    current_customer_count: int = 0
+    billing_status:    str = "active"
+    next_billing_date: Optional[datetime] = None
     created_at:        datetime
 
 
@@ -87,3 +99,15 @@ class TenantRegisterResponse(BaseModel):
     access_token: str
     token_type:   str = "bearer"
     user_id:      UUID
+
+
+class TenantBillingPaymentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    tenant_id: UUID
+    amount_kes: Decimal
+    status: str
+    phone_number: str
+    mpesa_checkout_id: Optional[str] = None
+    created_at: datetime

@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 
 import { useAdminPayments } from '../../hooks/usePayments';
 import { useAdminVouchers, useRevokeVoucher } from '../../hooks/useVouchers';
-import { usePackages } from '../../hooks/usePackages';
 import { PaymentStatus } from '../../types/payments';
 import { PageTitle } from '../../components/shared/PageTitle';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -18,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/too
 export default function PaymentsPage() {
   const { data: payments, isLoading } = useAdminPayments();
   const { data: vouchers } = useAdminVouchers();
-  const { data: packages } = usePackages();
+  
   const revokeVoucher = useRevokeVoucher();
 
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'all'>('all');
@@ -34,7 +33,6 @@ export default function PaymentsPage() {
     return filtered;
   }, [payments, statusFilter]);
 
-  const getPackageName = (packageId: string) => packages?.find(p => p.id === packageId)?.name || 'Unknown';
   const getVoucherForPayment = (paymentId: string) => vouchers?.find(v => v.payment_id === paymentId);
 
   const handleRevoke = async (voucherId: string) => {
@@ -100,7 +98,7 @@ export default function PaymentsPage() {
                 return (
                   <TableRow key={payment.id}>
                     <TableCell className="font-medium">{payment.phone_number}</TableCell>
-                    <TableCell>{getPackageName(payment.package_id)}</TableCell>
+                    <TableCell>{payment.package_name || 'Unknown'}</TableCell>
                     <TableCell>{formatKES(payment.amount_kes)}</TableCell>
                     <TableCell className="text-muted-foreground whitespace-nowrap">
                       {formatNairobiDate(payment.created_at)}

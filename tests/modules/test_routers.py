@@ -201,9 +201,8 @@ async def test_routers_cross_tenant_isolation(client: TestClient, conn: asyncpg.
 
 
 @pytest.mark.asyncio
-@patch("app.modules.vouchers.service.get_mikrotik_client")
-async def test_router_dynamic_fallback(mock_get_client, conn: asyncpg.Connection):
-    """Verifies that voucher generation routes to the customer's router, falling back to global settings when NULL."""
+async def test_router_id_recorded_without_mikrotik_provisioning(conn: asyncpg.Connection):
+    """Verifies that voucher generation records router_id while RADIUS remains authoritative."""
     # Setup Tenant + Package + Customer
     tenant_id, admin_id, token = await create_tenant_and_admin(
         conn, "Tenant Dynamic", "admin_dynamic@test.com", "254711999905"
@@ -222,19 +221,14 @@ async def test_router_dynamic_fallback(mock_get_client, conn: asyncpg.Connection
     # Create a package
     package_id = await conn.fetchval(
         """
-        INSERT INTO packages (name, price_kes, duration_days, speed_mbps, created_by, tenant_id)
-        VALUES ($1, 50.00, 1, 10, $2, $3)
+        INSERT INTO packages (name, price_kes, duration_minutes, speed_mbps, created_by, tenant_id)
+        VALUES ($1, 50.00, 1440, 10, $2, $3)
         RETURNING id
         """,
         "Daily Test Pkg", admin_id, tenant_id
     )
 
-    # Mock the client generate_hotspot_user response
-    mock_client = MagicMock()
-    mock_get_client.return_value = mock_client
-    mock_client.generate_hotspot_user = AsyncMock(return_value={"ret": "*1"})
-
-    # --- Case 1: Customer has NO router_id assigned (global fallback) ---
+    # --- Case 1: Customer has NO router_id assigned ---
     payment_id_1 = await conn.fetchval(
         """
         INSERT INTO payments (customer_id, package_id, amount_kes, status, phone_number, tenant_id)
@@ -247,9 +241,8 @@ async def test_router_dynamic_fallback(mock_get_client, conn: asyncpg.Connection
     code_1 = await generate_voucher(conn, payment_id_1)
     assert code_1 is not None
 
-    # Assert get_mikrotik_client was called with None (triggering settings fallback)
-    mock_get_client.assert_called_with(None)
-    mock_get_client.reset_mock()
+    voucher_1 = await conn.fetchrow("SELECT router_id FROM vouchers WHERE payment_id = $1", payment_id_1)
+    assert voucher_1["router_id"] is None
 
     # --- Case 2: Customer has a specific router_id assigned ---
     # First, register a router for this tenant
@@ -277,14 +270,15 @@ async def test_router_dynamic_fallback(mock_get_client, conn: asyncpg.Connection
     code_2 = await generate_voucher(conn, payment_id_2)
     assert code_2 is not None
 
-    # Assert get_mikrotik_client was called with a dict containing router config (including encrypted password)
-    mock_get_client.assert_called_once()
-    called_arg = mock_get_client.call_args[0][0]
-    assert called_arg is not None
-    assert called_arg["host"] == "192.168.10.1"
-    assert called_arg["port"] == 8728
-    assert called_arg["username"] == "admin_user"
-    assert called_arg["password_encrypted"] == "ciphertext_key"
+    voucher_2 = await conn.fetchrow("SELECT router_id FROM vouchers WHERE payment_id = $1", payment_id_2)
+    assert voucher_2["router_id"] == router_id
+
+    radcheck_count = await conn.fetchval(
+        "SELECT COUNT(*) FROM radcheck WHERE username IN ($1, $2)",
+        code_1,
+        code_2,
+    )
+    assert radcheck_count == 2
 
 
 @pytest.mark.asyncio

@@ -10,6 +10,7 @@ import { usePackages } from '../../hooks/usePackages';
 import { useWalletBalance, useGenerateWalletVoucher } from '../../hooks/useWallet';
 import { useRouters } from '../../hooks/useRouters';
 import { formatKES } from '../../lib/utils';
+import { formatDuration } from '../../lib/formatDuration';
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
@@ -268,7 +269,7 @@ export default function GenerateVoucherDialog({
                 <SelectContent>
                   {packages?.filter(p => p.is_active).map((pkg) => (
                     <SelectItem key={pkg.id} value={pkg.id}>
-                      {pkg.name} - {formatKES(pkg.price_kes)} ({pkg.duration_days} Days)
+                      {pkg.name} - {formatKES(pkg.price_kes)} ({formatDuration(pkg.duration_minutes)})
                     </SelectItem>
                   ))}
                 </SelectContent>

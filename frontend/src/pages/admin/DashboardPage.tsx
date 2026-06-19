@@ -5,7 +5,6 @@ import { AlertCircle } from 'lucide-react';
 import { useAdminPayments } from '../../hooks/usePayments';
 import { useAdminVouchers } from '../../hooks/useVouchers';
 import { useAdminCustomers } from '../../hooks/useUsers';
-import { usePackages } from '../../hooks/usePackages';
 import { PageTitle } from '../../components/shared/PageTitle';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { EmptyState } from '../../components/shared/EmptyState';
@@ -21,9 +20,9 @@ export default function DashboardPage() {
   const { data: payments, isLoading: loadingPayments, error: errorPayments } = useAdminPayments();
   const { data: vouchers, isLoading: loadingVouchers, error: errorVouchers } = useAdminVouchers();
   const { data: customers, isLoading: loadingCustomers, error: errorCustomers } = useAdminCustomers();
-  const { data: packages, isLoading: loadingPackages } = usePackages();
+  
 
-  const isLoading = loadingPayments || loadingVouchers || loadingCustomers || loadingPackages;
+  const isLoading = loadingPayments || loadingVouchers || loadingCustomers;
   const isError = errorPayments || errorVouchers || errorCustomers;
 
   if (isError) {
@@ -44,6 +43,7 @@ export default function DashboardPage() {
   const nowNairobi = toZonedTime(now, NAIROBI_TZ);
 
   let totalRevenueToday = 0;
+  let totalRevenue = 0;
   let activeVouchersCount = 0;
   let totalCustomersCount = customers?.length || 0;
   let paymentsThisMonth = 0;
@@ -51,9 +51,12 @@ export default function DashboardPage() {
   if (payments) {
     payments.forEach(payment => {
       if (payment.status === 'confirmed') {
+        const amount = Number(payment.amount_kes) || 0;
+        totalRevenue += amount;
+        
         const paymentDateNairobi = toZonedTime(parseISO(payment.created_at), NAIROBI_TZ);
         if (isSameDay(paymentDateNairobi, nowNairobi)) {
-          totalRevenueToday += payment.amount_kes;
+          totalRevenueToday += amount;
         }
         if (isSameMonth(paymentDateNairobi, nowNairobi)) {
           paymentsThisMonth += 1;
@@ -69,14 +72,21 @@ export default function DashboardPage() {
   const recentPayments = payments ? [...payments].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10) : [];
   const recentVouchers = vouchers ? [...vouchers].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10) : [];
 
-  const getPackageName = (packageId: string) => packages?.find(p => p.id === packageId)?.name || 'Unknown';
   const getCustomerPhone = (customerId: string) => customers?.find(c => c.id === customerId)?.phone || 'Unknown';
 
   return (
     <div className="space-y-6">
       <PageTitle title="Dashboard | ZealSync Admin" />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? <Skeleton className="h-7 w-24" /> : <div className="text-2xl font-bold">{formatKES(totalRevenue)}</div>}
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue Today</CardTitle>
@@ -150,7 +160,7 @@ export default function DashboardPage() {
                       onClick={() => navigate('/admin/payments')}
                     >
                       <TableCell className="font-medium">{payment.phone_number}</TableCell>
-                      <TableCell>{getPackageName(payment.package_id)}</TableCell>
+                      <TableCell>{payment.package_name || 'Unknown'}</TableCell>
                       <TableCell>{formatKES(payment.amount_kes)}</TableCell>
                       <TableCell><StatusBadge status={payment.status} /></TableCell>
                       <TableCell className="text-muted-foreground">{formatNairobiDate(payment.created_at)}</TableCell>

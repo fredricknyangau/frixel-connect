@@ -28,7 +28,7 @@ export default function PublicLayout() {
               <Button variant="ghost" render={<Link to="/login" />} nativeButton={false}>
                 Log in
               </Button>
-              <Button className="rounded-full shadow-lg shadow-primary/20" render={<Link to="/register" />} nativeButton={false}>
+              <Button className="rounded-full shadow-lg shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90" render={<Link to="/register" />} nativeButton={false}>
                 Get Connected
               </Button>
             </div>
@@ -67,7 +67,7 @@ export default function PublicLayout() {
                 <Button variant="outline" className="w-full justify-center" render={<Link to="/login" />} nativeButton={false} onClick={() => setIsMobileMenuOpen(false)}>
                   Log in
                 </Button>
-                <Button className="w-full justify-center" render={<Link to="/register" />} nativeButton={false} onClick={() => setIsMobileMenuOpen(false)}>
+                <Button className="w-full justify-center bg-primary text-primary-foreground hover:bg-primary/90" render={<Link to="/register" />} nativeButton={false} onClick={() => setIsMobileMenuOpen(false)}>
                   Get Connected
                 </Button>
               </div>

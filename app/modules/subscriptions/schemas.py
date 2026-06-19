@@ -20,11 +20,15 @@ class SubscriptionUpdate(BaseModel):
     package_id: Optional[UUID] = None
     auto_renew: Optional[bool] = None
 
+class MySubscriptionUpdate(BaseModel):
+    auto_renew: bool
+
 class SubscriptionResponse(BaseModel):
     id: UUID
     tenant_id: UUID
     customer_id: UUID
     package_id: UUID
+    package_name: Optional[str] = None
     status: str
     current_period_end: datetime
     auto_renew: bool

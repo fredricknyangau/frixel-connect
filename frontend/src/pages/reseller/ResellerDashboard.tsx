@@ -3,7 +3,6 @@ import { AlertCircle } from 'lucide-react';
 import { useResellerPayments } from '../../hooks/usePayments';
 import { useResellerVouchers } from '../../hooks/useVouchers';
 import { useResellerCustomers } from '../../hooks/useUsers';
-import { usePackages } from '../../hooks/usePackages';
 import { PageTitle } from '../../components/shared/PageTitle';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { EmptyState } from '../../components/shared/EmptyState';
@@ -19,9 +18,9 @@ export default function ResellerDashboard() {
   const { data: payments, isLoading: loadingPayments, error: errorPayments } = useResellerPayments();
   const { data: vouchers, isLoading: loadingVouchers, error: errorVouchers } = useResellerVouchers();
   const { data: customers, isLoading: loadingCustomers, error: errorCustomers } = useResellerCustomers();
-  const { data: packages, isLoading: loadingPackages } = usePackages();
+  
 
-  const isLoading = loadingPayments || loadingVouchers || loadingCustomers || loadingPackages;
+  const isLoading = loadingPayments || loadingVouchers || loadingCustomers;
   const isError = errorPayments || errorVouchers || errorCustomers;
 
   if (isError) {
@@ -59,8 +58,6 @@ export default function ResellerDashboard() {
 
   const recentPayments = payments ? [...payments].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5) : [];
   const recentCustomers = customers ? [...customers].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5) : [];
-
-  const getPackageName = (packageId: string) => packages?.find(p => p.id === packageId)?.name || 'Unknown';
 
   return (
     <div className="space-y-6">
@@ -183,7 +180,7 @@ export default function ResellerDashboard() {
                       onClick={() => navigate('/reseller/payments')}
                     >
                       <TableCell className="font-medium">{payment.phone_number}</TableCell>
-                      <TableCell>{getPackageName(payment.package_id)}</TableCell>
+                      <TableCell>{payment.package_name || 'Unknown'}</TableCell>
                       <TableCell>{formatKES(payment.amount_kes)}</TableCell>
                       <TableCell><StatusBadge status={payment.status} /></TableCell>
                     </TableRow>
