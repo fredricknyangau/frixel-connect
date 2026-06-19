@@ -17,7 +17,7 @@ router = APIRouter()
 @router.post(
     "/daraja",
     status_code=status.HTTP_200_OK,
-    summary="Daraja M-Pesa callback — NO authentication required",
+    summary="Daraja M-Pesa callback -NO authentication required",
 )
 async def daraja_webhook(
     body: dict,
@@ -41,7 +41,7 @@ async def daraja_webhook(
 @router.post(
     "/daraja/c2b",
     status_code=status.HTTP_200_OK,
-    summary="Daraja M-Pesa C2B callback (Validation & Confirmation) — NO authentication required",
+    summary="Daraja M-Pesa C2B callback (Validation & Confirmation) -NO authentication required",
 )
 async def daraja_c2b_webhook(
     body: dict,

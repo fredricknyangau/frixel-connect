@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     DARAJA_CALLBACK_URL: str
     DARAJA_ENVIRONMENT: str = "sandbox"
 
-    # MikroTik (global fallback — superseded by per-tenant router records in Phase 2)
+    # MikroTik (global fallback -superseded by per-tenant router records in Phase 2)
     MIKROTIK_HOST: str
     MIKROTIK_PORT: int = 80
     MIKROTIK_USERNAME: str

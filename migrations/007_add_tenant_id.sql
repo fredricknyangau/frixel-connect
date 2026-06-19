@@ -8,19 +8,19 @@
 --   was inserted before this column existed, so tenant_id is unknown for them.
 --   PostgreSQL refuses to add a NOT NULL column to a non-empty table without a
 --   DEFAULT that fills in existing rows, because it cannot leave rows with a
---   NULL value in a NOT NULL column — that's a constraint violation.
+--   NULL value in a NOT NULL column -that's a constraint violation.
 --
 --   The correct three-step pattern for adding NOT NULL to a populated table:
---     1. ADD COLUMN ... NULL          — succeeds immediately, existing rows get NULL
---     2. UPDATE ... SET tenant_id = ? — backfills all existing rows to a real value
---     3. ALTER COLUMN ... SET NOT NULL — now safe because no NULLs remain
+--     1. ADD COLUMN ... NULL          -succeeds immediately, existing rows get NULL
+--     2. UPDATE ... SET tenant_id = ? -backfills all existing rows to a real value
+--     3. ALTER COLUMN ... SET NOT NULL -now safe because no NULLs remain
 --
 --   Running ALTER SET NOT NULL before the backfill UPDATE would fail with:
 --     ERROR: column "tenant_id" of relation "users" contains null values
 --
 -- THE DEFAULT TENANT:
 --   We create one tenant row that represents "the original single-tenant ISP"
---   — the business that was running before multi-tenancy existed. Every row
+--   -the business that was running before multi-tenancy existed. Every row
 --   seeded by seed_db.py (admin, reseller, customer, packages) is backfilled
 --   to this tenant's ID. After the backfill and the NOT NULL promotion, the
 --   migration is complete and the system behaves as multi-tenant from this
@@ -76,7 +76,7 @@ ALTER TABLE sessions
 -- ── Step 2: Backfill existing rows ────────────────────────────────────────────
 -- Every row created before this migration belongs to the default tenant.
 -- WHERE tenant_id IS NULL limits the UPDATE to rows that haven't been assigned
--- yet — makes re-running idempotent (second run touches 0 rows).
+-- yet -makes re-running idempotent (second run touches 0 rows).
 
 UPDATE users    SET tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 UPDATE packages SET tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
@@ -102,7 +102,7 @@ ALTER TABLE sessions ALTER COLUMN tenant_id SET NOT NULL;
 -- ── Step 4: Composite indexes ──────────────────────────────────────────────────
 -- Every table that the dashboard queries by status also now needs (tenant_id, status)
 -- because all WHERE clauses will prefix with tenant_id. A standalone idx_xxx_status
--- index is no longer selective enough — PostgreSQL would still scan the full index
+-- index is no longer selective enough -PostgreSQL would still scan the full index
 -- range for a tenant's rows before filtering by status.
 
 -- users: is_active used for active customer count in Phase 10

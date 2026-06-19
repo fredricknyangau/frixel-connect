@@ -5,7 +5,7 @@
 -- PROBLEM THIS FIXES:
 --   The original packages_name_unique constraint is:
 --     CONSTRAINT packages_name_unique UNIQUE (name)
---   This is a GLOBAL constraint — "Daily 10Mbps" can exist only once
+--   This is a GLOBAL constraint -"Daily 10Mbps" can exist only once
 --   in the entire table, across all tenants. That was fine in the
 --   single-tenant MLP, but in a multi-tenant system:
 --     - ISP "Nairobi Fibre" wants a package called "Daily 10Mbps"
@@ -16,7 +16,7 @@
 --
 -- THE FIX:
 --   1. DROP the global constraint.
---   2. ADD a composite constraint on (tenant_id, name) — unique WITHIN
+--   2. ADD a composite constraint on (tenant_id, name) -unique WITHIN
 --      a tenant, but multiple tenants can reuse the same name.
 --
 -- WHY NOT DO THIS IN MIGRATION 007?
@@ -45,7 +45,7 @@ ALTER TABLE packages
 ALTER TABLE packages
     DROP CONSTRAINT IF EXISTS packages_tenant_name_unique;
 
--- Step 3: Add a composite constraint — unique per (tenant, name)
+-- Step 3: Add a composite constraint -unique per (tenant, name)
 --         An ISP cannot have two active packages with the same name,
 --         but a different ISP can reuse any name freely.
 ALTER TABLE packages

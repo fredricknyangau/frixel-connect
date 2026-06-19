@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-test_daraja.py — Standalone Daraja integration test
+test_daraja.py -Standalone Daraja integration test
 ====================================================
 Tests the DarajaClient against the Safaricom Daraja sandbox.
 Run from inside Docker:
@@ -52,9 +52,9 @@ from app.integrations.daraja import DarajaClient, DarajaError
 
 
 # ── Test configuration ────────────────────────────────────────────────────────
-# Safaricom sandbox test phone — safe to use, won't charge real money
+# Safaricom sandbox test phone -safe to use, won't charge real money
 TEST_PHONE  = "254708374149"
-TEST_AMOUNT = 1          # KES 1 — minimum Daraja accepts in sandbox
+TEST_AMOUNT = 1          # KES 1 -minimum Daraja accepts in sandbox
 TEST_REF    = "WIFI-TEST"
 TEST_DESC   = "WiFi Test"
 
@@ -77,7 +77,7 @@ async def main():
     client = DarajaClient()
 
     # ── Step 1: Get access token ──────────────────────────────────────────────
-    divider("Step 1 — Get OAuth2 access token")
+    divider("Step 1 -Get OAuth2 access token")
     try:
         token = await client.get_access_token()
         print(f"✓  Token acquired: {token[:20]}...")
@@ -96,7 +96,7 @@ async def main():
         sys.exit(1)
 
     # ── Step 2: Token cache test ──────────────────────────────────────────────
-    divider("Step 2 — Token cache (should NOT make a network request)")
+    divider("Step 2 -Token cache (should NOT make a network request)")
     try:
         start = time.monotonic()
         token2 = await client.get_access_token()
@@ -107,7 +107,7 @@ async def main():
         if elapsed < 5:
             print(f"✓  Token returned from cache in {elapsed:.2f}ms (no network call)")
         else:
-            print(f"⚠  Token took {elapsed:.0f}ms — looks like it made a network request")
+            print(f"⚠  Token took {elapsed:.0f}ms -looks like it made a network request")
             print(f"   (expected < 5ms for a cache hit)")
 
         assert token == token2, "Cached token should be the same as first token"
@@ -117,7 +117,7 @@ async def main():
         sys.exit(1)
 
     # ── Step 3: STK push ─────────────────────────────────────────────────────
-    divider("Step 3 — Initiate STK push to sandbox")
+    divider("Step 3 -Initiate STK push to sandbox")
     print(f"  Sending KES {TEST_AMOUNT} STK push to {TEST_PHONE}...")
     try:
         result = await client.stk_push(
@@ -154,13 +154,13 @@ async def main():
         sys.exit(1)
 
     # ── Step 4: Character limit guards ────────────────────────────────────────
-    divider("Step 4 — Verify account_reference truncation (Daraja Quirk #2)")
+    divider("Step 4 -Verify account_reference truncation (Daraja Quirk #2)")
     try:
-        # Feed a 20-character reference — should be silently truncated to 12
+        # Feed a 20-character reference -should be silently truncated to 12
         long_ref = "WIFI-VERY-LONG-REFERENCE"   # 24 chars
         long_desc = "This is a very long description"  # 31 chars
 
-        # We don't actually send this to Daraja — just verify the truncation
+        # We don't actually send this to Daraja -just verify the truncation
         # happens inside the client before the API call.
         import app.integrations.daraja as daraja_module
         # Quick sanity: confirm truncation constants are correct
@@ -185,9 +185,9 @@ async def main():
     print()
     print(f"  CALLBACK URL status: {settings.DARAJA_CALLBACK_URL}")
     if "ngrok" in settings.DARAJA_CALLBACK_URL:
-        print(f"  ✓  ngrok URL detected — callbacks will reach your local server")
+        print(f"  ✓  ngrok URL detected -callbacks will reach your local server")
     elif "localhost" in settings.DARAJA_CALLBACK_URL or "127.0.0.1" in settings.DARAJA_CALLBACK_URL:
-        print(f"  ⚠  localhost URL detected — Daraja CANNOT reach this.")
+        print(f"  ⚠  localhost URL detected -Daraja CANNOT reach this.")
         print(f"     Run: ngrok http 8000")
         print(f"     Then set DARAJA_CALLBACK_URL=https://<ngrok-id>.ngrok.io/api/v1/webhooks/daraja")
     print()

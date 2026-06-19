@@ -2,7 +2,7 @@
 app/modules/vouchers/service.py
 ================================
 Service logic for voucher code generation, FreeRADIUS credential provisioning,
-and database persistence — fully tenant-scoped and router-scoped.
+and database persistence -fully tenant-scoped and router-scoped.
 """
 
 import asyncio
@@ -306,7 +306,7 @@ async def admin_revoke_voucher(
     Revokes a voucher within the tenant.
     Returns 404 for cross-tenant voucher UUIDs (not 403).
     """
-    # Fetch with tenant_id scope — cross-tenant UUIDs return None → 404
+    # Fetch with tenant_id scope -cross-tenant UUIDs return None → 404
     voucher = await conn.fetchrow(
         "SELECT id, code, status, customer_id, router_id FROM vouchers WHERE id = $1 AND tenant_id = $2",
         voucher_id,

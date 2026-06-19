@@ -1,7 +1,7 @@
 """
 app/modules/vouchers/router.py
 ================================
-Router for voucher management — fully tenant-scoped.
+Router for voucher management -fully tenant-scoped.
 
 CROSS-TENANT ISOLATION (WHY 404 NOT 403):
   When a customer requests GET /vouchers/{voucher_id} with a real UUID
@@ -12,7 +12,7 @@ CROSS-TENANT ISOLATION (WHY 404 NOT 403):
   A 403 Forbidden would say "I found this voucher but you can't have it."
   That leaks that the UUID exists somewhere in the system, potentially
   revealing that tenant B has a voucher with that specific ID. A 404
-  reveals nothing — the caller cannot distinguish "doesn't exist" from
+  reveals nothing -the caller cannot distinguish "doesn't exist" from
   "exists in another tenant."
 
   This is the correct behavior for any multi-tenant resource endpoint.
@@ -88,7 +88,7 @@ async def get_voucher(
 
     # Customer isolation within the tenant
     if str(voucher["customer_id"]) != str(current_user["user_id"]):
-        # Also 404 — same reason. A customer calling with another customer's
+        # Also 404 -same reason. A customer calling with another customer's
         # voucher ID within the same tenant should not learn that the voucher exists.
         raise NotFoundException("Voucher", voucher_id)
 

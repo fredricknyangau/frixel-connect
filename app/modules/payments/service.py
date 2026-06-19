@@ -1,14 +1,14 @@
 """
 app/modules/payments/service.py
 ================================
-Service layer for payment processing — fully tenant-scoped.
+Service layer for payment processing -fully tenant-scoped.
 
 MULTI-TENANCY CHANGE (Phase 1):
   - initiate_stk_push: validates package belongs to caller's tenant before
     charging; stores tenant_id on the payment row.
   - All list/get functions scope their WHERE clauses to tenant_id.
   - get_payment_status: returns 404 for cross-tenant payment UUIDs (same
-    principle as users — 404 reveals nothing, 403 confirms existence).
+    principle as users -404 reveals nothing, 403 confirms existence).
 """
 
 import logging
@@ -131,7 +131,7 @@ async def get_payment_status(
 
     Scoped to tenant_id AND customer_id. Returns 404 for:
       - Payment doesn't exist.
-      - Payment belongs to a different tenant (not 403 — see module docstring).
+      - Payment belongs to a different tenant (not 403 -see module docstring).
       - Payment belongs to a different customer within the same tenant.
     """
     row = await conn.fetchrow(

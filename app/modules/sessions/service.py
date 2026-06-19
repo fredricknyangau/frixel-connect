@@ -1,7 +1,7 @@
 """
 app/modules/sessions/service.py
 ================================
-Service layer for network sessions — fully tenant-scoped.
+Service layer for network sessions -fully tenant-scoped.
 
 MULTI-TENANCY CHANGE (Phase 1):
   Both functions now scope to tenant_id. A customer in tenant A cannot

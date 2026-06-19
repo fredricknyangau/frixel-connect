@@ -38,15 +38,15 @@ def create_access_token(
     Creates a signed JWT access token.
 
     Payload:
-        sub         — user UUID
-        role        — admin | reseller | customer
-        tenant_id   — UUID of the tenant this user belongs to.
+        sub         -user UUID
+        role        -admin | reseller | customer
+        tenant_id   -UUID of the tenant this user belongs to.
                       Every subsequent request uses this to scope database
                       queries. By embedding it in the token we avoid a
                       database lookup on every request just to find tenant_id.
-        reseller_id — UUID of the parent reseller (customers only), or None
-        exp         — expiry timestamp
-        iat         — issued-at timestamp
+        reseller_id -UUID of the parent reseller (customers only), or None
+        exp         -expiry timestamp
+        iat         -issued-at timestamp
     """
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -127,7 +127,7 @@ def normalise_phone(phone: str) -> str:
 # (AES-128-CBC + HMAC-SHA256) with a key read from settings at startup.
 #
 # WHY FERNET AND NOT bcrypt?
-#   bcrypt is a one-way hash — you can never recover the original value.
+#   bcrypt is a one-way hash -you can never recover the original value.
 #   Router passwords must be decrypted at the moment of use so we can pass
 #   them to MikroTik's REST API. Fernet is a symmetric cipher: encrypt at
 #   write time, decrypt only when the plaintext is needed for the API call.

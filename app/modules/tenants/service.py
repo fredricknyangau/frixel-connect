@@ -63,7 +63,7 @@ async def register_tenant(
     """
 
     # ── Pre-flight uniqueness checks ─────────────────────────────────────────
-    # Check tenants.owner_email first — this is the most likely conflict.
+    # Check tenants.owner_email first -this is the most likely conflict.
     existing_tenant = await conn.fetchrow(
         "SELECT id FROM tenants WHERE owner_email = $1",
         str(data.owner_email),
@@ -73,7 +73,7 @@ async def register_tenant(
             f"A tenant account with email '{data.owner_email}' already exists."
         )
 
-    # Also check users.email — the admin user we're about to create must not
+    # Also check users.email -the admin user we're about to create must not
     # conflict with a user in another tenant. The users.email UNIQUE constraint
     # is global (not per-tenant) to prevent cross-tenant email confusion.
     # NOTE: after Phase 1 this constraint might be revisited to be per-tenant,
@@ -126,7 +126,7 @@ async def register_tenant(
         tenant_id = tenant_row["id"]
 
         # 2. Create the admin user belonging to this tenant.
-        #    The admin user's email = the tenant's owner_email — same person.
+        #    The admin user's email = the tenant's owner_email -same person.
         #    reseller_id = NULL for admin users (they have no parent reseller).
         user_row = await conn.fetchrow(
             """

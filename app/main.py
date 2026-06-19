@@ -25,7 +25,7 @@ from app.core.metrics import http_requests_total, http_request_duration_seconds
 setup_logging(json_logs=settings.APP_ENV == "production")
 logger = structlog.get_logger(__name__)
 
-# Module routers — imported here, registered below
+# Module routers -imported here, registered below
 from app.modules.auth.router     import router as auth_router
 from app.modules.users.router    import router as users_router
 from app.modules.packages.router import router as packages_router

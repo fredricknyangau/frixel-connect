@@ -7,7 +7,7 @@
 CREATE TABLE IF NOT EXISTS vouchers (
     id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
-    -- One payment produces exactly one voucher — enforced by UNIQUE.
+    -- One payment produces exactly one voucher -enforced by UNIQUE.
     -- If a payment has two vouchers, a customer got free internet. That is bad.
     payment_id   UUID NOT NULL REFERENCES payments(id) ON DELETE RESTRICT,
     CONSTRAINT   vouchers_payment_id_unique UNIQUE (payment_id),
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS vouchers (
     -- The actual credential the customer enters on the hotspot login page.
     -- This becomes BOTH the username AND password in MikroTik (explained in
     -- the MikroTik client code). Must be globally unique.
-    -- VARCHAR(50) UNIQUE — MikroTik username has limits, 50 is safe.
+    -- VARCHAR(50) UNIQUE -MikroTik username has limits, 50 is safe.
     code         VARCHAR(50) NOT NULL,
     CONSTRAINT   vouchers_code_unique UNIQUE (code),
 
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS vouchers (
 
 -- ── Indexes ───────────────────────────────────────────────────────────────────
 
--- GET /vouchers/me — customer fetches their own vouchers.
+-- GET /vouchers/me -customer fetches their own vouchers.
 CREATE INDEX IF NOT EXISTS idx_vouchers_customer_id ON vouchers (customer_id);
 
 -- Code lookups: MikroTik may pass back the username when a session starts.
@@ -60,5 +60,5 @@ CREATE INDEX IF NOT EXISTS idx_vouchers_code ON vouchers (code);
 -- Status filtering: "show me all pending_provision vouchers" for admin retry dashboard.
 CREATE INDEX IF NOT EXISTS idx_vouchers_status ON vouchers (status);
 
--- GET /reseller/vouchers — filter by package to see which plans are most popular.
+-- GET /reseller/vouchers -filter by package to see which plans are most popular.
 CREATE INDEX IF NOT EXISTS idx_vouchers_package_id ON vouchers (package_id);

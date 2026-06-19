@@ -90,7 +90,7 @@ async def suspend_subscription(
     subscription_id: UUID,
     current_user: dict = Depends(require_role("admin"))
 ):
-    """Suspend a subscription. Admin-only — resellers cannot trigger suspensions."""
+    """Suspend a subscription. Admin-only -resellers cannot trigger suspensions."""
     async with get_db() as conn:
         await service.update_subscription_status(conn, current_user["tenant_id"], subscription_id, "suspended")
         return {"status": "success", "message": "Subscription suspended."}
@@ -100,7 +100,7 @@ async def reactivate_subscription(
     subscription_id: UUID,
     current_user: dict = Depends(require_role("admin"))
 ):
-    """Reactivate a suspended subscription. Admin-only — resellers cannot trigger reactivations."""
+    """Reactivate a suspended subscription. Admin-only -resellers cannot trigger reactivations."""
     async with get_db() as conn:
         await service.update_subscription_status(conn, current_user["tenant_id"], subscription_id, "active")
         return {"status": "success", "message": "Subscription reactivated."}

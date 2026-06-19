@@ -16,11 +16,11 @@ from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 
 class TenantRegisterRequest(BaseModel):
     """
-    Body for POST /tenants/register — the ISP owner signup flow.
+    Body for POST /tenants/register -the ISP owner signup flow.
 
     This is a PUBLIC endpoint (no JWT required). An ISP owner visits ZealSync,
     fills in their business name and contact details, and gets back a tenant
-    admin token immediately — analogous to any SaaS signup flow.
+    admin token immediately -analogous to any SaaS signup flow.
 
     In one transaction this creates:
       - A tenants row (the ISP business)
@@ -93,7 +93,7 @@ class TenantRegisterResponse(BaseModel):
     """
     Returned by POST /tenants/register.
     Includes the tenant detail plus the admin's access token so the ISP owner
-    is immediately authenticated — no second login step required.
+    is immediately authenticated -no second login step required.
     """
     tenant:       TenantResponse
     access_token: str

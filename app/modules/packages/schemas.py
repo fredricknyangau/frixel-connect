@@ -4,9 +4,9 @@ app/modules/packages/schemas.py
 Pydantic schemas for the packages module.
 
 Three schemas, three purposes:
-  PackageCreate  — validates the body for POST /packages (all fields required)
-  PackageUpdate  — validates the body for PUT /packages/{id} (all fields optional)
-  PackageResponse — shapes what we return to the client (no internal fields)
+  PackageCreate  -validates the body for POST /packages (all fields required)
+  PackageUpdate  -validates the body for PUT /packages/{id} (all fields optional)
+  PackageResponse -shapes what we return to the client (no internal fields)
 
 Why three separate schemas instead of one?
   PackageCreate: every field is required. Missing a field → 422 immediately.
@@ -14,7 +14,7 @@ Why three separate schemas instead of one?
     update the fields I send") are friendlier than forcing the client to
     resend unchanged data. We call this a "partial update" pattern.
   PackageResponse: we control exactly what the client sees. The DB row has
-    a 'created_by' UUID — we choose not to expose that. If we serialise the
+    a 'created_by' UUID -we choose not to expose that. If we serialise the
     raw DB row, the client sees everything, including fields that may leak
     internal structure or change without warning.
 """
@@ -85,11 +85,11 @@ class PackageUpdate(BaseModel):
     """
     Body for PUT /packages/{id}.
 
-    ALL fields are Optional — the client only sends the fields they want to
+    ALL fields are Optional -the client only sends the fields they want to
     change. The service layer builds a dynamic UPDATE query that only touches
     non-None fields. This means:
       PUT /packages/123 {"price_kes": 75}
-    Only updates price_kes and sets updated_at — name, speed_mbps, etc. are
+    Only updates price_kes and sets updated_at -name, speed_mbps, etc. are
     untouched. Without Optional fields, the client would have to resend the
     entire package object just to change the price.
     """
@@ -165,4 +165,4 @@ class PackageResponse(BaseModel):
     created_at:    datetime
     # updated_at is included so the admin UI can show "last modified"
     updated_at:    datetime
-    # created_by is intentionally excluded — internal field
+    # created_by is intentionally excluded -internal field

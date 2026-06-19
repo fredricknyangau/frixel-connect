@@ -1,7 +1,7 @@
 """
 app/modules/sessions/router.py
 ================================
-Router for session queries — fully tenant-scoped.
+Router for session queries -fully tenant-scoped.
 """
 
 from uuid import UUID

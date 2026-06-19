@@ -11,12 +11,12 @@ MULTI-TENANCY CHANGE (Phase 1):
   Without it, an admin from tenant A who somehow obtains a user UUID from
   tenant B (e.g., by brute-forcing UUIDs or via a bug in another endpoint)
   could read or modify that user. Adding tenant_id to the WHERE clause means
-  the query returns zero rows for cross-tenant UUIDs — the same result as if
+  the query returns zero rows for cross-tenant UUIDs -the same result as if
   the user didn't exist at all. We return 404, not 403, for this case.
 
   WHY 404 and not 403?
   A 403 says "I found the resource, but you can't have it." That confirms the
-  resource exists — leaking that tenant B has a user with that UUID. A 404 says
+  resource exists -leaking that tenant B has a user with that UUID. A 404 says
   "no such resource in your context." An attacker learns nothing about whether
   tenant B's data exists at all. This is sometimes called "security through
   plausible deniability" and is standard practice in multi-tenant APIs.
@@ -42,7 +42,7 @@ async def get_my_profile(
 
     Raises NotFoundException if:
       - The user doesn't exist at all.
-      - The user exists but belongs to a different tenant (same 404 — no leakage).
+      - The user exists but belongs to a different tenant (same 404 -no leakage).
     """
     row = await conn.fetchrow(
         """
@@ -179,7 +179,7 @@ async def create_customer(
     """
     Creates a new customer under the given tenant.
 
-    tenant_id comes from the calling reseller or admin's JWT — the caller
+    tenant_id comes from the calling reseller or admin's JWT -the caller
     cannot create a customer in a different tenant.
     """
     # Check for email/phone conflicts within this tenant
@@ -331,7 +331,7 @@ async def admin_update_user(
     #   asyncpg parameterises VALUES ($1, $2, ...) but column names in SET must be
     #   interpolated as SQL text. Using f"{key} = $N" with keys sourced from
     #   model_dump() is safe today (Pydantic validates the keys), but is an unsafe
-    #   pattern by convention — a future schema change could accidentally admit a
+    #   pattern by convention -a future schema change could accidentally admit a
     #   malicious column name. An explicit allowlist is the correct defence.
     #
     #   The allowlist maps AdminUserUpdate field names → actual column names.
@@ -356,7 +356,7 @@ async def admin_update_user(
         set_clauses.append(f"{col} = ${len(values)}")
 
     if not set_clauses:
-        # Nothing safe to update — return current record unchanged
+        # Nothing safe to update -return current record unchanged
         row = await conn.fetchrow(
             """
             SELECT id, email, phone, role, reseller_id, tenant_id, is_active, created_at

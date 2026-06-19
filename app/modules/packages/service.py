@@ -1,19 +1,19 @@
 """
 app/modules/packages/service.py
 ================================
-Business logic for the packages module — fully tenant-scoped.
+Business logic for the packages module -fully tenant-scoped.
 
 MULTI-TENANCY CHANGE (Phase 1):
   All queries now include AND tenant_id = $N.
 
   Package name uniqueness is now PER-TENANT, not global. Two different ISPs
-  can both have a "Daily 10Mbps" package — that's fine. The UNIQUE constraint
+  can both have a "Daily 10Mbps" package -that's fine. The UNIQUE constraint
   in the DB (002_create_packages.sql) is currently global, but we enforce
   uniqueness in the service by scoping the check to tenant_id. A future
   migration (dropping the global unique and adding a composite unique on
   (tenant_id, name)) would move this to the database layer.
 
-  The dynamic UPDATE query pattern is unchanged — see the module docstring
+  The dynamic UPDATE query pattern is unchanged -see the module docstring
   for a full explanation of how it works.
 """
 
@@ -54,7 +54,7 @@ async def get_package_by_id(
 
     Returns 404 if:
       - The ID doesn't exist.
-      - The package exists but belongs to a different tenant (404, not 403 — see module docstring).
+      - The package exists but belongs to a different tenant (404, not 403 -see module docstring).
       - The package is soft-deleted.
     """
     row = await conn.fetchrow(
@@ -129,7 +129,7 @@ async def update_package(
     data: PackageUpdate,
 ) -> dict:
     """
-    Partially updates a package — only touches fields that are not None.
+    Partially updates a package -only touches fields that are not None.
     Scoped to the tenant.
     """
     # Confirm the package exists in this tenant

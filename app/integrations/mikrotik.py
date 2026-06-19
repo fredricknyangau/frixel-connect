@@ -12,9 +12,9 @@ WHY THE REST API INSTEAD OF SSH OR MIKROTIK API LIBRARY?
 
   We use REST because:
     - Standard HTTP means standard debugging: curl, Postman, browser DevTools.
-    - httpx is already in requirements.txt — zero new dependencies.
-    - The request/response format is plain JSON — readable in logs.
-    - REST API supports Basic Auth out of the box — no custom auth protocol.
+    - httpx is already in requirements.txt -zero new dependencies.
+    - The request/response format is plain JSON -readable in logs.
+    - REST API supports Basic Auth out of the box -no custom auth protocol.
 
   Your MikroTik CHR is running RouterOS v7+, so REST is available.
   Older v6 routers would need the API socket approach.
@@ -26,19 +26,19 @@ HOW THE RouterOS REST API WORKS:
   every created object. This ".id" (not "id") is the internal identifier
   used for subsequent GET/DELETE operations on that object.
 
-  Example — create a hotspot user:
+  Example -create a hotspot user:
     POST /rest/ip/hotspot/user
     Body: {"name": "ABC123", "password": "ABC123", "profile": "10Mbps"}
     Response: {".id": "*3F", "name": "ABC123", ...}
 
-  Example — delete it:
+  Example -delete it:
     DELETE /rest/ip/hotspot/user/*3F   ← uses the .id from the create response
 
 HTTPX VS REQUESTS:
-  requests is synchronous — calling requests.post() blocks the Python thread
+  requests is synchronous -calling requests.post() blocks the Python thread
   until the HTTP response arrives. In an async FastAPI app, one blocked thread
   means one fewer concurrent request handler. Under load, this compounds.
-  httpx is async — httpx.AsyncClient with await doesn't block the event loop.
+  httpx is async -httpx.AsyncClient with await doesn't block the event loop.
   Other requests are handled while waiting for MikroTik to respond.
 """
 
@@ -150,13 +150,13 @@ class MikroTikClient:
             users = find_response.json()
 
             if not users:
-                logger.info(f"MikroTik: user '{username}' not found — nothing to delete")
+                logger.info(f"MikroTik: user '{username}' not found -nothing to delete")
                 return
 
             # RouterOS returns a list even for a single match. Take the first.
             mikrotik_id = users[0].get(".id")
             if not mikrotik_id:
-                logger.warning(f"MikroTik: user '{username}' found but has no .id — skipping delete")
+                logger.warning(f"MikroTik: user '{username}' found but has no .id -skipping delete")
                 return
 
             # Step 2: Delete by the internal .id.
@@ -176,7 +176,7 @@ class MikroTikClient:
 
             secrets = find_response.json()
             if not secrets:
-                logger.warning(f"MikroTik: PPPoE secret '{username}' not found — cannot disable")
+                logger.warning(f"MikroTik: PPPoE secret '{username}' not found -cannot disable")
                 return
 
             mikrotik_id = secrets[0].get(".id")
@@ -198,7 +198,7 @@ class MikroTikClient:
 
             secrets = find_response.json()
             if not secrets:
-                logger.warning(f"MikroTik: PPPoE secret '{username}' not found — cannot enable")
+                logger.warning(f"MikroTik: PPPoE secret '{username}' not found -cannot enable")
                 return
 
             mikrotik_id = secrets[0].get(".id")
@@ -270,7 +270,7 @@ class MikroTikClient:
         except Exception:
             detail = response.text or f"HTTP {response.status_code}"
 
-        error_msg = f"MikroTik error during [{context}]: {response.status_code} — {detail}"
+        error_msg = f"MikroTik error during [{context}]: {response.status_code} -{detail}"
         logger.error(error_msg)
         raise MikroTikError(error_msg)
 

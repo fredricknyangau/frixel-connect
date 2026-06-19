@@ -38,10 +38,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     Raises 401 if the token is missing, expired, or invalid.
 
     The returned dict now contains:
-        user_id    — str UUID of the user
-        role       — "admin" | "reseller" | "customer"
-        tenant_id  — str UUID of the tenant this user belongs to
-        reseller_id — str UUID or None
+        user_id    -str UUID of the user
+        role       -"admin" | "reseller" | "customer"
+        tenant_id  -str UUID of the tenant this user belongs to
+        reseller_id -str UUID or None
     """
     payload = decode_access_token(token)
     if payload is None:
@@ -92,7 +92,7 @@ async def get_current_tenant_id(
 def require_role(*allowed_roles: str):
     """
     Dependency factory. Enforces role-based access at the route level.
-    Also checks tenant suspension — a suspended tenant's users cannot
+    Also checks tenant suspension -a suspended tenant's users cannot
     access ANY endpoint regardless of role.
 
     Usage:
@@ -104,7 +104,7 @@ def require_role(*allowed_roles: str):
         async def list_customers(user=Depends(require_role("admin", "reseller"))):
             ...
 
-    The returned dict is the same as get_current_user — it includes tenant_id.
+    The returned dict is the same as get_current_user -it includes tenant_id.
     """
     async def role_checker(current_user: dict = Depends(require_active_tenant)) -> dict:
         # Role check

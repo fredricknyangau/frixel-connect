@@ -4,7 +4,7 @@
 -- Depends on: 001_create_users.sql, 004_create_vouchers.sql
 --
 -- NOTE: In v1, this table is populated manually or by a future MikroTik
--- accounting sync job — NOT by this API directly. MikroTik tracks active
+-- accounting sync job -NOT by this API directly. MikroTik tracks active
 -- sessions internally; we mirror that data here for billing dashboards.
 -- =============================================================================
 
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 -- ── Indexes ───────────────────────────────────────────────────────────────────
 
--- GET /sessions/me — customer fetches their own sessions.
+-- GET /sessions/me -customer fetches their own sessions.
 CREATE INDEX IF NOT EXISTS idx_sessions_customer_id ON sessions (customer_id);
 
 -- Lookup all sessions for a specific voucher (e.g. to calculate total data used).

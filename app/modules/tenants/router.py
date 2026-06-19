@@ -3,8 +3,8 @@ app/modules/tenants/router.py
 ================================
 HTTP endpoints for tenant management.
 
-  POST /tenants/register — PUBLIC. ISP owner signs up for ZealSync.
-  GET  /tenants/me       — Admin only. Returns own tenant details + stats.
+  POST /tenants/register -PUBLIC. ISP owner signs up for ZealSync.
+  GET  /tenants/me       -Admin only. Returns own tenant details + stats.
 """
 
 from uuid import UUID
@@ -42,7 +42,7 @@ async def register(data: TenantRegisterRequest) -> TenantRegisterResponse:
     immediately logged in.
 
     This is the equivalent of clicking "Sign Up" on any SaaS platform.
-    No existing auth required — this is how tenants are created.
+    No existing auth required -this is how tenants are created.
     """
     async with get_db() as conn:
         result = await register_tenant(conn, data)

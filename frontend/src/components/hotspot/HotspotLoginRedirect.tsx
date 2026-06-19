@@ -31,7 +31,7 @@ export default function HotspotLoginRedirect({ voucherCode, linkLogin, linkOrig 
     if (!loginUrl) {
       // No link-login param means the user opened the portal directly
       // (e.g. testing in a browser not on the hotspot LAN)
-      // Just show the voucher code — nothing to redirect to
+      // Just show the voucher code -nothing to redirect to
       return
     }
 
@@ -66,10 +66,10 @@ export default function HotspotLoginRedirect({ voucherCode, linkLogin, linkOrig 
           Connect to the WiFi network and open this page again to go online.
         </p>
       )}
-      
+
       {linkLogin && (
         <div className="mt-6">
-          <button 
+          <button
             className="text-sm text-primary underline hover:text-primary/90"
             onClick={() => window.location.href = loginUrl}
           >

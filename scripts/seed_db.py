@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-seed_db.py — Database Seeder for ZealSync (Phase 1: Multi-Tenant)
+seed_db.py -Database Seeder for ZealSync (Phase 1: Multi-Tenant)
 ===================================================================
 Inserts a known set of users and packages so you have working data
 to test every route immediately after running migrations.
@@ -17,7 +17,7 @@ Run from your local machine (with virtualenv activated):
     python seed_db.py
 
 Idempotency: uses INSERT ... ON CONFLICT DO NOTHING so running this
-script twice doesn't fail — it just skips rows that already exist.
+script twice doesn't fail -it just skips rows that already exist.
 """
 
 import asyncio
@@ -65,7 +65,7 @@ PACKAGES = [
 
 async def seed():
     print("=" * 60)
-    print("  ZealSync — Database Seeder (Phase 1: Multi-Tenant)")
+    print("  ZealSync -Database Seeder (Phase 1: Multi-Tenant)")
     print("=" * 60)
 
     conn = await asyncpg.connect(dsn=settings.DATABASE_URL)
@@ -87,7 +87,7 @@ async def seed():
             print(f"✓  Default tenant:          {tenant['business_name']} ({tenant['id']})")
 
             # ── 1. Admin user ─────────────────────────────────────────────────
-            # Now includes tenant_id — admin belongs to the default tenant.
+            # Now includes tenant_id -admin belongs to the default tenant.
             admin_row = await conn.fetchrow(
                 """
                 INSERT INTO users (email, phone, hashed_password, role, reseller_id, tenant_id)

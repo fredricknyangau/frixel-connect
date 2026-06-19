@@ -22,7 +22,7 @@ class RegisterRequest(BaseModel):
     """
     Body for POST /auth/register.
 
-    tenant_id is NOT in the request body — it is injected by the router
+    tenant_id is NOT in the request body -it is injected by the router
     from the authenticated admin's JWT token. This prevents a caller from
     registering a user into an arbitrary tenant by supplying a different UUID.
     """
@@ -30,7 +30,7 @@ class RegisterRequest(BaseModel):
     phone:     str
     password:  str
     role:      str = "customer"
-    # Injected by the router — not expected from the client body.
+    # Injected by the router -not expected from the client body.
     # Set as Optional with None default so Pydantic won't reject the model
     # when constructed without it, then the router sets it before calling
     # the service.

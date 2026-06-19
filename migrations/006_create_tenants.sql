@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Migration: 006_create_tenants.sql
 -- Creates: tenants table
--- Depends on: nothing — tenants is the new root of the hierarchy.
+-- Depends on: nothing -tenants is the new root of the hierarchy.
 --             Previously users was the root; from this migration onward
 --             tenants sits ABOVE users.
 --
@@ -9,7 +9,7 @@
 --   A tenant is one ISP business that subscribes to ZealSync.
 --   Every user, package, payment, voucher, and session belongs to exactly
 --   one tenant. Data belonging to tenant A is structurally invisible to
---   tenant B — not just filtered at the application layer, but unreachable
+--   tenant B -not just filtered at the application layer, but unreachable
 --   because every query requires a matching tenant_id.
 -- =============================================================================
 

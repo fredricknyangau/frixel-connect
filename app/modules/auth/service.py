@@ -6,7 +6,7 @@ Business logic for registration and login.
 MULTI-TENANCY CHANGE (Phase 1):
   authenticate_user now accepts tenant_id and scopes the user lookup to
   that tenant. A user in tenant A with the same email as a user in tenant B
-  (if we ever allow per-tenant email uniqueness — currently global) would
+  (if we ever allow per-tenant email uniqueness -currently global) would
   still be disambiguated by tenant_id.
 
   More importantly: authenticate_user now ALSO validates that the tenant's
@@ -17,7 +17,7 @@ MULTI-TENANCY CHANGE (Phase 1):
 asyncpg parameterised queries:
   All SQL in this file uses $1, $2, ... placeholders.
   asyncpg sends the query and parameters SEPARATELY to PostgreSQL over
-  the wire — PostgreSQL never concatenates them into a SQL string, so
+  the wire -PostgreSQL never concatenates them into a SQL string, so
   SQL injection is structurally impossible.
 """
 
@@ -43,7 +43,7 @@ async def register_user(conn: asyncpg.Connection, data: RegisterRequest) -> dict
     (e.g., an admin registering a reseller). The PRIMARY tenant+admin creation
     path is POST /tenants/register (tenants/service.py:register_tenant).
 
-    The data.tenant_id comes from the calling admin's JWT token — the caller
+    The data.tenant_id comes from the calling admin's JWT token -the caller
     cannot register a user into a different tenant than their own.
 
     Steps:
@@ -116,7 +116,7 @@ async def authenticate_user(
 
     MULTI-TENANCY CHANGE:
     We JOIN to tenants to check tenant.status at login time. If the tenant
-    is suspended or cancelled, we raise ForbiddenException(403) — NOT
+    is suspended or cancelled, we raise ForbiddenException(403) -NOT
     UnauthorisedException(401). The distinction matters:
       - 401 means "we don't know who you are" (no/bad credentials)
       - 403 means "we know exactly who you are, but you can't come in"
@@ -125,7 +125,7 @@ async def authenticate_user(
     Timing attack note:
     If the user doesn't exist, we still call verify_password() against a
     dummy hash. This keeps the response time consistent whether the email
-    exists or not — an attacker timing responses can't enumerate valid emails.
+    exists or not -an attacker timing responses can't enumerate valid emails.
     """
     # ── Handle Phone Number Variants ───────────────────────────────────────────
     # A user might enter "07...", "2547...", or "7..." 

@@ -5,14 +5,14 @@ Cross-tenant isolation tests for Phase 1.
 
 WHAT THESE TESTS PROVE:
   A valid JWT from tenant A cannot read tenant B's customers, payments, or
-  vouchers — even when supplied with tenant B's REAL UUIDs directly in the
+  vouchers -even when supplied with tenant B's REAL UUIDs directly in the
   URL path. The system returns 404, not 403.
 
   WHY 404 (not 403)?
   A 403 says "the resource exists, but you're not allowed." That confirms the
   UUID is real and belongs to some tenant. An attacker who brute-forces UUIDs
   against a 403-returning endpoint learns which UUIDs are valid across the
-  entire platform. A 404 reveals nothing — the UUID might not exist at all.
+  entire platform. A 404 reveals nothing -the UUID might not exist at all.
 
 TEST STRUCTURE:
   Each test creates two tenants with their own admin tokens, seeds data in
@@ -174,7 +174,7 @@ async def create_voucher_in_tenant(
 async def test_cross_tenant_customer_returns_404(client: TestClient, conn: asyncpg.Connection):
     """
     Tenant A's admin cannot read tenant B's customer.
-    GET /admin/users returns only tenant A's users — tenant B's customer_id returns 404.
+    GET /admin/users returns only tenant A's users -tenant B's customer_id returns 404.
     """
     # Create tenant A (admin token for all requests from tenant A)
     tenant_a_id, admin_a_id, token_a = await create_tenant_and_admin(
@@ -191,7 +191,7 @@ async def test_cross_tenant_customer_returns_404(client: TestClient, conn: async
 
     headers_a = {"Authorization": f"Bearer {token_a}"}
 
-    # Tenant A lists users — should NOT see tenant B's customer
+    # Tenant A lists users -should NOT see tenant B's customer
     resp = client.get("/api/v1/admin/users", headers=headers_a)
     assert resp.status_code == 200
     user_ids_in_response = [u["id"] for u in resp.json()]
@@ -227,7 +227,7 @@ async def test_cross_tenant_payment_returns_404(client: TestClient, conn: asyncp
         user_id=customer_a_id, role="customer", tenant_id=tenant_a_id
     )
 
-    # Tenant B — create real payment data
+    # Tenant B -create real payment data
     tenant_b_id, admin_b_id, token_b_admin = await create_tenant_and_admin(
         conn, "Tenant B ISP", "admin_bb@test.com", "254711000012"
     )
@@ -263,7 +263,7 @@ async def test_cross_tenant_voucher_returns_404(client: TestClient, conn: asyncp
 
     This is the explicit test required by the Phase 1 specification:
     "try GET /vouchers/{a-real-voucher-id-that-belongs-to-tenant-B}
-     — must return 404, not 403"
+     -must return 404, not 403"
     """
     # Tenant A customer
     tenant_a_id, admin_a_id, _ = await create_tenant_and_admin(
@@ -276,7 +276,7 @@ async def test_cross_tenant_voucher_returns_404(client: TestClient, conn: asyncp
         user_id=customer_a_id, role="customer", tenant_id=tenant_a_id
     )
 
-    # Tenant B — create a real voucher
+    # Tenant B -create a real voucher
     tenant_b_id, admin_b_id, _ = await create_tenant_and_admin(
         conn, "Tenant B ISP", "admin_bbb@test.com", "254711000022"
     )
@@ -321,7 +321,7 @@ async def test_cross_tenant_package_isolation(client: TestClient, conn: asyncpg.
         conn, tenant_a_id, admin_a_id, "Tenant A Exclusive Package"
     )
 
-    # Tenant B — different package
+    # Tenant B -different package
     tenant_b_id, admin_b_id, token_b = await create_tenant_and_admin(
         conn, "Tenant B ISP", "admin_pkg_b@test.com", "254711000031"
     )
@@ -329,7 +329,7 @@ async def test_cross_tenant_package_isolation(client: TestClient, conn: asyncpg.
         conn, tenant_b_id, admin_b_id, "Tenant B Exclusive Package"
     )
 
-    # Tenant A lists packages — should only see their own
+    # Tenant A lists packages -should only see their own
     headers_a = {"Authorization": f"Bearer {token_a}"}
     resp = client.get("/api/v1/packages", headers=headers_a)
     assert resp.status_code == 200
@@ -338,7 +338,7 @@ async def test_cross_tenant_package_isolation(client: TestClient, conn: asyncpg.
     assert pkg_a_id in pkg_ids, "Tenant A should see their own package"
     assert pkg_b_id not in pkg_ids, "Tenant A must NOT see Tenant B's package"
 
-    # Tenant A requests Tenant B's package by ID — must be 404
+    # Tenant A requests Tenant B's package by ID -must be 404
     resp = client.get(f"/api/v1/packages/{pkg_b_id}", headers=headers_a)
     assert resp.status_code == 404, (
         f"Expected 404 for cross-tenant package access, got {resp.status_code}"
@@ -360,7 +360,7 @@ async def test_two_tenants_register_same_package_name(client: TestClient, conn: 
         conn, "Tenant B ISP", "admin_dup_b@test.com", "254711000041"
     )
 
-    # Both create "Daily 10Mbps" — should not conflict
+    # Both create "Daily 10Mbps" -should not conflict
     pkg_a = await create_package_in_tenant(conn, tenant_a_id, admin_a_id, "Daily 10Mbps")
     pkg_b = await create_package_in_tenant(conn, tenant_b_id, admin_b_id, "Daily 10Mbps")
 

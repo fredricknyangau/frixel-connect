@@ -1,7 +1,7 @@
 """
 app/modules/payments/router.py
 ================================
-Router for payment processing — fully tenant-scoped.
+Router for payment processing -fully tenant-scoped.
 """
 
 from uuid import UUID

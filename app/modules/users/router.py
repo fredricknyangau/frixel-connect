@@ -1,11 +1,11 @@
 """
 app/modules/users/router.py
 ============================
-HTTP router for users module — fully tenant-scoped.
+HTTP router for users module -fully tenant-scoped.
 
 Every route extracts tenant_id from current_user["tenant_id"] and passes it
 to the service layer. Routes never accept tenant_id as a query parameter or
-path variable — it comes exclusively from the authenticated JWT, preventing
+path variable -it comes exclusively from the authenticated JWT, preventing
 cross-tenant access at the transport layer.
 """
 

@@ -71,10 +71,10 @@ class DarajaClient:
     def __init__(self) -> None:
         self.base_url = settings.DARAJA_BASE_URL  # sandbox or production
 
-        # Token cache. Starts empty — will be populated on first API call.
+        # Token cache. Starts empty -will be populated on first API call.
         # We use instance variables (not class variables) so each instance
         # has its own cache. If you ever run multiple workers, each worker
-        # gets its own token — that's fine, tokens are independent.
+        # gets its own token -that's fine, tokens are independent.
         self._token: str | None = None
         self._token_expires_at: datetime | None = None
 
@@ -89,7 +89,7 @@ class DarajaClient:
         expires_in, there's a race condition: the token could expire between
         when we check it and when Daraja processes our request (network
         latency + Daraja clock drift). Subtracting 60 seconds means we
-        refresh the token 1 minute before it officially expires — giving
+        refresh the token 1 minute before it officially expires -giving
         enough margin to avoid mid-request failures.
 
         Returns:
@@ -104,7 +104,7 @@ class DarajaClient:
         if self._token and self._token_expires_at and now < self._token_expires_at:
             return self._token
 
-        # Token is missing or expired — fetch a new one.
+        # Token is missing or expired -fetch a new one.
         logger.info("Daraja: fetching new access token")
 
         # Basic Auth header: base64(consumer_key:consumer_secret)
@@ -157,11 +157,11 @@ class DarajaClient:
                                QUIRK 1: Daraja technically accepts decimals but
                                some callbacks return validation errors for
                                non-integer amounts. Always cast to int:
-                               int(package.price_kes) — never send 50.0.
+                               int(package.price_kes) -never send 50.0.
             account_reference: Max 12 characters. Appears on the customer's
                                M-Pesa confirmation SMS as the account charged.
                                QUIRK 2: Daraja has a hard 12-char limit with
-                               no error feedback — exceeding it causes the STK
+                               no error feedback -exceeding it causes the STK
                                push to appear to succeed (you get a
                                CheckoutRequestID back) but the callback NEVER
                                arrives. We truncate defensively.
@@ -173,11 +173,11 @@ class DarajaClient:
 
         Returns:
             The full Daraja response dict. Key fields:
-              CheckoutRequestID — store in payments.mpesa_checkout_id
-              MerchantRequestID — Daraja's internal ID, not needed by us
-              ResponseCode      — "0" means the request was queued (NOT paid yet)
-              ResponseDescription — human readable status
-              CustomerMessage   — shown to customer by Daraja
+              CheckoutRequestID -store in payments.mpesa_checkout_id
+              MerchantRequestID -Daraja's internal ID, not needed by us
+              ResponseCode      -"0" means the request was queued (NOT paid yet)
+              ResponseDescription -human readable status
+              CustomerMessage   -shown to customer by Daraja
 
         Raises:
             DarajaError: If Daraja rejects the request (bad credentials,
@@ -196,7 +196,7 @@ class DarajaClient:
 
             3. password = base64(raw_string)
 
-            Why base64? Safaricom's documentation doesn't explain it — it's just
+            Why base64? Safaricom's documentation doesn't explain it -it's just
             how they designed the auth scheme. The timestamp is included so the
             password changes every second, making it a time-based one-time token.
             A replayed request with a stale timestamp will be rejected by Daraja.
@@ -207,7 +207,7 @@ class DarajaClient:
         """
 
         # ── QUIRK 2 DEFENCE: truncate to Daraja's hard limits ─────────────────
-        # These limits are not documented in error messages — Daraja silently
+        # These limits are not documented in error messages -Daraja silently
         # drops the callback if you exceed them. We truncate here so the STK
         # push actually completes end-to-end.
         account_reference = account_reference[:12]
@@ -215,7 +215,7 @@ class DarajaClient:
 
         # ── Generate timestamp and password ────────────────────────────────────
         # Daraja requires the timestamp in "YYYYMMDDHHmmss" format.
-        # We use UTC for consistency — Safaricom's servers are UTC+3 but their
+        # We use UTC for consistency -Safaricom's servers are UTC+3 but their
         # API accepts UTC timestamps fine in the sandbox.
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
 
@@ -245,7 +245,7 @@ class DarajaClient:
                     "Password": password,
 
                     # Timestamp: same value used to generate Password.
-                    # Must match exactly — Daraja verifies the password against this.
+                    # Must match exactly -Daraja verifies the password against this.
                     "Timestamp": timestamp,
 
                     # TransactionType: "CustomerPayBillOnline" for paybill numbers,
@@ -285,7 +285,7 @@ class DarajaClient:
 
         result = response.json()
 
-        # Daraja returns ResponseCode "0" to mean "queued successfully" — NOT paid.
+        # Daraja returns ResponseCode "0" to mean "queued successfully" -NOT paid.
         # The actual payment result comes via the callback webhook.
         # Any other ResponseCode means Daraja couldn't even queue the request.
         if result.get("ResponseCode") != "0":
@@ -341,5 +341,5 @@ class DarajaClient:
 # Single instance shared across all requests. The token cache is on this instance,
 # so token re-use works across concurrent requests without external state (Redis).
 # In a multi-process setup (gunicorn with workers) each worker has its own
-# instance and its own cache — that's fine, tokens are stateless bearer tokens.
+# instance and its own cache -that's fine, tokens are stateless bearer tokens.
 daraja_client = DarajaClient()

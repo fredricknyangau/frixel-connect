@@ -9,11 +9,11 @@ CREATE TABLE IF NOT EXISTS payments (
 
     -- Which customer initiated this payment.
     -- ON DELETE RESTRICT: we refuse to delete a customer who has payments.
-    -- Financial records are permanent — you cannot delete payment history.
+    -- Financial records are permanent -you cannot delete payment history.
     customer_id           UUID          NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
 
     -- Which package the customer paid for.
-    -- ON DELETE RESTRICT: same reason — package deletion would corrupt payment history.
+    -- ON DELETE RESTRICT: same reason -package deletion would corrupt payment history.
     -- This is why packages use soft delete instead of hard delete.
     package_id            UUID          NOT NULL REFERENCES packages(id) ON DELETE RESTRICT,
 
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS payments (
     mpesa_checkout_id     VARCHAR(100),
 
     -- The phone number the STK push was sent to. We store it here because
-    -- the webhook also includes it — useful for cross-referencing / debugging.
+    -- the webhook also includes it -useful for cross-referencing / debugging.
     phone_number          VARCHAR(20)   NOT NULL,
 
     -- Why did the payment fail? Populated from Daraja's ResultDesc on failure.
@@ -61,14 +61,14 @@ CREATE TABLE IF NOT EXISTS payments (
 
 -- ── Indexes ───────────────────────────────────────────────────────────────────
 
--- GET /payments/me — customer fetches their own payment history.
+-- GET /payments/me -customer fetches their own payment history.
 CREATE INDEX IF NOT EXISTS idx_payments_customer_id ON payments (customer_id);
 
 -- Webhook handler: look up payment by CheckoutRequestID to find which payment
 -- the incoming callback belongs to. This query runs inside the webhook timeout window.
 CREATE INDEX IF NOT EXISTS idx_payments_checkout_id ON payments (mpesa_checkout_id);
 
--- GET /reseller/payments — resellers look at payments by their customers.
+-- GET /reseller/payments -resellers look at payments by their customers.
 -- This index supports filtering by package_id or joining back to users.
 CREATE INDEX IF NOT EXISTS idx_payments_package_id ON payments (package_id);
 

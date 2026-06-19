@@ -7,7 +7,7 @@ MULTI-TENANCY CHANGE (Phase 1):
   - register: caller must be an authenticated admin; their tenant_id from the
     JWT is injected into RegisterRequest before calling the service. This
     prevents self-registration of arbitrary users into arbitrary tenants.
-  - login: no change to the request body — email+password still the inputs.
+  - login: no change to the request body -email+password still the inputs.
     The response now includes tenant_id.
 """
 
@@ -44,7 +44,7 @@ async def register(
     Open /auth/register would let anyone create users in any tenant if they
     knew the URL.
 
-    The tenant_id is taken from the admin's JWT — the caller cannot inject
+    The tenant_id is taken from the admin's JWT -the caller cannot inject
     a different tenant_id via the request body.
     """
     # Inject tenant_id from the admin's token before passing to the service.
@@ -90,8 +90,8 @@ async def login(data: LoginRequest) -> TokenResponse:
     verifies the password, checks the tenant is active, and issues a token with
     tenant_id embedded so all subsequent requests are automatically scoped.
 
-    If the tenant is suspended, the response is 403 "account suspended" — not
-    a generic 401 — so the ISP owner knows exactly why they can't log in.
+    If the tenant is suspended, the response is 403 "account suspended" -not
+    a generic 401 -so the ISP owner knows exactly why they can't log in.
     """
     async with get_db() as conn:
         user = await authenticate_user(conn, data.email, data.password)

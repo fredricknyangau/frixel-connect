@@ -10,7 +10,7 @@
 -- The uuid-ossp extension gives us uuid_generate_v4() for primary keys.
 -- We use CREATE EXTENSION IF NOT EXISTS so re-running this file is safe.
 -- Note: IF NOT EXISTS cannot be used on TABLE column constraints or CHECK
--- constraints — only on the CREATE TABLE statement and extensions.
+-- constraints -only on the CREATE TABLE statement and extensions.
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE IF NOT EXISTS users (
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
     email            VARCHAR(255) NOT NULL,
     phone            VARCHAR(20)  NOT NULL,
 
-    -- We never store the plain password — only the bcrypt hash.
+    -- We never store the plain password -only the bcrypt hash.
     -- bcrypt hashes are always 60 chars. VARCHAR(255) gives room for future algo changes.
     hashed_password  VARCHAR(255) NOT NULL,
 
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- ── Indexes ───────────────────────────────────────────────────────────────────
 -- We add indexes on every column that appears in a WHERE clause in our routes.
 
--- /auth/login looks up users by email — the most frequent query in the system.
+-- /auth/login looks up users by email -the most frequent query in the system.
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 
 -- /reseller/customers filters customers by reseller_id.

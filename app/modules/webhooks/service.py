@@ -4,7 +4,7 @@ app/modules/webhooks/service.py
 Service layer handling Safaricom Daraja STK Push callback webhooks.
 
 MULTI-TENANCY NOTE:
-  The Daraja webhook is public — Safaricom's servers call it with no JWT.
+  The Daraja webhook is public -Safaricom's servers call it with no JWT.
   We cannot know which tenant a webhook belongs to from the HTTP headers.
   Instead, we look up the payment by mpesa_checkout_id (which we store
   when the STK push is initiated). That payment row carries tenant_id,
@@ -52,7 +52,7 @@ async def process_daraja_webhook(
         logger.error("callback missing CheckoutRequestID")
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
-    # Look up payment by checkout_id (no tenant filter — we find the record
+    # Look up payment by checkout_id (no tenant filter -we find the record
     # globally and use its embedded tenant_id for subsequent operations)
     payment = await conn.fetchrow(
         "SELECT id, status, tenant_id FROM payments WHERE mpesa_checkout_id = $1",
@@ -74,7 +74,7 @@ async def process_daraja_webhook(
     payment_id    = payment["id"]
     current_status = payment["status"]
 
-    # Already processed — idempotent skip
+    # Already processed -idempotent skip
     if current_status != "pending":
         logger.info(
             "payment already processed, skipping",
@@ -143,7 +143,7 @@ async def process_daraja_webhook(
                     )
 
         except asyncpg.exceptions.UniqueViolationError:
-            # Duplicate webhook — receipt number already recorded.
+            # Duplicate webhook -receipt number already recorded.
             logger.warning(
                 "UniqueViolation for receipt, duplicate webhook absorbed",
                 receipt_number=receipt_number,
@@ -239,7 +239,7 @@ async def process_daraja_c2b_webhook(
             await topup_wallet(conn, tenant_id, reseller_id, amount, trans_id)
         logger.info("successfully topped up reseller", reseller_id=reseller_id, amount=str(amount), reference=trans_id)
     except asyncpg.exceptions.UniqueViolationError:
-        # A duplicate webhook confirmation delivery — absorb idempotently
+        # A duplicate webhook confirmation delivery -absorb idempotently
         logger.warning("C2B duplicate transaction detected", trans_id=trans_id)
     except Exception as e:
         logger.error("failed to process C2B confirmation", trans_id=trans_id, error=str(e), exc_info=True)

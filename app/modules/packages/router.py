@@ -1,7 +1,7 @@
 """
 app/modules/packages/router.py
 ================================
-HTTP endpoints for the packages module — fully tenant-scoped.
+HTTP endpoints for the packages module -fully tenant-scoped.
 
 Every service call now passes tenant_id extracted from the authenticated
 user's JWT. A customer in tenant A cannot see tenant B's packages because
