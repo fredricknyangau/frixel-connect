@@ -67,6 +67,8 @@ async def test_voucher_generation_provisions_radius(
     assert len(radreply_rows) > 0
     attributes = {row["attribute"]: row["value"] for row in radreply_rows}
     assert "Mikrotik-Rate-Limit" in attributes
+    assert "Session-Timeout" in attributes
+    assert attributes["Session-Timeout"] == "86400"
 
 
 @pytest.mark.asyncio

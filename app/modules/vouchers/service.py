@@ -32,6 +32,7 @@ async def _provision_radius_credentials(
     username: str,
     password: str,
     speed_mbps: int,
+    duration_minutes: int,
     data_quota_mb: Optional[int] = None,
 ) -> None:
     """Helper to write RADIUS credentials to radcheck and radreply tables (idempotent)."""
@@ -59,7 +60,17 @@ async def _provision_radius_credentials(
         f"{speed_mbps}M",
     )
 
-    # 4. Insert optional Mikrotik-Total-Limit into radreply
+    # 4. Insert Session-Timeout into radreply (to avoid fallback to default hotspot profiles)
+    await conn.execute(
+        """
+        INSERT INTO radreply (username, attribute, op, value)
+        VALUES ($1, 'Session-Timeout', ':=', $2)
+        """,
+        username,
+        str(duration_minutes * 60),
+    )
+
+    # 5. Insert optional Mikrotik-Total-Limit into radreply
     if data_quota_mb:
         limit_bytes = data_quota_mb * 1024 * 1024
         await conn.execute(
@@ -151,6 +162,7 @@ async def generate_voucher(
             username=code,
             password=code,
             speed_mbps=speed_mbps,
+            duration_minutes=duration_minutes,
             data_quota_mb=data_quota_mb,
         )
 
@@ -406,6 +418,7 @@ async def admin_retry_voucher(
             username=code,
             password=code,
             speed_mbps=row["speed_mbps"],
+            duration_minutes=row["duration_minutes"],
             data_quota_mb=row["data_quota_mb"],
         )
     except Exception as e:
@@ -460,6 +473,7 @@ async def provision_retry_poller() -> None:
                                 username=code,
                                 password=code,
                                 speed_mbps=v["speed_mbps"],
+                                duration_minutes=v["duration_minutes"],
                                 data_quota_mb=v["data_quota_mb"],
                             )
                             await conn.execute(
