@@ -226,7 +226,6 @@ This project is licensed under the MIT License. See `LICENSE` for details.
 ## Author
 
 **Fredrick Nyangau** -Nairobi, Kenya
-* **GitHub**: [@fredrick-nyangau](https://github.com/fredrick-nyangau)
-* **LinkedIn**: [Fredrick Nyangau](https://linkedin.com/in/fredrick-nyangau)
-* **Portfolio**: [fredricknyangau.dev](https://fredricknyangau.dev)
-* **Website**: [zealsync.dev](https://zealsync.dev)
+* **GitHub**: [@fredricknyangau](https://github.com/fredricknyangau)
+* **LinkedIn**: [Fredrick Nyangau](https://linkedin.com/in/fredricknyangau)
+* **Portfolio**: [fredricknyangau.vercel.app](https://fredricknyangau.vercel.app)
