@@ -1,7 +1,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timezone
 import asyncpg
 
@@ -16,6 +16,7 @@ class RouterHealth(BaseModel):
     name: str
     status: str
     last_seen: str
+    last_heartbeat_at: Optional[str] = None
     uptime_seconds: int
     active_hotspot_users: int
 
@@ -23,10 +24,12 @@ class SystemHealthResponse(BaseModel):
     status: str
     queue_depth: int
     unreconciled_payments: int
+    reconciliation_backlog: int
     active_routers: int
     total_routers: int
     stuck_payments_count: int
     webhook_success_rate: float
+    webhook_success_rate_24h: float
     routers: List[RouterHealth]
 
 @router.get("", response_model=SystemHealthResponse)
@@ -81,11 +84,13 @@ async def get_system_health(current_user: dict = Depends(require_role("admin")))
                 active_routers += 1
                 uptime = int((now - last_seen).total_seconds())
                 
+            formatted_last_seen = last_seen.isoformat() if last_seen else now.isoformat()
             routers.append(RouterHealth(
                 id=str(r["id"]),
                 name=r["name"],
                 status=status,
-                last_seen=last_seen.isoformat() if last_seen else now.isoformat(),
+                last_seen=formatted_last_seen,
+                last_heartbeat_at=formatted_last_seen,
                 uptime_seconds=uptime,
                 active_hotspot_users=0 # Mocked for MLP
             ))
@@ -101,9 +106,11 @@ async def get_system_health(current_user: dict = Depends(require_role("admin")))
         status=overall_status,
         queue_depth=queue_depth,
         unreconciled_payments=unreconciled_payments,
+        reconciliation_backlog=unreconciled_payments,
         active_routers=active_routers,
         total_routers=total_routers,
         stuck_payments_count=stuck_payments_count,
         webhook_success_rate=99.9, # Mocked for MLP
+        webhook_success_rate_24h=99.9, # Mocked for MLP
         routers=routers
     )
