@@ -128,7 +128,7 @@ async def test_customer_invoices_me_are_scoped(client: TestClient, conn: asyncpg
     assert resp.status_code == 200
     data = resp.json()
     assert [item["id"] for item in data] == [str(invoice_id)]
-    assert data[0]["amount_kes"] == 50
+    assert Decimal(data[0]["amount_kes"]) == 50
 
 
 @pytest.mark.asyncio

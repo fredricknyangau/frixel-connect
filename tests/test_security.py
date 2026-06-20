@@ -39,7 +39,7 @@ def test_audit_logging(client: TestClient):
         "name": "Audit Test Package",
         "description": "testing",
         "price_kes": 100,
-        "duration_days": 1,
+        "duration_minutes": 1440,
         "speed_mbps": 10
     }, headers=headers)
     assert pkg_resp.status_code == 201

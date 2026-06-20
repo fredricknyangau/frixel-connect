@@ -194,7 +194,7 @@ async def test_retry_provision_payment_endpoint(mock_get_redis, conn: asyncpg.Co
     resp = client.post(f"/api/v1/admin/payments/{stuck_id}/retry-provision", headers=headers_a)
     assert resp.status_code == 202
     assert resp.json() == {"message": "Provisioning task enqueued."}
-    mock_redis.enqueue_job.assert_called_once_with("generate_voucher_task", str(stuck_id))
+    mock_redis.enqueue_job.assert_called_once_with("generate_voucher_task", str(stuck_id), _request_id=ANY)
     mock_redis.enqueue_job.reset_mock()
 
     # 2. Invalid UUID

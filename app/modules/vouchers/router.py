@@ -224,7 +224,7 @@ async def generate_reseller_voucher(
         # Fetch full voucher response details to return
         voucher_row = await conn.fetchrow(
             """
-            SELECT v.id, v.code, v.status, v.expires_at, v.customer_id,
+            SELECT v.id, v.code, v.status, v.expires_at, v.customer_id, v.payment_id,
                    v.activated_at, v.created_at, pkg.name AS package_name
             FROM vouchers v
             JOIN packages pkg ON v.package_id = pkg.id
