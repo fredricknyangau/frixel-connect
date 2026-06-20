@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     KRA_ETIMS_PASSWORD: Optional[str] = None
     KRA_ETIMS_MOCK: bool = True
 
+    # Africa's Talking
+    AT_USERNAME: str = "sandbox"
+    AT_API_KEY: str = "dummy_key"
+
     @property
     def DARAJA_BASE_URL(self) -> str:
         if self.DARAJA_ENVIRONMENT == "production":
