@@ -61,6 +61,7 @@ export default function ResellerPaymentsPage() {
               <TableHead>Customer Phone</TableHead>
               <TableHead>Package</TableHead>
               <TableHead>Amount</TableHead>
+              <TableHead>Txn Code</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Voucher</TableHead>
@@ -69,13 +70,13 @@ export default function ResellerPaymentsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : filteredPayments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No payments found matching the selected filter.
                 </TableCell>
               </TableRow>
@@ -88,6 +89,13 @@ export default function ResellerPaymentsPage() {
                     <TableCell className="font-medium">{payment.phone_number}</TableCell>
                     <TableCell>{payment.package_name || 'Unknown'}</TableCell>
                     <TableCell>{formatKES(payment.amount_kes)}</TableCell>
+                    <TableCell>
+                      {payment.mpesa_receipt_number ? (
+                        <span className="font-mono text-xs font-semibold">{payment.mpesa_receipt_number}</span>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground whitespace-nowrap">
                       {formatNairobiDate(payment.created_at)}
                     </TableCell>

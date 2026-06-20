@@ -54,6 +54,7 @@ class PaymentResponse(BaseModel):
     amount_kes: Decimal
     status: str
     phone_number: str
+    mpesa_receipt_number: Optional[str] = None
     created_at: datetime
 
 

@@ -61,7 +61,7 @@ async def initiate_stk_push(
         INSERT INTO payments
             (customer_id, package_id, amount_kes, status, phone_number, tenant_id)
         VALUES ($1, $2, $3, 'pending', $4, $5)
-        RETURNING id, customer_id, package_id, amount_kes, status, phone_number, created_at
+        RETURNING id, customer_id, package_id, amount_kes, status, phone_number, mpesa_receipt_number, created_at
         """,
         customer_id,
         data.package_id,
@@ -96,7 +96,7 @@ async def initiate_stk_push(
             UPDATE payments
             SET mpesa_checkout_id = $1, updated_at = NOW()
             WHERE id = $2
-            RETURNING id, customer_id, package_id, amount_kes, status, phone_number, created_at
+            RETURNING id, customer_id, package_id, amount_kes, status, phone_number, mpesa_receipt_number, created_at
             """,
             checkout_id,
             payment_id,
@@ -172,7 +172,7 @@ async def get_customer_payments(
     """Retrieves payment history for a customer within a tenant."""
     rows = await conn.fetch(
         """
-        SELECT p.id, p.customer_id, p.package_id, p.amount_kes, p.status, p.phone_number, p.created_at,
+        SELECT p.id, p.customer_id, p.package_id, p.amount_kes, p.status, p.phone_number, p.mpesa_receipt_number, p.created_at,
                pkg.name AS package_name
         FROM payments p
         JOIN packages pkg ON p.package_id = pkg.id
@@ -195,7 +195,7 @@ async def get_reseller_payments(
     rows = await conn.fetch(
         """
         SELECT p.id, p.customer_id, p.package_id, p.amount_kes,
-               p.status, p.phone_number, p.created_at,
+               p.status, p.phone_number, p.mpesa_receipt_number, p.created_at,
                pkg.name AS package_name
         FROM payments p
         JOIN users u ON p.customer_id = u.id
@@ -217,7 +217,7 @@ async def get_all_payments(
     """Retrieves all payments in the tenant (admin view)."""
     rows = await conn.fetch(
         """
-        SELECT p.id, p.customer_id, p.package_id, p.amount_kes, p.status, p.phone_number, p.created_at,
+        SELECT p.id, p.customer_id, p.package_id, p.amount_kes, p.status, p.phone_number, p.mpesa_receipt_number, p.created_at,
                pkg.name AS package_name
         FROM payments p
         JOIN packages pkg ON p.package_id = pkg.id
@@ -239,7 +239,7 @@ async def get_stuck_payments(
     """
     rows = await conn.fetch(
         """
-        SELECT id, customer_id, package_id, amount_kes, status, phone_number, created_at
+        SELECT id, customer_id, package_id, amount_kes, status, phone_number, mpesa_receipt_number, created_at
         FROM payments p
         WHERE tenant_id = $1
           AND status = 'confirmed'

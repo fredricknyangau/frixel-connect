@@ -161,7 +161,9 @@ export default function SystemHealthPage() {
                   ) : (
                     stuckPayments.map((payment) => (
                       <TableRow key={payment.id}>
-                        <TableCell className="font-mono text-xs">{payment.id.substring(0, 8)}...</TableCell>
+                        <TableCell className="font-mono text-xs font-semibold">
+                          {payment.mpesa_receipt_number || `${payment.id.substring(0, 8)}...`}
+                        </TableCell>
                         <TableCell className="font-medium text-primary">{formatKES(payment.amount_kes)}</TableCell>
                         <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
                           {formatDistanceToNow(new Date(payment.created_at))}

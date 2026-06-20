@@ -452,6 +452,11 @@ export default function CustomersPage() {
                             <div className="text-xs text-muted-foreground mt-0.5">
                               {payment.package_name || 'Unknown'}
                             </div>
+                            {payment.mpesa_receipt_number && (
+                              <div className="text-xs font-mono font-medium text-muted-foreground mt-1">
+                                Txn: {payment.mpesa_receipt_number}
+                              </div>
+                            )}
                           </div>
                           <StatusBadge status={payment.status} />
                         </div>
