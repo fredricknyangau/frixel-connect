@@ -1,339 +1,692 @@
-import { useEffect, useState } from 'react';
+/**
+ * src/pages/admin/onboarding/RouterOnboardingWizard.tsx
+ * ======================================================
+ * Magic Command Router Onboarding Wizard
+ *
+ * Replaces the old 7-step manual WireGuard wizard with a 3-state flow:
+ *   'details'  → Enter router name, site, and CHR mode toggle
+ *   'command'  → Copy one command, paste into MikroTik terminal
+ *   'complete' → Animated success screen with summary
+ *
+ * The wizard polls GET /admin/routers/onboarding/status/{id} every 3 seconds
+ * while on the 'command' step. When the MikroTik router runs the downloaded
+ * script and calls POST /setup/{token}/confirm, the status changes to 'online'
+ * and the wizard automatically advances to 'complete'.
+ *
+ * CHR vs PHYSICAL MIKROTIK:
+ *   The CHR toggle on the 'details' step switches is_chr=true/false.
+ *   is_chr=true:  Script uses http://192.168.56.1:8000 (Ubuntu host-only IP)
+ *                 Script omits WireGuard commands (same-machine networking)
+ *   is_chr=false: Script uses https://api.zealsync.dev (production HTTPS)
+ *                 Script includes full WireGuard setup
+ *
+ * RESUME LOGIC:
+ *   If the admin navigates away and returns, the wizard checks for a
+ *   ?resume=routerId query param or localStorage. If the router is still
+ *   'pending_setup', it skips to the 'command' step and resumes polling.
+ */
+
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+
 import { PageTitle } from '../../../components/shared/PageTitle';
+import { AnimatedCheckmark } from '../../../components/shared/AnimatedCheckmark';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { CheckCircle2, ChevronRight, Wifi, ArrowLeft } from 'lucide-react';
+import { Label } from '../../../components/ui/label';
+import { Input } from '../../../components/ui/input';
+import { useInitMagic, useRouterStatus } from '../../../hooks/useRouterOnboarding';
+import { formatNairobiDate } from '../../../lib/utils';
 import { api } from '../../../lib/api';
-import { useRouterOnboarding } from '../../../hooks/useRouterOnboarding';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Copy,
+  Check,
+  Loader2,
+  Wifi,
+  Terminal,
+  AlertCircle,
+} from 'lucide-react';
+import type { MagicInitResponse } from '../../../types/setup';
 
-// Steps imports
-import { RouterDetailsStep } from './steps/RouterDetailsStep';
-import { WireGuardConfigStep } from './steps/WireGuardConfigStep';
-import { WireGuardPeerKeyStep } from './steps/WireGuardPeerKeyStep';
-import { TunnelTestStep } from './steps/TunnelTestStep';
-import { APICredentialsStep } from './steps/APICredentialsStep';
-import { APITestStep } from './steps/APITestStep';
-import { ProfileSetupStep } from './steps/ProfileSetupStep';
-import { CompleteStep } from './steps/CompleteStep';
+// ── Step type ─────────────────────────────────────────────────────────────────
 
-const STEPS_LABELS = [
-  'Details',
-  'VPN Config',
-  'Peer Key',
-  'Tunnel Test',
-  'Credentials',
-  'API Test',
-  'Profiles',
-  'Complete',
-];
+type Step = 'details' | 'command' | 'complete';
+
+// ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function RouterOnboardingWizard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const routerOnboarding = useRouterOnboarding();
 
-  const [step, setStep] = useState<number>(0);
-  const [routerId, setRouterId] = useState<string | null>(null);
-  const [version, setVersion] = useState<'v7' | 'v6'>('v7');
-  const [routerName, setRouterName] = useState<string>('');
-  const [siteName, setSiteName] = useState<string>('');
-  const [vpnIp, setVpnIp] = useState<string>('');
+  // ── Wizard state ─────────────────────────────────────────────────────────────
+  const [step, setStep] = useState<Step>('details');
 
-  const [initDetails, setInitDetails] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Form values (kept in state for display on the complete screen)
+  const [routerName, setRouterName] = useState('');
+  const [siteName, setSiteName] = useState('');
+  const [isChr, setIsChr] = useState(false);
 
-  // Initialize mutations
-  const initMutation = routerOnboarding.useInitOnboarding();
-  const registerMutation = routerOnboarding.useRegisterPeer();
-  const testTunnelMutation = routerOnboarding.useTestTunnel();
-  const saveCredsMutation = routerOnboarding.useSaveCredentials();
-  const testAPIMutation = routerOnboarding.useTestAPI();
-  const setupProfilesMutation = routerOnboarding.useSetupProfiles();
-  const completeMutation = routerOnboarding.useCompleteOnboarding();
+  // Magic command response from init-magic
+  const [initData, setInitData] = useState<MagicInitResponse | null>(null);
 
+  // Copy button state
+  const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Resume loading state
+  const [isLoadingResume, setIsLoadingResume] = useState(true);
+
+  // Form validation errors
+  const [nameError, setNameError] = useState('');
+  const [siteError, setSiteError] = useState('');
+
+  // ── Hooks ─────────────────────────────────────────────────────────────────────
+  const initMagic = useInitMagic();
+
+  // Poll status every 3 seconds once we have a router_id and are on the command step
+  const { data: statusData } = useRouterStatus(
+    initData?.router_id ?? null,
+    step === 'command',
+  );
+
+  // ── Resume logic ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    const checkResume = async () => {
-      // 1. Check query param first, then localStorage
-      const paramId = searchParams.get('router_id');
-      const localId = localStorage.getItem('zealsync_onboarding_router_id');
-      const activeId = paramId || localId;
+    const resumeId = searchParams.get('resume');
+    const localId = localStorage.getItem('zealsync_magic_router_id');
+    const localToken = localStorage.getItem('zealsync_magic_setup_token');
+    const localIsChr = localStorage.getItem('zealsync_magic_is_chr') === 'true';
+    const localCommand = localStorage.getItem('zealsync_magic_command');
+    const localExpires = localStorage.getItem('zealsync_magic_expires_at');
+    const localName = localStorage.getItem('zealsync_magic_router_name');
+    const localSite = localStorage.getItem('zealsync_magic_site_name');
 
-      const localVersion = localStorage.getItem('zealsync_onboarding_router_version') as 'v7' | 'v6';
-      if (localVersion) {
-        setVersion(localVersion);
-      }
+    const activeId = resumeId || localId;
 
-      if (activeId) {
-        try {
-          setIsLoading(true);
-          const response = await api.get(`/admin/routers/${activeId}`);
-          const router = response.data;
+    if (activeId && localToken && localCommand && localExpires) {
+      // Check if the token has expired locally (rough check before API call)
+      const expiresAt = new Date(localExpires);
+      const now = new Date();
 
-          setRouterId(router.id);
-          setRouterName(router.name);
-          setSiteName(router.site_name);
-          setVpnIp(router.wireguard_assigned_ip || '');
-
-          if (router.port === 8728) {
-            setVersion('v6');
-          } else {
-            setVersion('v7');
-          }
-
-          // Populate mock/cached init details
-          setInitDetails({
-            router_id: router.id,
-            zealsync_server_endpoint: router.wireguard_public_key ? '[zealsync_server_ip]:51820' : 'Hetzner_Endpoint:51820', // Fallback or read from settings if returned
-            zealsync_public_key: router.wireguard_public_key || '',
-            assigned_ip: router.wireguard_assigned_ip || '',
-            server_wg_ip: '10.8.0.1',
-          });
-
-          // Reconstruct initDetails with real server values if we hit the backend config
-          // For simplicity, we fetch it during init or load it from backend
-          // We can construct it:
-          const initResp = await api.post('/admin/routers/onboarding/init', {
-            name: router.name,
-            site_name: router.site_name,
-          }).catch(() => null);
-
-          if (initResp) {
-            setInitDetails(initResp.data);
-          }
-
-          // Determine resumed step
-          if (router.status === 'pending_setup') {
-            if (!router.wireguard_peer_public_key) {
-              setStep(2); // Needs peer key
-            } else {
-              setStep(3); // Test tunnel
+      if (expiresAt > now) {
+        // Token still valid — check actual router status
+        api.get(`/admin/routers/onboarding/status/${activeId}`)
+          .then((response) => {
+            const { status } = response.data;
+            if (status === 'pending_setup') {
+              // Restore wizard state and jump to command step
+              setInitData({
+                router_id: activeId,
+                setup_token: localToken,
+                magic_command: localCommand,
+                expires_at: localExpires,
+                is_chr: localIsChr,
+              });
+              setIsChr(localIsChr);
+              setRouterName(localName || '');
+              setSiteName(localSite || '');
+              setStep('command');
+            } else if (status === 'online') {
+              // Already completed — go straight to success
+              setInitData({
+                router_id: activeId,
+                setup_token: localToken,
+                magic_command: localCommand,
+                expires_at: localExpires,
+                is_chr: localIsChr,
+              });
+              setRouterName(localName || '');
+              setSiteName(localSite || '');
+              setStep('complete');
+              clearLocalStorage();
             }
-          } else if (router.status === 'testing') {
-            setStep(5); // Test API
-          } else if (router.status === 'online') {
-            setStep(7); // Complete
-          } else {
-            setStep(0);
-          }
-        } catch (err) {
-          console.error('Failed to resume onboarding', err);
-          localStorage.removeItem('zealsync_onboarding_router_id');
-        } finally {
-          setIsLoading(false);
-        }
+            // If status is neither, fall through to details step
+          })
+          .catch(() => {
+            // Router not found or other error — start fresh
+            clearLocalStorage();
+          })
+          .finally(() => {
+            setIsLoadingResume(false);
+          });
       } else {
-        setIsLoading(false);
+        // Token expired — show fresh form
+        clearLocalStorage();
+        setIsLoadingResume(false);
       }
-    };
+    } else {
+      setIsLoadingResume(false);
+    }
+  }, []); // Run once on mount
 
-    checkResume();
-  }, [searchParams]);
+  // ── Auto-advance when router connects ─────────────────────────────────────────
+  useEffect(() => {
+    if (statusData?.status === 'online' && step === 'command') {
+      // Brief flash of the green "Connected!" indicator before advancing.
+      // The CSS transition in the status indicator already handles the visual.
+      setTimeout(() => {
+        setStep('complete');
+        clearLocalStorage();
+      }, 800);
+    }
+  }, [statusData?.status, step]);
 
-  const handleInitSuccess = (data: { router_id: string; version: 'v7' | 'v6'; details: any }) => {
-    setRouterId(data.router_id);
-    setVersion(data.version);
-    setRouterName(data.details.name || '');
-    setSiteName(data.details.site_name || '');
-    setVpnIp(data.details.assigned_ip || '');
-    setInitDetails(data.details);
+  // ── Helpers ───────────────────────────────────────────────────────────────────
 
-    localStorage.setItem('zealsync_onboarding_router_id', data.router_id);
-    localStorage.setItem('zealsync_onboarding_router_version', data.version);
+  function clearLocalStorage() {
+    localStorage.removeItem('zealsync_magic_router_id');
+    localStorage.removeItem('zealsync_magic_setup_token');
+    localStorage.removeItem('zealsync_magic_command');
+    localStorage.removeItem('zealsync_magic_expires_at');
+    localStorage.removeItem('zealsync_magic_is_chr');
+    localStorage.removeItem('zealsync_magic_router_name');
+    localStorage.removeItem('zealsync_magic_site_name');
+  }
 
-    setStep(1);
-  };
+  function saveLocalStorage(data: MagicInitResponse, name: string, site: string) {
+    localStorage.setItem('zealsync_magic_router_id', data.router_id);
+    localStorage.setItem('zealsync_magic_setup_token', data.setup_token);
+    localStorage.setItem('zealsync_magic_command', data.magic_command);
+    localStorage.setItem('zealsync_magic_expires_at', data.expires_at);
+    localStorage.setItem('zealsync_magic_is_chr', String(data.is_chr));
+    localStorage.setItem('zealsync_magic_router_name', name);
+    localStorage.setItem('zealsync_magic_site_name', site);
+  }
 
-  const handleReset = () => {
-    localStorage.removeItem('zealsync_onboarding_router_id');
-    localStorage.removeItem('zealsync_onboarding_router_version');
-    setRouterId(null);
-    setInitDetails(null);
-    setStep(0);
-  };
+  async function handleCopyCommand() {
+    if (!initData) return;
+    try {
+      await navigator.clipboard.writeText(initData.magic_command);
+      setCopied(true);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API not available (non-HTTPS or browser restriction)
+      toast.error('Could not copy automatically. Please select and copy the command manually.');
+    }
+  }
 
-  const handleBackToRouters = () => {
-    navigate('/admin/routers');
-  };
+  async function handleSubmitDetails(e: React.FormEvent) {
+    e.preventDefault();
+
+    // Validate
+    let valid = true;
+    if (!routerName.trim()) {
+      setNameError('Router name is required');
+      valid = false;
+    } else {
+      setNameError('');
+    }
+    if (!siteName.trim()) {
+      setSiteError('Site name is required');
+      valid = false;
+    } else {
+      setSiteError('');
+    }
+    if (!valid) return;
+
+    try {
+      const data = await initMagic.mutateAsync({
+        name: routerName.trim(),
+        site_name: siteName.trim(),
+        is_chr: isChr,
+      });
+      setInitData(data);
+      saveLocalStorage(data, routerName.trim(), siteName.trim());
+      setStep('command');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { detail?: string } } };
+      const detail = axiosErr?.response?.data?.detail;
+      toast.error(detail || 'Failed to generate setup command. Please try again.');
+    }
+  }
+
+  function handleReset() {
+    clearLocalStorage();
+    setInitData(null);
+    setRouterName('');
+    setSiteName('');
+    setIsChr(false);
+    setNameError('');
+    setSiteError('');
+    setCopied(false);
+    setStep('details');
+  }
+
+  // ── Render: Loading ───────────────────────────────────────────────────────────
+
+  if (isLoadingResume) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30">
+        <PageTitle title="Router Setup | ZealSync" />
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Checking setup status...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Render: Full Page Wrapper ─────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col min-h-screen bg-muted/30">
-      <PageTitle title="MikroTik Router Setup Wizard | ZealSync" />
+      <PageTitle title="Connect a Router | ZealSync" />
 
-      {/* Header */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background px-6 shadow-sm">
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur-sm px-6 shadow-sm">
         <div className="flex items-center space-x-3">
-          <Button variant="ghost" size="icon" onClick={handleBackToRouters} className="h-8 w-8 text-muted-foreground">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          {step === 'command' && (
+            <button
+              onClick={() => setStep('details')}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Back to details"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+          )}
           <div className="flex items-center space-x-2">
             <Wifi className="h-5 w-5 text-primary" />
-            <h1 className="text-base font-bold text-foreground tracking-tight">MikroTik Setup Wizard</h1>
+            <h1 className="text-base font-bold tracking-tight">Connect a Router</h1>
           </div>
         </div>
-        <div className="text-xs text-muted-foreground">
-          {routerId ? (
-            <span className="font-medium bg-muted px-2.5 py-1 rounded-full border">
-              Router ID: <code className="font-mono text-foreground font-semibold">{routerId.substring(0, 8)}...</code>
-            </span>
-          ) : (
-            <span className="italic">New Router Configuration</span>
-          )}
-        </div>
+
+        {/* Progress indicator (only shown during 2-step flow) */}
+        {(step === 'command') && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary font-semibold text-[10px]">✓</span>
+              <span className="hidden sm:inline text-primary font-medium">Details</span>
+            </div>
+            <div className="h-px w-6 bg-muted-foreground/30" />
+            <div className="flex items-center gap-1.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-[10px]">2</span>
+              <span className="hidden sm:inline font-medium">Run Command</span>
+            </div>
+          </div>
+        )}
       </header>
 
-      {/* Progress Stepper Bar */}
-      <div className="bg-background border-b py-4 px-6 shadow-sm">
-        {/* Desktop/Tablet view */}
-        <div className="hidden md:flex items-center space-x-2 justify-between max-w-5xl mx-auto">
-          {STEPS_LABELS.map((label, idx) => {
-            const isActive = step === idx;
-            const isCompleted = step > idx;
+      {/* ── Main Content ───────────────────────────────────────────────────── */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
+        <div className="w-full max-w-md">
 
-            return (
-              <div key={idx} className="flex items-center space-x-2">
-                <div
-                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold border-2 transition-all ${
-                    isActive
-                      ? 'bg-primary border-primary text-primary-foreground scale-105 shadow-md shadow-primary/20'
-                      : isCompleted
-                      ? 'bg-primary/20 border-primary text-primary'
-                      : 'bg-muted border-muted text-muted-foreground'
-                  }`}
-                >
-                  {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
+          {/* ════════════════════════════════════════════════
+              STEP: details
+              ════════════════════════════════════════════════ */}
+          {step === 'details' && (
+            <Card className="border shadow-xl bg-background rounded-2xl overflow-hidden border-t-4 border-t-primary">
+              <CardContent className="p-6 sm:p-8">
+                {/* Header */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-2.5 mb-1.5">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                      <Terminal className="h-4.5 w-4.5 text-primary" />
+                    </div>
+                    <h2 className="text-xl font-bold tracking-tight">Connect a Router</h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Takes about 60 seconds. One command does everything.
+                  </p>
                 </div>
-                <span
-                  className={`text-xs font-medium ${
-                    isActive ? 'text-foreground font-bold' : 'text-muted-foreground'
-                  }`}
-                >
-                  {label}
-                </span>
-                {idx < STEPS_LABELS.length - 1 && <ChevronRight className="h-3.5 w-3.5 text-zinc-400" />}
-              </div>
-            );
-          })}
-        </div>
 
-        {/* Mobile view */}
-        <div className="flex md:hidden flex-col space-y-2 max-w-md mx-auto">
-          <div className="flex justify-between items-center text-xs font-semibold">
-            <span className="text-primary">Step {step + 1} of {STEPS_LABELS.length}</span>
-            <span className="text-foreground">{STEPS_LABELS[step]}</span>
-          </div>
-          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-primary transition-all duration-300 rounded-full" 
-              style={{ width: `${((step + 1) / STEPS_LABELS.length) * 100}%` }}
-            />
-          </div>
-        </div>
-      </div>
+                <form onSubmit={handleSubmitDetails} className="space-y-5" noValidate>
+                  {/* Router name */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="router-name" className="text-sm font-medium">
+                      Router Name
+                    </Label>
+                    <Input
+                      id="router-name"
+                      type="text"
+                      placeholder="Eastlands Site A"
+                      value={routerName}
+                      onChange={(e) => {
+                        setRouterName(e.target.value);
+                        if (nameError) setNameError('');
+                      }}
+                      className={nameError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                      autoFocus
+                      autoComplete="off"
+                    />
+                    {nameError && (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {nameError}
+                      </p>
+                    )}
+                  </div>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-xl">
-          {isLoading ? (
-            <Card className="shadow-lg border">
-              <CardContent className="flex flex-col items-center justify-center py-16 space-y-4">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
-                <p className="text-sm text-muted-foreground">Retrieving onboarding setup context...</p>
+                  {/* Site name */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="site-name" className="text-sm font-medium">
+                      Site Name
+                    </Label>
+                    <Input
+                      id="site-name"
+                      type="text"
+                      placeholder="Eastlands"
+                      value={siteName}
+                      onChange={(e) => {
+                        setSiteName(e.target.value);
+                        if (siteError) setSiteError('');
+                      }}
+                      className={siteError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                      autoComplete="off"
+                    />
+                    {siteError && (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {siteError}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* CHR mode toggle — native checkbox styled as a toggle */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3">
+                      <div>
+                        <Label
+                          htmlFor="chr-mode"
+                          className="text-sm font-medium cursor-pointer"
+                        >
+                          Testing with CHR (VirtualBox)
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Uses your local IP instead of the cloud API
+                        </p>
+                      </div>
+                      {/* Pill-style toggle — pure CSS, no shadcn dependency */}
+                      <button
+                        id="chr-mode"
+                        type="button"
+                        role="switch"
+                        aria-checked={isChr}
+                        onClick={() => setIsChr((v) => !v)}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                          isChr ? 'bg-primary' : 'bg-muted-foreground/30'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                            isChr ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* CHR warning banner */}
+                    {isChr && (
+                      <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3.5 py-3 text-sm">
+                        <span className="text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0">⚠</span>
+                        <div className="text-amber-800 dark:text-amber-300">
+                          <span className="font-semibold">CHR mode active — </span>
+                          commands use your local IP (192.168.56.1). WireGuard
+                          is skipped since CHR and the backend share the same machine.{' '}
+                          <span className="font-medium">Disable this for a physical MikroTik.</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Submit */}
+                  <Button
+                    type="submit"
+                    className="w-full h-11 text-base font-semibold"
+                    disabled={initMagic.isPending}
+                    id="generate-setup-command"
+                  >
+                    {initMagic.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generating command...
+                      </>
+                    ) : (
+                      'Generate Setup Command'
+                    )}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
-          ) : (
-            <Card className="shadow-lg border bg-background border-t-4 border-t-primary rounded-xl overflow-hidden transition-all duration-300">
-              <CardContent className="p-6 md:p-8">
-                {step === 0 && (
-                  <RouterDetailsStep
-                    onInit={async (name, siteName) => {
-                      return initMutation.mutateAsync({ name, site_name: siteName });
-                    }}
-                    isPending={initMutation.isPending}
-                    onSuccess={handleInitSuccess}
-                  />
-                )}
+          )}
 
-                {step === 1 && initDetails && (
-                  <WireGuardConfigStep
-                    initDetails={initDetails}
-                    version={version}
-                    onNext={() => setStep(2)}
-                  />
-                )}
+          {/* ════════════════════════════════════════════════
+              STEP: command
+              ════════════════════════════════════════════════ */}
+          {step === 'command' && initData && (
+            <div className="space-y-4">
 
-                {step === 2 && routerId && (
-                  <WireGuardPeerKeyStep
-                    version={version}
-                    onRegister={async (peerKey) => {
-                      return registerMutation.mutateAsync({ router_id: routerId, peer_public_key: peerKey });
-                    }}
-                    isPending={registerMutation.isPending}
-                    onSuccess={() => setStep(3)}
-                  />
-                )}
+              {/* Main command card */}
+              <Card className="border shadow-xl bg-background rounded-2xl overflow-hidden border-t-4 border-t-primary">
+                <CardContent className="p-6 sm:p-8 space-y-5">
+                  {/* Title */}
+                  <div>
+                    <h2 className="text-xl font-bold tracking-tight">
+                      Run this on your MikroTik
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Open your MikroTik terminal and paste this command:
+                    </p>
+                  </div>
 
-                {step === 3 && routerId && (
-                  <TunnelTestStep
-                    routerId={routerId}
-                    onTestTunnel={async () => {
-                      return testTunnelMutation.mutateAsync({ router_id: routerId });
-                    }}
-                    onSuccess={() => setStep(4)}
-                  />
-                )}
+                  {/* Command block */}
+                  <div className="rounded-xl bg-zinc-950 dark:bg-zinc-900 border border-zinc-800 overflow-hidden">
+                    {/* Command bar */}
+                    <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-zinc-800/60">
+                      <span className="h-2.5 w-2.5 rounded-full bg-zinc-600" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-zinc-600" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-zinc-600" />
+                      <span className="ml-2 text-xs text-zinc-500 font-mono">MikroTik Terminal</span>
+                    </div>
+                    {/* Command text */}
+                    <div className="p-4">
+                      <code
+                        className="text-sm font-mono text-emerald-400 leading-relaxed break-all select-all"
+                        id="magic-command-text"
+                      >
+                        {initData.magic_command}
+                      </code>
+                    </div>
+                  </div>
 
-                {step === 4 && routerId && (
-                  <APICredentialsStep
-                    version={version}
-                    onSave={async (data) => {
-                      return saveCredsMutation.mutateAsync({
-                        router_id: routerId,
-                        username: data.username,
-                        password: data.password,
-                        port: data.port,
-                      });
-                    }}
-                    isPending={saveCredsMutation.isPending}
-                    onSuccess={() => setStep(5)}
-                  />
-                )}
+                  {/* Copy button */}
+                  <Button
+                    onClick={handleCopyCommand}
+                    className="w-full h-11 text-base font-semibold"
+                    variant={copied ? 'default' : 'default'}
+                    id="copy-magic-command"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="mr-2 h-4 w-4" />
+                        Copied! ✓
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy Command
+                      </>
+                    )}
+                  </Button>
 
-                {step === 5 && routerId && (
-                  <APITestStep
-                    routerId={routerId}
-                    version={version}
-                    onTestAPI={async () => {
-                      return testAPIMutation.mutateAsync({ router_id: routerId });
-                    }}
-                    onBack={() => setStep(4)}
-                    onSuccess={() => setStep(6)}
-                  />
-                )}
+                  {/* Instructions */}
+                  <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      How to run it
+                    </p>
+                    <ol className="space-y-2.5">
+                      {[
+                        {
+                          num: 1,
+                          title: 'Open your MikroTik terminal',
+                          desc: 'SSH, Winbox → New Terminal, or WebFig → Terminal',
+                        },
+                        {
+                          num: 2,
+                          title: 'Paste the command and press Enter',
+                          desc: 'The router will download and run the setup script',
+                        },
+                        {
+                          num: 3,
+                          title: 'Wait about 30 seconds',
+                          desc: 'This page updates automatically when done',
+                        },
+                      ].map((item) => (
+                        <li key={item.num} className="flex items-start gap-3">
+                          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary text-[11px] font-bold mt-0.5">
+                            {item.num}
+                          </span>
+                          <div>
+                            <p className="text-sm font-medium leading-tight">{item.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
 
-                {step === 6 && routerId && (
-                  <ProfileSetupStep
-                    onSetupProfiles={async (profiles) => {
-                      return setupProfilesMutation.mutateAsync({ router_id: routerId, profiles });
-                    }}
-                    isPending={setupProfilesMutation.isPending}
-                    onSuccess={() => setStep(7)}
-                  />
-                )}
+                  {/* Live status indicator */}
+                  <div className="flex items-center gap-3 px-1">
+                    {statusData?.status === 'online' ? (
+                      <>
+                        {/* Green connected dot */}
+                        <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                        </span>
+                        <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                          Router connected! Setting up...
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        {/* Grey pulse waiting dot */}
+                        <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-muted-foreground/40 opacity-60" />
+                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-muted-foreground/50" />
+                        </span>
+                        <p className="text-sm text-muted-foreground">
+                          Waiting for your router to connect...
+                        </p>
+                      </>
+                    )}
+                  </div>
 
-                {step === 7 && routerId && (
-                  <CompleteStep
-                    routerId={routerId}
-                    name={routerName}
-                    siteName={siteName}
-                    vpnIp={vpnIp}
-                    onComplete={async () => {
-                      return completeMutation.mutateAsync({ router_id: routerId });
-                    }}
-                    onReset={handleReset}
-                    onFinish={handleBackToRouters}
-                  />
-                )}
+                  {/* Expiry notice */}
+                  <p className="text-xs text-muted-foreground text-center pt-1">
+                    This command expires{' '}
+                    <span className="font-medium">
+                      {formatNairobiDate(initData.expires_at)}
+                    </span>
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* CHR mode reminder */}
+              {initData.is_chr && (
+                <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3 text-xs text-amber-800 dark:text-amber-300">
+                  <span className="text-amber-600 dark:text-amber-400 flex-shrink-0">⚠</span>
+                  <span>
+                    <span className="font-semibold">CHR mode — </span>
+                    command uses <code className="font-mono bg-amber-100 dark:bg-amber-900/50 px-1 rounded">192.168.56.1</code>.
+                    Make sure CHR can reach your Ubuntu host.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════
+              STEP: complete
+              ════════════════════════════════════════════════ */}
+          {step === 'complete' && initData && (
+            <Card className="border shadow-xl bg-background rounded-2xl overflow-hidden">
+              <CardContent className="p-6 sm:p-8">
+
+                {/* Animated checkmark */}
+                <div className="flex flex-col items-center text-center mb-6 pt-2">
+                  <AnimatedCheckmark size={88} />
+                  <h2 className="text-2xl font-bold tracking-tight mt-4">
+                    Router Connected!
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Your MikroTik is now linked to ZealSync and ready to process sessions.
+                  </p>
+                </div>
+
+                {/* Summary card */}
+                <div className="rounded-xl border bg-muted/30 divide-y divide-border mb-6 overflow-hidden">
+                  {[
+                    { label: 'Router name', value: routerName || 'Router' },
+                    { label: 'Site', value: siteName || 'Site' },
+                    {
+                      label: 'Status',
+                      value: (
+                        <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Online
+                        </span>
+                      ),
+                    },
+                    {
+                      label: 'Network',
+                      value: initData.is_chr
+                        ? 'Local (VirtualBox host-only)'
+                        : 'WireGuard VPN (10.8.x.x)',
+                    },
+                    {
+                      label: 'API user',
+                      value: (
+                        <span className="flex items-center gap-1.5">
+                          <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
+                            zealsync-api
+                          </code>
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                        </span>
+                      ),
+                    },
+                    {
+                      label: 'Speed tiers',
+                      value: (
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-xs">10 / 20 / 50 Mbps</span>
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                        </span>
+                      ),
+                    },
+                  ].map((row) => (
+                    <div
+                      key={row.label}
+                      className="flex items-center justify-between px-4 py-3"
+                    >
+                      <span className="text-sm text-muted-foreground">{row.label}</span>
+                      <span className="text-sm font-medium">{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Action buttons */}
+                <div className="space-y-2.5">
+                  <Button
+                    onClick={handleReset}
+                    variant="outline"
+                    className="w-full h-10"
+                    id="add-another-router"
+                  >
+                    <Wifi className="mr-2 h-4 w-4" />
+                    Add Another Router
+                  </Button>
+                  <Button
+                    onClick={() => navigate('/admin/dashboard')}
+                    className="w-full h-10"
+                    id="go-to-dashboard"
+                  >
+                    Go to Dashboard
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}

@@ -1,3 +1,18 @@
+/**
+ * src/pages/admin/onboarding/OnboardingWizard.tsx
+ * =================================================
+ * First-run onboarding wizard for new tenants.
+ * 3 steps: Create package → Connect router → Done
+ *
+ * Step 2 update (Phase 5):
+ *   Old: Embedded router form with manual WireGuard explanation
+ *   New: Teaser card that navigates to the Magic Command wizard.
+ *        When the user returns after completing the magic wizard,
+ *        the useRouters() hook already polls for router data.
+ *        The useEffect watches for any router with status='online'
+ *        and auto-advances to Step 3.
+ */
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTitle } from '../../../components/shared/PageTitle';
@@ -7,14 +22,21 @@ import { useRouters } from '../../../hooks/useRouters';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { toast } from 'sonner';
-import { CheckCircle2, Package, Wifi, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Package, Wifi, ArrowRight, Zap } from 'lucide-react';
 
 export default function OnboardingWizard() {
   const [step, setStep] = useState(1);
   const navigate = useNavigate();
   const createPackageMutation = useCreatePackage();
+
+  // Poll for routers — when the magic wizard completes and the user navigates
+  // back here, this data will already be fresh. The refetch interval is
+  // handled by React Query's default staleTime.
   const { data: routers } = useRouters();
 
+  // Auto-advance to Step 3 when any router is online.
+  // This fires when the user returns from the router wizard OR when the
+  // router calls /confirm while the user is still on this step.
   useEffect(() => {
     const hasOnlineRouter = routers?.some((r) => r.status === 'online');
     if (hasOnlineRouter && step === 2) {
@@ -31,7 +53,7 @@ export default function OnboardingWizard() {
       });
       toast.success('First package created!');
       setStep(2);
-    } catch (err) {
+    } catch {
       toast.error('Failed to create package. Please try again.');
     }
   };
@@ -48,14 +70,14 @@ export default function OnboardingWizard() {
         <div className="flex items-center justify-between px-4">
           <div className="flex items-center space-x-2">
             <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-all ${step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-              1
+              {step > 1 ? <CheckCircle2 className="h-4 w-4" /> : '1'}
             </div>
             <span className="text-xs sm:text-sm font-medium">Packages</span>
           </div>
           <div className="h-px flex-1 bg-muted-foreground/20 mx-2 sm:mx-4" />
           <div className="flex items-center space-x-2">
             <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-all ${step >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-              2
+              {step > 2 ? <CheckCircle2 className="h-4 w-4" /> : '2'}
             </div>
             <span className="text-xs sm:text-sm font-medium">Router</span>
           </div>
@@ -68,7 +90,7 @@ export default function OnboardingWizard() {
           </div>
         </div>
 
-        {/* Step Cards */}
+        {/* Step 1: Create Package */}
         {step === 1 && (
           <Card className="border-t-4 border-t-primary">
             <CardHeader>
@@ -99,6 +121,7 @@ export default function OnboardingWizard() {
           </Card>
         )}
 
+        {/* Step 2: Connect Router — Magic Command teaser */}
         {step === 2 && (
           <Card className="border-t-4 border-t-primary animate-in fade-in slide-in-from-bottom-4 duration-300">
             <CardHeader>
@@ -107,22 +130,39 @@ export default function OnboardingWizard() {
                 <CardTitle className="text-xl">Connect Your First Router</CardTitle>
               </div>
               <CardDescription>
-                To support automated billing, we need to link ZealSync to your physical MikroTik router.
+                Link ZealSync to your MikroTik router in about 60 seconds.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="rounded-lg bg-muted/40 border border-muted p-4 space-y-2 text-sm leading-relaxed text-muted-foreground">
-                <p className="font-semibold text-foreground">Secure WireGuard VPN Integration</p>
-                <p>
-                  Because your router is behind a local ISP network, ZealSync routes traffic through an encrypted VPN tunnel. Our wizard will generate config scripts and test connectivity live.
+            <CardContent className="space-y-5">
+              {/* Magic Command teaser */}
+              <div className="rounded-xl border bg-gradient-to-br from-primary/5 to-primary/10 p-5 space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
+                    <Zap className="h-4 w-4 text-primary" />
+                  </div>
+                  <p className="font-semibold text-sm">One command does everything</p>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  ZealSync generates a single terminal command. Paste it into your
+                  MikroTik terminal, and the router configures itself — VPN, API user,
+                  speed profiles, and firewall rules, all in one step.
                 </p>
+                <div className="rounded-lg bg-zinc-900 px-3.5 py-2.5 font-mono text-xs text-emerald-400 truncate">
+                  /tool fetch url="https://api.zealsync.dev/api/v1/setup/..." ...
+                </div>
               </div>
-              
-              <Button onClick={() => navigate('/admin/onboarding/router')} className="w-full flex items-center justify-center gap-2">
-                Launch Router Onboarding Wizard <ArrowRight className="h-4 w-4" />
+
+              <Button
+                onClick={() => navigate('/admin/onboarding/router')}
+                className="w-full flex items-center justify-center gap-2 h-11"
+                id="add-router-from-onboarding"
+              >
+                <Wifi className="h-4 w-4" />
+                Add Router{' '}
+                <ArrowRight className="h-4 w-4" />
               </Button>
 
-              <div className="text-center pt-2">
+              <div className="text-center">
                 <button
                   type="button"
                   onClick={() => setStep(3)}
@@ -135,6 +175,7 @@ export default function OnboardingWizard() {
           </Card>
         )}
 
+        {/* Step 3: Done */}
         {step === 3 && (
           <Card className="border-t-4 border-t-primary text-center p-6 animate-in fade-in scale-in duration-300">
             <CardHeader className="flex flex-col items-center">

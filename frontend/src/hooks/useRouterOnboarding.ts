@@ -1,148 +1,121 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../lib/api';
-import { AxiosError } from 'axios';
+/**
+ * src/hooks/useRouterOnboarding.ts
+ * ==================================
+ * React Query hooks for the Magic Command router onboarding flow.
+ *
+ * The old 7-mutation hook has been replaced with 2 hooks:
+ *   useInitMagic()        — POST /admin/routers/onboarding/init-magic
+ *   useRouterStatus()     — GET  /admin/routers/onboarding/status/{id} (polling)
+ *
+ * POLLING PATTERN (same as PaymentPolling.tsx for M-Pesa STK push):
+ *   The frontend polls a lightweight status endpoint every 3 seconds.
+ *   When the router calls POST /setup/{token}/confirm, the backend sets
+ *   status='online'. The next poll returns 'online', and the wizard advances.
+ *   Polling is enabled only when we have a router_id and the status is not
+ *   yet terminal ('online' or 'failed'). React Query's refetchInterval handles
+ *   the polling; setting it to false stops it automatically.
+ *
+ * The old mutations (useInitOnboarding, useRegisterPeer, useTestTunnel,
+ * useSaveCredentials, useTestAPI, useSetupProfiles, useCompleteOnboarding)
+ * have been intentionally removed. The new Magic Command flow replaces all
+ * of those steps with a single server-generated script that the router
+ * executes autonomously.
+ */
 
-export interface InitOnboardingRequest {
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
+import { api } from '../lib/api';
+import type { MagicInitResponse, RouterStatusResponse } from '../types/setup';
+
+// ── Request types ─────────────────────────────────────────────────────────────
+
+export interface MagicInitRequest {
   name: string;
   site_name: string;
+  /**
+   * Set to true when testing with MikroTik CHR on VirtualBox.
+   * Changes the generated script URL from https://api.zealsync.dev/...
+   * to http://192.168.56.1:8000/... and removes the WireGuard commands
+   * from the script (CHR and backend share the same machine).
+   */
+  is_chr: boolean;
 }
 
-export interface InitOnboardingResponse {
-  router_id: string;
-  zealsync_server_endpoint: string;
-  zealsync_public_key: string;
-  assigned_ip: string;
-  server_wg_ip: string;
-}
+// ── useInitMagic ──────────────────────────────────────────────────────────────
 
-export interface RegisterPeerRequest {
-  router_id: string;
-  peer_public_key: string;
-}
-
-export interface TestTunnelResponse {
-  connected: boolean;
-  latency_ms: number | null;
-}
-
-export interface SaveCredentialsRequest {
-  router_id: string;
-  username: string;
-  password?: string;
-  port: number;
-}
-
-export interface TestAPIResponse {
-  connected: boolean;
-  profiles?: string[];
-  error?: string;
-}
-
-export interface ProfileItem {
-  name: string;
-  rate_limit: string;
-}
-
-export interface SetupProfilesRequest {
-  router_id: string;
-  profiles: ProfileItem[];
-}
-
-export interface SetupProfilesResponse {
-  created: string[];
-  failed: string[];
-}
-
-export interface CompleteOnboardingResponse {
-  router_id: string;
-  status: 'online';
-}
-
-export const useRouterOnboarding = () => {
+/**
+ * Mutation hook for POST /admin/routers/onboarding/init-magic
+ *
+ * On success, the backend has:
+ *   1. Created the router record (status='pending_setup')
+ *   2. Generated the WireGuard keypair, API password, and setup token
+ *   3. Stored everything in setup_tokens
+ *   4. Pre-registered the WireGuard peer
+ *
+ * The response contains magic_command — the one-liner to paste into MikroTik.
+ */
+export function useInitMagic() {
   const queryClient = useQueryClient();
 
-  const useInitOnboarding = () => {
-    return useMutation<InitOnboardingResponse, AxiosError<{ detail: string }>, InitOnboardingRequest>({
-      mutationFn: async (data) => {
-        const response = await api.post<InitOnboardingResponse>('/admin/routers/onboarding/init', data);
-        return response.data;
-      },
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['routers'] });
-      },
-    });
-  };
+  return useMutation<MagicInitResponse, AxiosError<{ detail: string }>, MagicInitRequest>({
+    mutationFn: async (data) => {
+      const response = await api.post<MagicInitResponse>(
+        '/admin/routers/onboarding/init-magic',
+        data,
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate the routers list so the new pending_setup router
+      // appears in the RoutersPage table immediately.
+      queryClient.invalidateQueries({ queryKey: ['routers'] });
+    },
+  });
+}
 
-  const useRegisterPeer = () => {
-    return useMutation<{ success: boolean }, AxiosError<{ detail: string }>, RegisterPeerRequest>({
-      mutationFn: async (data) => {
-        const response = await api.post<{ success: boolean }>('/admin/routers/onboarding/register-peer', data);
-        return response.data;
-      },
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['routers'] });
-      },
-    });
-  };
+// ── useRouterStatus ───────────────────────────────────────────────────────────
 
-  const useTestTunnel = () => {
-    return useMutation<TestTunnelResponse, AxiosError<{ detail: string }>, { router_id: string }>({
-      mutationFn: async ({ router_id }) => {
-        const response = await api.post<TestTunnelResponse>('/admin/routers/onboarding/test-tunnel', { router_id });
-        return response.data;
-      },
-    });
-  };
-
-  const useSaveCredentials = () => {
-    return useMutation<{ success: boolean }, AxiosError<{ detail: string }>, SaveCredentialsRequest>({
-      mutationFn: async (data) => {
-        const response = await api.post<{ success: boolean }>('/admin/routers/onboarding/save-credentials', data);
-        return response.data;
-      },
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['routers'] });
-      },
-    });
-  };
-
-  const useTestAPI = () => {
-    return useMutation<TestAPIResponse, AxiosError<{ detail: string }>, { router_id: string }>({
-      mutationFn: async ({ router_id }) => {
-        const response = await api.post<TestAPIResponse>('/admin/routers/onboarding/test-api', { router_id });
-        return response.data;
-      },
-    });
-  };
-
-  const useSetupProfiles = () => {
-    return useMutation<SetupProfilesResponse, AxiosError<{ detail: string }>, SetupProfilesRequest>({
-      mutationFn: async (data) => {
-        const response = await api.post<SetupProfilesResponse>('/admin/routers/onboarding/setup-profiles', data);
-        return response.data;
-      },
-    });
-  };
-
-  const useCompleteOnboarding = () => {
-    return useMutation<CompleteOnboardingResponse, AxiosError<{ detail: string }>, { router_id: string }>({
-      mutationFn: async ({ router_id }) => {
-        const response = await api.post<CompleteOnboardingResponse>('/admin/routers/onboarding/complete', { router_id });
-        return response.data;
-      },
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['routers'] });
-      },
-    });
-  };
-
-  return {
-    useInitOnboarding,
-    useRegisterPeer,
-    useTestTunnel,
-    useSaveCredentials,
-    useTestAPI,
-    useSetupProfiles,
-    useCompleteOnboarding,
-  };
-};
+/**
+ * Query hook for GET /admin/routers/onboarding/status/{routerId}
+ *
+ * Polls every 3 seconds to detect when the router calls /confirm
+ * and sets its status to 'online'.
+ *
+ * POLLING BEHAVIOUR (mirrors PaymentPolling.tsx pattern):
+ *   - enabled=false when routerId is null/empty (before init-magic returns)
+ *   - refetchInterval=3000 when enabled and status is not terminal
+ *   - refetchInterval=false when status is 'online' or 'failed' (stops polling)
+ *
+ * The wizard component uses the returned status to decide when to advance
+ * from the 'command' step to the 'complete' step.
+ *
+ * @param routerId  UUID string of the router to monitor
+ * @param enabled   false until we have a routerId from init-magic
+ */
+export function useRouterStatus(routerId: string | null, enabled: boolean) {
+  return useQuery<RouterStatusResponse, AxiosError<{ detail: string }>>({
+    queryKey: ['router-onboarding-status', routerId],
+    queryFn: async () => {
+      const response = await api.get<RouterStatusResponse>(
+        `/admin/routers/onboarding/status/${routerId}`,
+      );
+      return response.data;
+    },
+    enabled: enabled && !!routerId,
+    // Poll every 3 seconds while waiting for the router to connect.
+    // Stop polling when the status reaches a terminal state.
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === 'online' || status === 'failed') {
+        return false; // Stop polling — terminal state reached
+      }
+      return 3000; // Poll every 3 seconds
+    },
+    // Keep showing the last known status even when refetching in background.
+    // Without this, the status briefly disappears between polls.
+    staleTime: 0,
+    // Do not retry failed status polls — a 404 means the router_id is invalid,
+    // and retrying won't help. The user should restart the wizard.
+    retry: false,
+  });
+}
