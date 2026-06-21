@@ -42,6 +42,7 @@ from app.modules.invoices.router import router as invoices_router # Phase 6
 from app.modules.system_health.router import router as system_health_router
 from app.modules.audit_log.router import router as audit_log_router
 from app.modules.hotspot.router import router as hotspot_router
+from app.modules.setup.router import router as setup_router          # Magic Command
 
 
 @asynccontextmanager
@@ -161,6 +162,7 @@ PREFIX = "/api/v1"
 
 app.include_router(tenants_router,  prefix=f"{PREFIX}/tenants",  tags=["Tenants"])   # Phase 1
 app.include_router(routers_router,  prefix=f"{PREFIX}/admin/routers", tags=["Routers"])   # Phase 2
+app.include_router(setup_router,    prefix=f"{PREFIX}/setup",     tags=["Magic Setup"])   # Public, token auth
 app.include_router(auth_router,     prefix=f"{PREFIX}/auth",      tags=["Auth"])
 app.include_router(users_router,    prefix=f"{PREFIX}",           tags=["Users"])
 app.include_router(packages_router, prefix=f"{PREFIX}/packages",  tags=["Packages"])

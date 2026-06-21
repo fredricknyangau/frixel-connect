@@ -51,6 +51,29 @@ class Settings(BaseSettings):
     WIREGUARD_ENDPOINT: str = "102.219.208.5:51820"
     MOCK_WIREGUARD: bool = True
 
+    # Magic Command — Production API base URL (used to build confirm_url in .rsc scripts)
+    # Change this to your actual domain when deploying to production.
+    API_BASE_URL: str = "https://api.zealsync.dev"
+
+    # Magic Command — CHR (VirtualBox) testing configuration
+    # These settings are only used when is_chr=True is passed to /init-magic.
+    # They define how the MikroTik CHR (running in VirtualBox) reaches the
+    # Ubuntu host where the ZealSync backend is running.
+    #
+    # CHR_HOST_IP:          The Ubuntu host's IP on the VirtualBox host-only
+    #                       adapter. Default: 192.168.56.1 (VirtualBox default).
+    #                       If your VirtualBox adapter uses a different subnet,
+    #                       change this to match your vboxnet0 IP.
+    #
+    # CHR_BACKEND_PORT:     The port FastAPI is listening on (uvicorn default: 8000).
+    #
+    # CHR_HOST_ONLY_NETWORK: The /24 network block for the firewall rule that
+    #                         allows the backend to reach CHR's REST API.
+    #                         Default: 192.168.56.0 (VirtualBox host-only default).
+    CHR_HOST_IP: str = "192.168.56.1"
+    CHR_BACKEND_PORT: int = 8000
+    CHR_HOST_ONLY_NETWORK: str = "192.168.56.0"
+
     # KRA eTIMS
     KRA_ETIMS_BASE_URL: str = "https://etims-api-sbx.kra.go.ke"
     KRA_ETIMS_USERNAME: Optional[str] = None

@@ -134,3 +134,53 @@ class RouterOnboardingRequest(BaseModel):
     router_id: UUID
 
 
+# ── Magic Command Onboarding Schemas ─────────────────────────────────────────
+
+class MagicInitRequest(BaseModel):
+    """
+    Request body for POST /admin/routers/onboarding/init-magic.
+    Creates a router record, generates keypair and token, and returns
+    the one-line magic command to paste into MikroTik terminal.
+    """
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Friendly name for the router, e.g. 'Eastlands Site A'",
+    )
+    site_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Physical site name, e.g. 'Eastlands'",
+    )
+    is_chr: bool = Field(
+        False,
+        description=(
+            "Set to true when testing with MikroTik CHR on VirtualBox. "
+            "Uses http://192.168.56.1:8000 instead of the production HTTPS URL, "
+            "and omits WireGuard setup from the .rsc script."
+        ),
+    )
+
+
+class MagicInitResponse(BaseModel):
+    """
+    Response from POST /admin/routers/onboarding/init-magic.
+    Contains everything the frontend needs to display the Magic Command step.
+    """
+    router_id: UUID
+    setup_token: str
+    magic_command: str   # The complete one-liner to paste into MikroTik terminal
+    expires_at: str      # ISO 8601 timestamp — 24 hours from now
+    is_chr: bool
+
+
+class RouterStatusResponse(BaseModel):
+    """
+    Response from GET /admin/routers/onboarding/status/{router_id}.
+    Used by the frontend polling loop to detect when setup is complete.
+    Status transitions: pending_setup → online (via /setup/{token}/confirm)
+    """
+    router_id: UUID
+    status: str   # 'pending_setup' | 'online' | 'offline' | 'failed' | ...

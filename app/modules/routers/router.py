@@ -26,7 +26,10 @@ from app.modules.routers.schemas import (
     RegisterPeerRequest,
     SaveCredentialsRequest,
     SetupProfilesRequest,
-    RouterOnboardingRequest
+    RouterOnboardingRequest,
+    MagicInitRequest,
+    MagicInitResponse,
+    RouterStatusResponse,
 )
 from app.modules.routers import service
 from app.integrations.wireguard import (
@@ -453,3 +456,212 @@ async def onboarding_complete(
 
     return {"router_id": str(data.router_id), "status": "online"}
 
+
+@router.post(
+    "/onboarding/init-magic",
+    response_model=MagicInitResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Initialize Magic Command router onboarding (admin only)",
+)
+async def onboarding_init_magic(
+    data: MagicInitRequest,
+    user: dict = Depends(require_role("admin")),
+) -> MagicInitResponse:
+    """
+    The entry point for the Magic Command onboarding flow.
+
+    Performs ALL setup in a single atomic operation:
+      1. Assign next available WireGuard IP from 10.8.0.2-10.8.0.254
+      2. Generate WireGuard keypair (private key embedded in .rsc script)
+      3. Generate API password (embedded in .rsc script, encrypted in DB)
+      4. Generate single-use setup token (43 chars, 256-bit entropy)
+      5. INSERT router record (status='pending_setup')
+      6. INSERT setup_tokens record (with private key and encrypted password)
+      7. Pre-register WireGuard peer on the server side
+         WHY PRE-REGISTER: If we can't add the peer now, showing the admin
+         the magic command would be pointless — the VPN tunnel won't establish.
+         Fail early so we never show an unusable command.
+      8. Return the magic_command string ready to paste into MikroTik terminal
+
+    CHR vs Production:
+      is_chr=True:  magic_command uses http://192.168.56.1:8000/...
+                    No WireGuard commands in the .rsc script
+      is_chr=False: magic_command uses https://api.zealsync.dev/...
+                    Full WireGuard setup in the .rsc script
+    """
+    from datetime import datetime, timedelta, timezone
+    from app.services.script_generator import (
+        generate_wireguard_keypair,
+        generate_api_password,
+        generate_setup_token,
+    )
+    from app.core.security import encrypt_secret
+
+    tenant_id = UUID(user["tenant_id"])
+
+    async with get_db() as conn:
+        # ── Enforce name uniqueness within the tenant ──────────────────────────
+        existing = await conn.fetchval(
+            "SELECT id FROM routers WHERE tenant_id = $1 AND name = $2",
+            tenant_id,
+            data.name,
+        )
+        if existing:
+            raise ConflictException(f"A router with name '{data.name}' already exists.")
+
+        # ── Step 1: Assign WireGuard IP ────────────────────────────────────────
+        assigned_ip = await assign_peer_ip(conn)
+
+        # ── Step 2: Generate WireGuard keypair ────────────────────────────────
+        # Server generates BOTH keys so the private key can be embedded in the
+        # .rsc script. This enables the single-command UX. See script_generator.py
+        # for the full security rationale.
+        #
+        # For CHR mode: we still generate a keypair even though the script won't
+        # use it. This keeps the code path consistent and the DB record complete.
+        # The wireguard_peer_public_key column will be populated for non-CHR routers.
+        wg_private_key, wg_public_key = generate_wireguard_keypair()
+
+        # ── Step 3: Generate API password and setup token ──────────────────────
+        api_password_plain = generate_api_password()
+        api_password_encrypted = encrypt_secret(api_password_plain)
+        setup_token = generate_setup_token()
+
+        # ── Step 4 + 5: INSERT router record ───────────────────────────────────
+        # For CHR mode: wireguard_peer_public_key is NULL — no real WG peer.
+        # The setup/router.py uses this NULL to infer is_chr when serving the script.
+        # For production: the public key is saved and the peer is pre-registered.
+        wg_peer_key_to_save = None if data.is_chr else wg_public_key
+
+        router_row = await conn.fetchrow(
+            """
+            INSERT INTO routers (
+                tenant_id, name, site_name, status,
+                wireguard_assigned_ip, wireguard_public_key, wireguard_peer_public_key,
+                host, port, username, password_encrypted
+            )
+            VALUES ($1, $2, $3, 'pending_setup', $4::INET, $5, $6, $7, $8, $9, $10)
+            RETURNING id
+            """,
+            tenant_id,
+            data.name,
+            data.site_name,
+            assigned_ip,
+            get_server_public_key(),     # server's WG public key (what zealsync_public_key was before)
+            wg_peer_key_to_save,         # router's WG public key (NULL for CHR)
+            assigned_ip,                 # host = WG assigned IP (how the backend reaches the router)
+            80,                          # port = REST API port
+            "zealsync-api",              # username (created by the script)
+            api_password_encrypted,      # encrypted API password
+        )
+        router_id = router_row["id"]
+
+        # ── Step 6: INSERT setup_tokens record ────────────────────────────────
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+        await conn.execute(
+            """
+            INSERT INTO setup_tokens (
+                tenant_id, router_id, token,
+                router_wg_private_key, api_password, expires_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            """,
+            tenant_id,
+            router_id,
+            setup_token,
+            wg_private_key,          # stored temporarily, NULLed on /confirm
+            api_password_encrypted,  # Fernet-encrypted, same as routers table
+            expires_at,
+        )
+
+    # ── Step 7: Pre-register WireGuard peer on server ─────────────────────────
+    # Done OUTSIDE the DB transaction because wg CLI is not transactional.
+    # If this fails, we raise immediately before showing the admin any command.
+    # The router record and token are already in the DB — they'll be cleaned
+    # up by the 24-hour expiry. A failed pre-registration means the magic
+    # command would produce a router that can't VPN, so we block early.
+    #
+    # CHR MODE: add_wireguard_peer() is a no-op mock (MOCK_WIREGUARD=True).
+    # For physical routers with MOCK_WIREGUARD=False, this actually registers
+    # the peer on the wg0 interface.
+    if not data.is_chr:
+        try:
+            add_wireguard_peer(wg_public_key, assigned_ip)
+        except Exception as wg_err:
+            logger.error(f"Failed to pre-register WireGuard peer for router '{data.name}': {wg_err}")
+            # In development (MOCK_WIREGUARD=True), this will never fail.
+            # In production, if wg fails, we should not surface the command.
+            raise
+
+    # ── Step 8: Build the magic command string ────────────────────────────────
+    if data.is_chr:
+        # CHR: fetch from Ubuntu host-only IP over plain HTTP
+        # The CHR VM can reach 192.168.56.1 (Ubuntu) via the host-only adapter.
+        script_url = f"http://{settings.CHR_HOST_IP}:{settings.CHR_BACKEND_PORT}/api/v1/setup/{setup_token}"
+        magic_command = (
+            f'/tool fetch url="{script_url}" '
+            f'dst-path=zealsync-setup.rsc mode=http; '
+            f'/import zealsync-setup.rsc'
+        )
+    else:
+        # Production: fetch from public HTTPS API endpoint
+        script_url = f"{settings.API_BASE_URL}/api/v1/setup/{setup_token}"
+        magic_command = (
+            f'/tool fetch url="{script_url}" '
+            f'dst-path=zealsync-setup.rsc mode=https; '
+            f'/import zealsync-setup.rsc'
+        )
+
+    logger.info(
+        f"Magic Command generated for router '{data.name}' (CHR: {data.is_chr})",
+        extra={"router_id": str(router_id), "token_prefix": setup_token[:8]},
+    )
+
+    return MagicInitResponse(
+        router_id=router_id,
+        setup_token=setup_token,
+        magic_command=magic_command,
+        expires_at=expires_at.isoformat(),
+        is_chr=data.is_chr,
+    )
+
+
+@router.get(
+    "/onboarding/status/{router_id}",
+    response_model=RouterStatusResponse,
+    summary="Poll router onboarding status (admin only)",
+)
+async def onboarding_status(
+    router_id: UUID,
+    user: dict = Depends(require_role("admin")),
+) -> RouterStatusResponse:
+    """
+    Returns the current status of a router being onboarded via the Magic Command.
+
+    This endpoint is polled by the frontend every 3 seconds while the ISP admin
+    is on the 'command' step of the wizard. When the MikroTik router runs the
+    setup script and calls POST /setup/{token}/confirm, the router's status
+    changes from 'pending_setup' to 'online'. The next poll of this endpoint
+    returns 'online', triggering the frontend to advance to the 'complete' step.
+
+    PARALLEL: This is the same pattern as PaymentStatusPage polling for M-Pesa
+    STK push confirmation. The frontend polls a lightweight GET endpoint every
+    few seconds until the backend state changes to a terminal state.
+    The polling is done with useQuery + refetchInterval in React Query.
+    """
+    tenant_id = UUID(user["tenant_id"])
+
+    async with get_db() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, status FROM routers WHERE id = $1 AND tenant_id = $2",
+            router_id,
+            tenant_id,
+        )
+
+    if not row:
+        raise NotFoundException("Router", str(router_id))
+
+    return RouterStatusResponse(
+        router_id=row["id"],
+        status=row["status"],
+    )
