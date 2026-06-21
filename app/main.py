@@ -43,6 +43,7 @@ from app.modules.system_health.router import router as system_health_router
 from app.modules.audit_log.router import router as audit_log_router
 from app.modules.hotspot.router import router as hotspot_router
 from app.modules.setup.router import router as setup_router          # Magic Command
+from app.modules.super_admin.router import router as super_admin_router  # Super Admin Portal
 
 
 @asynccontextmanager
@@ -177,6 +178,9 @@ app.include_router(invoices_router, prefix=f"{PREFIX}",           tags=["Invoice
 app.include_router(system_health_router, prefix=f"{PREFIX}",      tags=["System Health"])
 app.include_router(audit_log_router, prefix=f"{PREFIX}",          tags=["Audit Log"])
 app.include_router(hotspot_router, prefix=f"{PREFIX}/hotspot",    tags=["Hotspot"])
+# Super admin portal — NOT under /api/v1. Routes are at /super-admin/*
+# as defined in the router itself. prefix="" keeps it at the root.
+app.include_router(super_admin_router, prefix="",                  tags=["Super Admin"])
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
