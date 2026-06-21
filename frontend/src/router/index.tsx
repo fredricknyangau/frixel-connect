@@ -1,10 +1,15 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
 
 import ProtectedRoute from '../components/shared/ProtectedRoute';
 import PublicLayout from '../components/layout/PublicLayout';
 import AdminLayout from '../components/layout/AdminLayout';
 import ResellerLayout from '../components/layout/ResellerLayout';
 import CustomerLayout from '../components/layout/CustomerLayout';
+import SuperAdminLayout from '../components/layout/SuperAdminLayout';
+import SuperAdminRoute from '../components/shared/SuperAdminRoute';
+import { SuperAdminAuthProvider } from '../context/SuperAdminAuthContext';
+import { LoadingSpinner } from '../components/shared/LoadingSpinner';
 
 import LandingPage from '../pages/public/LandingPage';
 import LoginPage from '../pages/public/LoginPage';
@@ -40,6 +45,21 @@ import CustomerVouchers from '../pages/customer/VouchersPage';
 import CustomerInvoices from '../pages/customer/InvoicesPage';
 import CustomerProfile from '../pages/customer/ProfilePage';
 import CustomerDataPrivacy from '../pages/customer/DataPrivacyPage';
+
+// Lazy load all super admin pages for separation of concerns and bundle size optimization
+const SuperAdminLoginPage = lazy(() => import('../pages/super-admin/LoginPage'));
+const SuperAdminDashboardPage = lazy(() => import('../pages/super-admin/DashboardPage'));
+const TenantsPage = lazy(() => import('../pages/super-admin/TenantsPage'));
+const TenantDetailPage = lazy(() => import('../pages/super-admin/TenantDetailPage'));
+const AuditLogPage = lazy(() => import('../pages/super-admin/AuditLogPage'));
+const AccountsPage = lazy(() => import('../pages/super-admin/AccountsPage'));
+
+// Helper to wrap lazy-loaded components with Suspense and a full-page loading indicator
+const lazyLoad = (Component: React.ComponentType<any>) => (
+  <Suspense fallback={<LoadingSpinner fullPage />}>
+    <Component />
+  </Suspense>
+);
 
 // Inline fallback 404 page
 const NotFound = () => (
@@ -125,7 +145,37 @@ export const router = createBrowserRouter([
     ]
   },
   {
+    path: '/super-admin',
+    element: (
+      <SuperAdminAuthProvider>
+        <SuperAdminRoute />
+      </SuperAdminAuthProvider>
+    ),
+    children: [
+      {
+        element: <SuperAdminLayout />,
+        children: [
+          { index: true, element: <Navigate to="/super-admin/dashboard" replace /> },
+          { path: 'dashboard', element: lazyLoad(SuperAdminDashboardPage) },
+          { path: 'tenants', element: lazyLoad(TenantsPage) },
+          { path: 'tenants/:id', element: lazyLoad(TenantDetailPage) },
+          { path: 'audit-log', element: lazyLoad(AuditLogPage) },
+          { path: 'accounts', element: lazyLoad(AccountsPage) },
+        ]
+      }
+    ]
+  },
+  {
+    path: '/super-admin/login',
+    element: (
+      <SuperAdminAuthProvider>
+        {lazyLoad(SuperAdminLoginPage)}
+      </SuperAdminAuthProvider>
+    )
+  },
+  {
     path: '*',
     element: <NotFound />
   }
 ]);
+
