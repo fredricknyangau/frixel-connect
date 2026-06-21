@@ -47,7 +47,7 @@ import CustomerProfile from '../pages/customer/ProfilePage';
 import CustomerDataPrivacy from '../pages/customer/DataPrivacyPage';
 
 // Lazy load all super admin pages for separation of concerns and bundle size optimization
-const SuperAdminLoginPage = lazy(() => import('../pages/super-admin/LoginPage'));
+const SuperAdminLoginPage = lazy(() => import('../pages/super-admin/SuperAdminLoginPage'));
 const SuperAdminDashboardPage = lazy(() => import('../pages/super-admin/DashboardPage'));
 const TenantsPage = lazy(() => import('../pages/super-admin/TenantsPage'));
 const TenantDetailPage = lazy(() => import('../pages/super-admin/TenantDetailPage'));

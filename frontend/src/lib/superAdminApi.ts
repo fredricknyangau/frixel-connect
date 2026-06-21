@@ -48,12 +48,16 @@ export function clearSuperAdminToken(): void {
 // ─── Axios Instance ───────────────────────────────────────────────────────────
 
 /**
- * Uses the same backend base URL as the tenant portal.
- * The backend differentiates super admin routes by path (/super-admin/*)
- * and by JWT payload (role: "super_admin", no tenant_id claim).
+ * Uses the same backend base URL as the tenant portal but without the /api/v1 suffix,
+ * since the backend super admin endpoints are configured directly at /super-admin/*.
  */
+const getBaseURL = () => {
+  const url = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+  return url.replace(/\/api\/v1\/?$/, '');
+};
+
 export const superAdminApi = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: getBaseURL(),
   headers: {
     'Content-Type': 'application/json',
   },
