@@ -54,6 +54,7 @@ from app.services.totp_service import (
     verify_totp_code,
 )
 from app.modules.super_admin.schemas import SuperAdminTokenResponse
+from app.core.redis import get_redis_pool
 
 
 # ── Shared dummy hash for timing-safe bcrypt calls ────────────────────────────
@@ -85,6 +86,10 @@ async def _log_action(
 
     All arguments are optional except super_admin_id and action.
     """
+    if ip_address is None:
+        from app.core.ip_context import client_ip_var
+        ip_address = client_ip_var.get()
+
     await conn.execute(
         """
         INSERT INTO super_admin_audit_log
@@ -224,11 +229,11 @@ async def _validate_pre_auth_token(
         raise UnauthorisedException("Invalid or expired pre-auth token.")
 
     if row["used_at"] is not None:
-        raise UnauthorisedException("This pre-auth token has already been used.")
+        raise UnauthorisedException("Session expired. Please log in again.")
 
     if row["expires_at"] < datetime.now(timezone.utc):
         raise UnauthorisedException(
-            "Pre-auth token has expired. Please log in again."
+            "Session expired. Please log in again."
         )
 
     if not row["is_active"]:
@@ -322,9 +327,31 @@ async def verify_totp(
     Refresh tokens are intentionally NOT issued. The super admin must
     re-authenticate (including TOTP) when the token expires.
     """
-    # Consume the token on success — this is the final step, no further
-    # use of the pre-auth token is allowed after the full JWT is issued.
-    row = await _validate_pre_auth_token(conn, pre_auth_token, consume=True)
+    # Validate the token first without consuming it.
+    row = await _validate_pre_auth_token(conn, pre_auth_token, consume=False)
+
+    # Brute force protection check
+    token_hash = hashlib.sha256(pre_auth_token.encode()).hexdigest()
+    redis = get_redis_pool()
+    redis_key = f"totp_attempts:{token_hash}"
+
+    attempts_val = await redis.get(redis_key)
+    if attempts_val is not None and int(attempts_val) >= 3:
+        # Mark used in DB
+        await conn.execute(
+            "UPDATE super_admin_pre_auth_tokens SET used_at = NOW() WHERE id = $1",
+            row["id"],
+        )
+        await _log_action(
+            conn,
+            super_admin_id=row["super_admin_id"],
+            action="auth.totp_failed",
+            target_type="super_admin",
+            target_id=row["super_admin_id"],
+            ip_address=ip_address,
+            metadata={"reason": "pre_auth_token locked due to too many failed TOTP attempts"},
+        )
+        raise UnauthorisedException("Session expired. Please log in again.")
 
     if row["totp_secret"] is None:
         # The super admin hasn't set up TOTP yet (no secret generated).
@@ -345,7 +372,45 @@ async def verify_totp(
         )
 
     if not verify_totp_code(raw_secret, totp_code):
-        raise UnauthorisedException("Invalid TOTP code. Please try again.")
+        new_attempts = await redis.incr(redis_key)
+        if new_attempts == 1:
+            await redis.expire(redis_key, 300)
+
+        if new_attempts >= 3:
+            # Lock out the session immediately
+            await conn.execute(
+                "UPDATE super_admin_pre_auth_tokens SET used_at = NOW() WHERE id = $1",
+                row["id"],
+            )
+            await _log_action(
+                conn,
+                super_admin_id=row["super_admin_id"],
+                action="auth.totp_failed",
+                target_type="super_admin",
+                target_id=row["super_admin_id"],
+                ip_address=ip_address,
+                metadata={"reason": "pre_auth_token locked due to 3 failed TOTP attempts", "attempts": new_attempts},
+            )
+            raise UnauthorisedException("Session expired. Please log in again.")
+        else:
+            await _log_action(
+                conn,
+                super_admin_id=row["super_admin_id"],
+                action="auth.totp_failed",
+                target_type="super_admin",
+                target_id=row["super_admin_id"],
+                ip_address=ip_address,
+                metadata={"reason": "Invalid TOTP code", "attempts": new_attempts},
+            )
+            raise UnauthorisedException("Invalid TOTP code. Please try again.")
+
+    # Successful verification: consume the pre-auth token in DB
+    await conn.execute(
+        "UPDATE super_admin_pre_auth_tokens SET used_at = NOW() WHERE id = $1",
+        row["id"],
+    )
+    # Clean up attempt count in Redis
+    await redis.delete(redis_key)
 
     now = datetime.now(timezone.utc)
 
@@ -1045,3 +1110,50 @@ async def create_super_admin(
             "They must log in at /super-admin/auth/login and complete TOTP setup."
         ),
     }
+
+
+async def get_all_super_admins(
+    conn: asyncpg.Connection,
+    super_admin_id: UUID,
+) -> list[dict]:
+    """
+    Returns all super admin accounts.
+    Only callable by an authenticated super admin.
+    Every call is audit-logged.
+    """
+    await _log_action(
+        conn,
+        super_admin_id=super_admin_id,
+        action="super_admin.list",
+        target_type="super_admin",
+        target_id=super_admin_id,
+        metadata={},
+    )
+
+    rows = await conn.fetch(
+        """
+        SELECT 
+            id, 
+            email, 
+            full_name, 
+            totp_verified_at, 
+            last_login_at, 
+            is_active, 
+            created_at
+        FROM super_admins
+        ORDER BY created_at DESC
+        """
+    )
+
+    return [
+        {
+            "id": str(row["id"]),
+            "email": row["email"],
+            "full_name": row["full_name"],
+            "totp_verified_at": row["totp_verified_at"].isoformat() if row["totp_verified_at"] else None,
+            "last_login_at": row["last_login_at"].isoformat() if row["last_login_at"] else None,
+            "is_active": row["is_active"],
+            "created_at": row["created_at"].isoformat(),
+        }
+        for row in rows
+    ]

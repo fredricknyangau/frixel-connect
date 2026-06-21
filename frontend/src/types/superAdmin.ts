@@ -92,12 +92,14 @@ export interface Tenant {
  * Extends Tenant with aggregated financial and usage metrics.
  */
 export interface TenantDetail extends Tenant {
-  total_revenue_kes: number;
-  total_customers: number;
-  total_active_routers: number;
-  total_active_vouchers: number;
-  /** null if the tenant has never been billed */
-  last_payment_date: string | null;
+  stats: {
+    total_customers: number;
+    active_customers: number;
+    total_active_routers: number;
+    total_active_vouchers: number;
+    total_revenue_kes: number;
+    last_payment_at: string | null;
+  };
 }
 
 // ─── Platform Stats ───────────────────────────────────────────────────────────
@@ -129,6 +131,7 @@ export interface PlatformStats {
 export interface SuperAdminAuditEntry {
   id: string;
   super_admin_id: string;
+  super_admin_email: string;
   action: string;
   /** The entity type this action targeted, e.g. "tenant", "super_admin" */
   target_type: string | null;

@@ -13,6 +13,10 @@ from app.integrations.etims import etims_client
 
 logger = logging.getLogger(__name__)
 
+# Project root directory
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+INVOICES_DIR = os.path.join(BASE_DIR, "storage", "invoices")
+
 async def _generate_pdf(
     invoice_number: int,
     tenant_name: str,
@@ -27,9 +31,9 @@ async def _generate_pdf(
     Generates a PDF invoice and saves it to a static directory.
     Returns the file path.
     """
-    os.makedirs("/tmp/invoices", exist_ok=True)
+    os.makedirs(INVOICES_DIR, exist_ok=True)
     pdf_filename = f"INV-{invoice_number}-{uuid.uuid4().hex[:6]}.pdf"
-    pdf_path = f"/tmp/invoices/{pdf_filename}"
+    pdf_path = os.path.join(INVOICES_DIR, pdf_filename)
     
     c = canvas.Canvas(pdf_path, pagesize=A4)
     width, height = A4
@@ -187,7 +191,7 @@ async def generate_invoice_for_payment(conn: Connection, payment_id: str) -> Non
 async def get_invoice_by_id(conn: Connection, invoice_id: str, tenant_id: str):
     row = await conn.fetchrow("""
         SELECT i.*, p.amount_kes,
-               CASE WHEN i.pdf_path IS NULL THEN NULL ELSE '/api/v1/invoices/' || i.id::text || '/pdf' END AS pdf_url
+               CASE WHEN i.pdf_path IS NULL THEN NULL ELSE '/invoices/' || i.id::text || '/pdf' END AS pdf_url
         FROM invoices i
         JOIN payments p ON i.payment_id = p.id
         WHERE i.id = $1 AND i.tenant_id = $2
@@ -200,7 +204,7 @@ async def get_invoice_by_id(conn: Connection, invoice_id: str, tenant_id: str):
 async def list_invoices(conn: Connection, tenant_id: str):
     rows = await conn.fetch("""
         SELECT i.*, p.amount_kes,
-               CASE WHEN i.pdf_path IS NULL THEN NULL ELSE '/api/v1/invoices/' || i.id::text || '/pdf' END AS pdf_url
+               CASE WHEN i.pdf_path IS NULL THEN NULL ELSE '/invoices/' || i.id::text || '/pdf' END AS pdf_url
         FROM invoices i
         JOIN payments p ON i.payment_id = p.id
         WHERE i.tenant_id = $1
@@ -212,7 +216,7 @@ async def list_invoices(conn: Connection, tenant_id: str):
 async def list_customer_invoices(conn: Connection, tenant_id: str, customer_id: str):
     rows = await conn.fetch("""
         SELECT i.*, p.amount_kes,
-               CASE WHEN i.pdf_path IS NULL THEN NULL ELSE '/api/v1/invoices/' || i.id::text || '/pdf' END AS pdf_url
+               CASE WHEN i.pdf_path IS NULL THEN NULL ELSE '/invoices/' || i.id::text || '/pdf' END AS pdf_url
         FROM invoices i
         JOIN payments p ON i.payment_id = p.id
         WHERE i.tenant_id = $1
@@ -226,7 +230,7 @@ async def list_customer_invoices(conn: Connection, tenant_id: str, customer_id: 
 async def get_customer_invoice_by_id(conn: Connection, invoice_id: str, tenant_id: str, customer_id: str):
     row = await conn.fetchrow("""
         SELECT i.*, p.amount_kes,
-               CASE WHEN i.pdf_path IS NULL THEN NULL ELSE '/api/v1/invoices/' || i.id::text || '/pdf' END AS pdf_url
+               CASE WHEN i.pdf_path IS NULL THEN NULL ELSE '/invoices/' || i.id::text || '/pdf' END AS pdf_url
         FROM invoices i
         JOIN payments p ON i.payment_id = p.id
         WHERE i.id = $1

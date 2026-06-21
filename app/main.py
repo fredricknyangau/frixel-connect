@@ -3,10 +3,13 @@ import logging
 import asyncio
 import time
 import traceback
+import ipaddress
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+from app.core.ip_context import client_ip_var
 
 from app.config import settings
 from app.database import create_pool, close_pool
@@ -93,6 +96,54 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def extract_client_ip_middleware(request: Request, call_next):
+    """
+    Middleware that extracts client IP from X-Forwarded-For (validating that it is a
+    single IP address to prevent spoofing chains), falls back to X-Real-IP, and
+    then to request.client.host. Sets client_ip_var ContextVar for downstream use.
+    """
+    client_ip = None
+    xff = request.headers.get("X-Forwarded-For")
+    if xff:
+        # Split by comma and clean whitespace
+        ips = [ip.strip() for ip in xff.split(",") if ip.strip()]
+        if len(ips) > 1:
+            # Reject if multiple IPs are detected (spoofed chain or proxy chain)
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"detail": "Invalid X-Forwarded-For header: multiple IP addresses detected."}
+            )
+        if ips:
+            client_ip = ips[0]
+
+    if not client_ip:
+        client_ip = request.headers.get("X-Real-IP")
+    if not client_ip:
+        client_ip = request.client.host if request.client else "0.0.0.0"
+
+    # FastAPI test client uses "testclient" as host. Map to loopback for validation.
+    if client_ip == "testclient":
+        client_ip = "127.0.0.1"
+
+    # Validate that it is a valid single IP address
+    try:
+        ipaddress.ip_address(client_ip)
+    except ValueError:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": "Invalid client IP address."}
+        )
+
+    # Set contextvar for the lifecycle of the request
+    token = client_ip_var.set(client_ip)
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        client_ip_var.reset(token)
 
 
 @app.middleware("http")

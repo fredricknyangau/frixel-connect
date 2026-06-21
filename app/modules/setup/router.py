@@ -298,6 +298,7 @@ async def download_setup_script(
 )
 async def confirm_setup(
     token: str,
+    request: Request,
     _rate_limit: None = Depends(setup_rate_limiter),
 ) -> dict:
     """
@@ -377,15 +378,22 @@ async def confirm_setup(
             )
 
             # 3. Mark router as online and update heartbeat timestamp
+            # If it's a CHR router (NULL public key), also update the host to the actual
+            # IP that made the /confirm request. This allows the backend to reach the CHR
+            # via the VirtualBox host-only network instead of the mock WireGuard IP.
+            client_ip = request.client.host if request.client else "127.0.0.1"
+            
             await conn.execute(
                 """
                 UPDATE routers
                 SET status = 'online',
-                    last_heartbeat_at = NOW()
+                    last_heartbeat_at = NOW(),
+                    host = CASE WHEN wireguard_peer_public_key IS NULL THEN $3::VARCHAR ELSE host END
                 WHERE id = $1 AND tenant_id = $2
                 """,
                 router_id,
                 tenant_id,
+                client_ip,
             )
 
         # ── Safety net: ensure WireGuard peer is registered ───────────────────

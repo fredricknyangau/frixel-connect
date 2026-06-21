@@ -18,3 +18,7 @@ __pycache__/
 *.sql.gz
 frontend/dist/
 frontend/tsconfig.tsbuildinfo
+
+# Persistent storage
+storage/
+

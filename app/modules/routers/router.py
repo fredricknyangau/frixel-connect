@@ -30,6 +30,7 @@ from app.modules.routers.schemas import (
     MagicInitRequest,
     MagicInitResponse,
     RouterStatusResponse,
+    RouterProvisionRequest,
 )
 from app.modules.routers import service
 from app.integrations.wireguard import (
@@ -665,3 +666,123 @@ async def onboarding_status(
         router_id=row["id"],
         status=row["status"],
     )
+
+@router.get(
+    "/onboarding/interfaces/{router_id}",
+    summary="Get live interfaces from the connected router (Phase 2 onboarding)",
+)
+async def get_router_interfaces(
+    router_id: UUID,
+    user: dict = Depends(require_role("admin")),
+):
+    tenant_id = UUID(user["tenant_id"])
+
+    async with get_db() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM routers WHERE id = $1 AND tenant_id = $2",
+            router_id,
+            tenant_id,
+        )
+
+    if not row:
+        raise NotFoundException("Router", str(router_id))
+
+    # Connect to router
+    from app.integrations.mikrotik import get_mikrotik_client
+    mikrotik = get_mikrotik_client(dict(row))
+
+    try:
+        interfaces = await mikrotik.get_interfaces()
+        return {"interfaces": interfaces}
+    except Exception as e:
+        logger.error(f"Failed to fetch interfaces from router '{row['name']}': {e}")
+        return {"interfaces": [], "error": str(e)}
+
+import ipaddress
+
+@router.post(
+    "/onboarding/provision/{router_id}",
+    summary="Provision the router for Hotspot or PPPoE (Phase 2 onboarding)",
+)
+async def provision_router(
+    router_id: UUID,
+    data: RouterProvisionRequest,
+    user: dict = Depends(require_role("admin")),
+):
+    tenant_id = UUID(user["tenant_id"])
+
+    async with get_db() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM routers WHERE id = $1 AND tenant_id = $2",
+            router_id,
+            tenant_id,
+        )
+
+    if not row:
+        raise NotFoundException("Router", str(router_id))
+
+    try:
+        network = ipaddress.IPv4Network(data.ip_range, strict=False)
+        hosts = list(network.hosts())
+        gateway = str(hosts[0])
+        pool_start = str(hosts[1])
+        pool_end = str(hosts[-1])
+        network_base = str(network.network_address)
+    except ValueError as e:
+        return {"error": f"Invalid IP range: {e}"}
+
+    from app.integrations.mikrotik import get_mikrotik_client
+    mikrotik = get_mikrotik_client(dict(row))
+
+    try:
+        if data.service_type == "hotspot":
+            frontend_url = getattr(settings, "FRONTEND_URL", "https://portal.zealsync.dev")
+            # Determine RADIUS client address: 192.168.56.1 if testing on a VirtualBox
+            # host-only subnet, or 10.8.0.1 as default VPN gateway.
+            radius_ip = "10.8.0.1"
+            is_chr = "192.168.56." in row["host"]
+            if is_chr:
+                chr_host = getattr(settings, "CHR_HOST_IP", "192.168.56.1")
+                frontend_url = getattr(settings, "CHR_FRONTEND_URL", f"http://{chr_host}")
+                radius_ip = chr_host
+                chr_port = getattr(settings, "CHR_BACKEND_PORT", 8000)
+                backend_base = f"http://{chr_host}:{chr_port}"
+            else:
+                backend_base = settings.API_BASE_URL
+                
+            radius_secret = settings.RADIUS_COA_SECRET
+            
+            import urllib.parse
+            encoded_frontend_url = urllib.parse.quote(frontend_url, safe="")
+            login_html_url = f"{backend_base}/api/v1/hotspot/login.html?tenant_id={tenant_id}&frontend_url={encoded_frontend_url}"
+            
+            await mikrotik.create_speed_profiles()
+            await mikrotik.setup_hotspot_server(
+                interface=data.interface,
+                gateway=gateway,
+                network_base=network_base,
+                pool_start=pool_start,
+                pool_end=pool_end,
+                frontend_url=frontend_url,
+                tenant_id=str(tenant_id),
+                radius_ip=radius_ip,
+                radius_secret=radius_secret,
+                login_html_url=login_html_url,
+            )
+        elif data.service_type == "pppoe":
+            await mikrotik.setup_pppoe_server(
+                interface=data.interface,
+                local_address=gateway,
+                pool_start=pool_start,
+                pool_end=pool_end,
+            )
+            
+        async with get_db() as conn:
+            await conn.execute(
+                "UPDATE routers SET status = 'online' WHERE id = $1", router_id
+            )
+
+        return {"status": "success", "message": f"{data.service_type.capitalize()} provisioned on {data.interface}"}
+    except Exception as e:
+        logger.error(f"Failed to provision router '{row['name']}': {e}")
+        return {"error": str(e)}

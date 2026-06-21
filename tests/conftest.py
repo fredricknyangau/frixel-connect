@@ -38,7 +38,7 @@ TEST_PASSWORD      = "TestPassword123!"
 DEFAULT_TENANT_ID  = "aaaaaaaa-0000-0000-0000-000000000001"
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 async def setup_test_database():
     """
     Function-scoped fixture that:
@@ -123,7 +123,7 @@ async def clean_and_seed_db(db_pool: asyncpg.Pool) -> AsyncGenerator[None, None]
     async with db_pool.acquire() as conn:
         # 1. Truncate in dependency order
         await conn.execute(
-            "TRUNCATE sessions, vouchers, payments, packages, users, tenants CASCADE;"
+            "TRUNCATE sessions, vouchers, payments, packages, users, tenants, radcheck, radreply, radacct, radusergroup, radpostauth CASCADE;"
         )
 
         # 2. Re-insert the default tenant (TRUNCATE removed it)

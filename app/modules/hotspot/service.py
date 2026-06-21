@@ -13,7 +13,9 @@ import asyncpg
 from app.core.security import hash_password
 from app.core.exceptions import NotFoundException, ConflictException, PaymentException
 from app.integrations.daraja import daraja_client, DarajaError
-from app.modules.hotspot.schemas import PortalSTKPushRequest
+from app.modules.hotspot.schemas import PortalSTKPushRequest, PortalFreeTrialRequest
+import secrets
+
 
 logger = logging.getLogger(__name__)
 
@@ -174,3 +176,78 @@ async def get_hotspot_payment_status(
         "status": row["status"],
         "voucher_code": row["voucher_code"],
     }
+
+
+async def provision_free_trial(
+    conn: asyncpg.Connection,
+    data: PortalFreeTrialRequest,
+) -> str:
+    """
+    Checks trial usage limits and generates a 10-minute trial voucher.
+    Bypasses M-Pesa billing using a mock payment record TRIAL-[HEX].
+    """
+    customer_id = await get_or_create_guest_customer(conn, data.tenant_id, data.phone)
+
+    # 1. Check if user already claimed a free trial in the last 24 hours
+    existing_trial = await conn.fetchval(
+        """
+        SELECT COUNT(*) FROM payments p
+        JOIN vouchers v ON p.id = v.payment_id
+        WHERE p.customer_id = $1 
+          AND p.tenant_id = $2
+          AND p.mpesa_receipt_number LIKE 'TRIAL-%'
+          AND p.created_at > NOW() - INTERVAL '24 hours'
+        """,
+        customer_id,
+        data.tenant_id,
+    )
+    if existing_trial > 0:
+        raise ConflictException("You have already used your free trial for today. Please select a paid plan to connect.")
+
+    # 2. Find or create a 'Free Trial' package for the tenant
+    package = await conn.fetchrow(
+        """
+        SELECT id FROM packages
+        WHERE tenant_id = $1 AND name = 'Free Trial'
+        """,
+        data.tenant_id,
+    )
+    if package:
+        package_id = package["id"]
+    else:
+        # Create a default "Free Trial" package dynamically
+        package_id = await conn.fetchval(
+            """
+            INSERT INTO packages (name, description, price_kes, duration_minutes, speed_mbps, is_active, tenant_id)
+            VALUES ($1, $2, $3, $4, $5, true, $6)
+            RETURNING id
+            """,
+            "Free Trial",
+            "10 Minutes Free Trial Access",
+            1.00,  # 1 KES to bypass CHECK constraint (amount_kes > 0)
+            10,    # 10 minutes
+            2,     # 2 Mbps
+            data.tenant_id,
+        )
+
+    # 3. Create a mock confirmed payment record to bypass M-Pesa gateway
+    trial_receipt = f"TRIAL-{secrets.token_hex(4).upper()}"
+    payment = await conn.fetchrow(
+        """
+        INSERT INTO payments (customer_id, package_id, amount_kes, status, phone_number, tenant_id, mpesa_receipt_number)
+        VALUES ($1, $2, 1.00, 'confirmed', $3, $4, $5)
+        RETURNING id
+        """,
+        customer_id,
+        package_id,
+        data.phone,
+        data.tenant_id,
+        trial_receipt,
+    )
+    payment_id = payment["id"]
+
+    # 4. Invoke voucher generation pipeline
+    from app.modules.vouchers import service as vouchers_service
+    voucher_code = await vouchers_service.generate_voucher(conn, str(payment_id), is_final_attempt=True)
+    return voucher_code
+

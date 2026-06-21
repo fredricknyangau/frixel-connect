@@ -14,6 +14,8 @@ export function saveToken(token: string): void {
 
 // SECURITY: see v2 cookie migration plan
 export function getToken(): string | null {
+  const impersonationToken = sessionStorage.getItem('zealsync_impersonation_token');
+  if (impersonationToken) return impersonationToken;
   return localStorage.getItem(TOKEN_KEY);
 }
 

@@ -53,7 +53,7 @@ import type { MagicInitResponse } from '../../../types/setup';
 
 // ── Step type ─────────────────────────────────────────────────────────────────
 
-type Step = 'details' | 'command' | 'complete';
+type Step = 'details' | 'command' | 'provision' | 'complete';
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
@@ -82,6 +82,14 @@ export default function RouterOnboardingWizard() {
   // Form validation errors
   const [nameError, setNameError] = useState('');
   const [siteError, setSiteError] = useState('');
+
+  // Provisioning state
+  const [serviceType, setServiceType] = useState<'hotspot' | 'pppoe'>('hotspot');
+  const [selectedInterface, setSelectedInterface] = useState('');
+  const [ipRange, setIpRange] = useState('10.0.0.1/24');
+  const [interfaces, setInterfaces] = useState<any[]>([]);
+  const [isLoadingInterfaces, setIsLoadingInterfaces] = useState(false);
+  const [isProvisioning, setIsProvisioning] = useState(false);
 
   // ── Hooks ─────────────────────────────────────────────────────────────────────
   const initMagic = useInitMagic();
@@ -139,8 +147,7 @@ export default function RouterOnboardingWizard() {
               });
               setRouterName(localName || '');
               setSiteName(localSite || '');
-              setStep('complete');
-              clearLocalStorage();
+              setStep('provision');
             }
             // If status is neither, fall through to details step
           })
@@ -164,14 +171,28 @@ export default function RouterOnboardingWizard() {
   // ── Auto-advance when router connects ─────────────────────────────────────────
   useEffect(() => {
     if (statusData?.status === 'online' && step === 'command') {
-      // Brief flash of the green "Connected!" indicator before advancing.
-      // The CSS transition in the status indicator already handles the visual.
       setTimeout(() => {
-        setStep('complete');
-        clearLocalStorage();
+        setStep('provision');
       }, 800);
     }
   }, [statusData?.status, step]);
+
+  // ── Fetch Interfaces when entering Provision step ──────────────────────────────
+  useEffect(() => {
+    if (step === 'provision' && initData?.router_id) {
+      setIsLoadingInterfaces(true);
+      api.get(`/admin/routers/onboarding/interfaces/${initData.router_id}`)
+        .then((res) => {
+          const list = res.data.interfaces || [];
+          setInterfaces(list);
+          if (list.length > 0) {
+            setSelectedInterface(list[0].name);
+          }
+        })
+        .catch(() => toast.error('Failed to load router interfaces'))
+        .finally(() => setIsLoadingInterfaces(false));
+    }
+  }, [step, initData?.router_id]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -252,7 +273,32 @@ export default function RouterOnboardingWizard() {
     setNameError('');
     setSiteError('');
     setCopied(false);
+    setServiceType('hotspot');
+    setSelectedInterface('');
+    setIpRange('10.0.0.1/24');
     setStep('details');
+  }
+
+  async function handleProvision(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedInterface) return toast.error('Please select an interface');
+    if (!ipRange) return toast.error('Please enter an IP range');
+    
+    setIsProvisioning(true);
+    try {
+      await api.post(`/admin/routers/onboarding/provision/${initData?.router_id}`, {
+        service_type: serviceType,
+        interface: selectedInterface,
+        ip_range: ipRange,
+      });
+      toast.success('Router provisioned successfully!');
+      setStep('complete');
+      clearLocalStorage();
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || err.response?.data?.error || 'Failed to provision router');
+    } finally {
+      setIsProvisioning(false);
+    }
   }
 
   // ── Render: Loading ───────────────────────────────────────────────────────────
@@ -294,8 +340,8 @@ export default function RouterOnboardingWizard() {
           </div>
         </div>
 
-        {/* Progress indicator (only shown during 2-step flow) */}
-        {(step === 'command') && (
+        {/* Progress indicator (only shown during setup flow) */}
+        {(step === 'command' || step === 'provision') && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary font-semibold text-[10px]">✓</span>
@@ -303,8 +349,13 @@ export default function RouterOnboardingWizard() {
             </div>
             <div className="h-px w-6 bg-muted-foreground/30" />
             <div className="flex items-center gap-1.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-[10px]">2</span>
-              <span className="hidden sm:inline font-medium">Run Command</span>
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full font-semibold text-[10px] ${step === 'command' ? 'bg-primary text-primary-foreground' : 'bg-primary/20 text-primary'}`}>{step === 'command' ? '2' : '✓'}</span>
+              <span className={`hidden sm:inline ${step === 'command' ? 'font-medium' : 'text-primary font-medium'}`}>Connect</span>
+            </div>
+            <div className="h-px w-6 bg-muted-foreground/30" />
+            <div className="flex items-center gap-1.5">
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full font-semibold text-[10px] ${step === 'provision' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>3</span>
+              <span className={`hidden sm:inline ${step === 'provision' ? 'font-medium' : ''}`}>Provision</span>
             </div>
           </div>
         )}
@@ -597,6 +648,112 @@ export default function RouterOnboardingWizard() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* ════════════════════════════════════════════════
+              STEP: provision
+              ════════════════════════════════════════════════ */}
+          {step === 'provision' && initData && (
+            <Card className="border shadow-xl bg-background rounded-2xl overflow-hidden border-t-4 border-t-primary">
+              <CardContent className="p-6 sm:p-8">
+                <div className="mb-6 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 mb-3">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <h2 className="text-xl font-bold tracking-tight">Router Online!</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    ZealSync is now connected to {routerName}. Let's set up your network.
+                  </p>
+                </div>
+
+                <form onSubmit={handleProvision} className="space-y-5">
+                  {/* Service Type */}
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Service Type</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        type="button"
+                        variant={serviceType === 'hotspot' ? 'default' : 'outline'}
+                        onClick={() => setServiceType('hotspot')}
+                        className="h-11"
+                      >
+                        Hotspot (WiFi)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={serviceType === 'pppoe' ? 'default' : 'outline'}
+                        onClick={() => setServiceType('pppoe')}
+                        className="h-11"
+                      >
+                        PPPoE (Fiber/CPE)
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Interface Selection */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="interface-select" className="text-sm font-medium">
+                      Select Interface
+                    </Label>
+                    <select
+                      id="interface-select"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={selectedInterface}
+                      onChange={(e) => setSelectedInterface(e.target.value)}
+                      disabled={isLoadingInterfaces}
+                    >
+                      {isLoadingInterfaces ? (
+                        <option>Scanning ports...</option>
+                      ) : interfaces.length > 0 ? (
+                        interfaces.map((iface) => (
+                          <option key={iface.name} value={iface.name}>
+                            {iface.name} ({iface.type})
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">No interfaces found</option>
+                      )}
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      This is the physical or virtual port your customers will connect to.
+                    </p>
+                  </div>
+
+                  {/* IP Range */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ip-range" className="text-sm font-medium">
+                      IP Range (CIDR)
+                    </Label>
+                    <Input
+                      id="ip-range"
+                      type="text"
+                      placeholder="10.0.0.1/24"
+                      value={ipRange}
+                      onChange={(e) => setIpRange(e.target.value)}
+                      autoComplete="off"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      The network range assigned to your {serviceType === 'hotspot' ? 'Hotspot DHCP pool' : 'PPPoE clients'}.
+                    </p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full h-11 text-base font-semibold mt-2"
+                    disabled={isProvisioning || isLoadingInterfaces || !selectedInterface}
+                  >
+                    {isProvisioning ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Provisioning...
+                      </>
+                    ) : (
+                      'Deploy Configuration'
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
           )}
 
           {/* ════════════════════════════════════════════════

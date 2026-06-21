@@ -27,11 +27,12 @@ vboxmanage list runningvms | grep -i chr
 vboxmanage startvm "MikroTik CHR" --type headless
 ```
 
-Verify the CHR has both network interfaces:
-- **Adapter 1 (ether1):** NAT — gives CHR internet access for downloads
-- **Adapter 2 (ether2):** Host-Only (vboxnet0) — gives Ubuntu host access at 192.168.56.1
+Verify the CHR has the correct network interfaces configured:
+- **Adapter 1 (ether1):** NAT (IP: 10.0.2.15) — gives CHR internet access for downloads
+- **Adapter 2 (ether2):** Host-Only (vboxnet0, IP: 192.168.56.100) — gives Ubuntu host access at 192.168.56.1
+- **Adapter 3 (ether3):** Bridged (br-hotspot, IP: 10.10.10.1) — Hotspot LAN interface
 
-⚠️ **CHR:** If you only have one adapter, add a host-only adapter in VirtualBox
+⚠️ **CHR:** If you are missing the host-only adapter, add it in VirtualBox
 Settings → Network → Adapter 2 → Host-Only Adapter → vboxnet0.
 
 ### 1.2 CHR SSH Access
@@ -39,6 +40,7 @@ Settings → Network → Adapter 2 → Host-Only Adapter → vboxnet0.
 ```bash
 # SSH into CHR from Ubuntu
 ssh admin@192.168.56.100
+# Enter the CHR admin password when prompted (e.g., ZealNet2026)
 
 # If you get "Connection refused", check CHR's IP:
 # In Winbox or CHR console: /ip address print
@@ -49,8 +51,8 @@ ssh admin@192.168.56.100
 
 ```bash
 # From Ubuntu, test CHR REST API
-# Replace 'yourpassword' with your CHR admin password
-curl -s -u admin:yourpassword http://192.168.56.100/rest/ip/hotspot/user/profile | python3 -m json.tool
+# Replace 'ZealNet2026' with your actual CHR admin password if different
+curl -s -u admin:ZealNet2026 http://192.168.56.100/rest/ip/hotspot/user/profile | python3 -m json.tool
 # Expected: JSON array (may be empty [] if no profiles yet)
 ```
 
@@ -151,7 +153,7 @@ Click **"Copy Command"**. The button changes to **"Copied! ✓"** for 2 seconds.
 ```bash
 # From Ubuntu
 ssh admin@192.168.56.100
-# Press Enter for password if it's blank, or type your password
+# Enter your CHR admin password (e.g., ZealNet2026)
 ```
 
 ### 3.2 Paste and Execute
@@ -476,22 +478,55 @@ The hotspot user for the revoked voucher should be gone.
 
 To reset and run the test again:
 
+### Wipe the Database and Reseed (Recommended for a totally fresh start)
+
+If you want a perfectly clean slate on the web app without any old test data:
+
 ```bash
-# Delete the test router (cascade deletes the setup_token too)
-docker compose exec db psql -U zealnet -d wifi_billing \
-  -c "DELETE FROM routers WHERE name='CHR Test 01';"
+# 1. Wipe all data (this cascades and deletes users too!)
+docker compose exec -T db psql -U zealnet -d wifi_billing -c "TRUNCATE TABLE routers CASCADE;"
 
-# Verify cleanup
-docker compose exec db psql -U zealnet -d wifi_billing \
-  -c "SELECT count(*) FROM setup_tokens;"
-# Should be 0 if you only had the test token
+# 2. Reseed the database to recreate your admin user and default packages
+docker compose exec -T -w /app api python -m scripts.seed_db
 ```
+*Note: Your admin login will be reset to `admin@zealsync.dev` / `TestPassword123!`*
 
-On CHR, clean up the test configuration:
-```
-/user remove [find name=zealsync-api]
-/user group remove [find name=zealsync-api-group]
-/ip hotspot user profile remove [find comment~"ZealSync"]
+On CHR, clean up the specific test configuration. This is much safer than a full factory reset because it preserves your `ether1` and `ether2` DHCP clients so you don't lose SSH access:
+
+```routeros
+/user remove [find name="zealsync-api"]
+/user group remove [find name="zealsync-api-group"]
 /ip firewall filter remove [find comment~"ZealSync"]
-/system identity set name=MikroTik
+/ip hotspot remove [find]
+/ip hotspot profile remove [find name!="default"]
+/ip hotspot user profile remove [find name!="default"]
+/ip dhcp-server remove [find]
+/ip dhcp-server network remove [find]
+/ip pool remove [find name~"zealsync" or name~"hs-pool"]
+/system identity set name="MikroTik"
+/file remove [find name="hotspot/login.html"]
 ```
+
+### Full Factory Reset (Optional)
+
+If you want to perform a **clean reset** of the entire MikroTik router back to factory settings:
+
+```
+/system reset-configuration skip-backup=yes
+```
+
+> [!WARNING]  
+> A full reset will wipe your current IP addresses (`192.168.56.100` on `ether2` and `10.10.10.1` on `ether3`), your firewall rules, and your password. After the router reboots, you will temporarily lose SSH access. You must open the **VirtualBox Console** for the CHR VM, log in (username: `admin`, empty password), and manually reassign the IP addresses before you can resume testing.
+
+To reconfigure IPs and ensure WinBox access after a clean reset (via the VirtualBox console):
+```
+/ip dhcp-client add interface=ether1 disabled=no
+/ip address add address=192.168.56.100/24 interface=ether2
+/ip address add address=10.10.10.1/24 interface=ether3
+/user set admin password=ZealNet2026
+```
+
+### Accessing via WinBox After Reset
+Since a clean reset removes all firewall rules, the WinBox service (TCP port 8291) is active and accessible by default.
+- **Via IP Address:** Open WinBox, enter `192.168.56.100`, login as `admin` with password `ZealNet2026`.
+- **Via MAC Address:** Even before you assign the IP addresses above, you can open WinBox, go to the **Neighbors** tab, click the router's MAC address, and log in directly over Layer 2!

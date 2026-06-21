@@ -7,5 +7,6 @@ Disallow: /admin/
 Disallow: /customer/
 Disallow: /reseller/
 Disallow: /status/
+Disallow: /super-admin/
 
 Sitemap: https://zealsync.com/sitemap.xml

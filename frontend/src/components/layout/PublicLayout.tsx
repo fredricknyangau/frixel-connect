@@ -126,9 +126,7 @@ export default function PublicLayout() {
           
           <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-border/50 text-sm text-muted-foreground">
             <p>© {new Date().getFullYear()} ZealSync Networks. All rights reserved.</p>
-            <div className="flex gap-4 mt-4 md:mt-0">
-              <span>Made with ❤️ in Nairobi</span>
-            </div>
+            
           </div>
         </div>
       </footer>

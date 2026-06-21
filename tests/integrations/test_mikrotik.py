@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from app.config import settings
-from app.integrations.mikrotik import mikrotik_client, MikroTikError
+from app.integrations.mikrotik import get_mikrotik_client, MikroTikError
 
 # ── Reachability Check ────────────────────────────────────────────────────────
 # Performs a quick synchronous ping to RouterOS to determine if the virtual router is booted.
@@ -50,30 +50,31 @@ async def test_create_and_delete_hotspot_user():
     profile = "10Mbps"
     time_limit = "1d"
 
-    # Make sure user does not exist before starting test
-    try:
-        await mikrotik_client.remove_hotspot_user(username)
-    except Exception:
-        pass
+    async with get_mikrotik_client() as client:
+        # Make sure user does not exist before starting test
+        try:
+            await client.remove_hotspot_user(username)
+        except Exception:
+            pass
 
-    # 1. Create the hotspot user on the router
-    created_user = await mikrotik_client.generate_hotspot_user(
-        username=username,
-        password=username,
-        profile=profile,
-        time_limit=time_limit
-    )
+        # 1. Create the hotspot user on the router
+        created_user = await client.generate_hotspot_user(
+            username=username,
+            password=username,
+            profile=profile,
+            time_limit=time_limit
+        )
 
-    assert created_user[".id"] is not None
-    assert created_user["name"] == username
-    assert created_user["profile"] == profile
-    assert created_user["limit-uptime"] == time_limit
+        assert created_user[".id"] is not None
+        assert created_user["name"] == username
+        assert created_user["profile"] == profile
+        assert created_user["limit-uptime"] == time_limit
 
-    # 2. Revoke/delete the user and confirm
-    await mikrotik_client.remove_hotspot_user(username)
+        # 2. Revoke/delete the user and confirm
+        await client.remove_hotspot_user(username)
 
-    # 3. Idempotent check: calling delete again should return silently
-    await mikrotik_client.remove_hotspot_user(username)
+        # 3. Idempotent check: calling delete again should return silently
+        await client.remove_hotspot_user(username)
 
 
 @pytest.mark.asyncio
@@ -82,10 +83,12 @@ async def test_get_active_sessions_returns_list():
     Integration test asserting that the active session fetch succeeds
     and returns a structured list.
     """
-    sessions = await mikrotik_client.get_active_sessions()
-    assert isinstance(sessions, list)
-    if sessions:
-        # Check common RouterOS properties
-        session = sessions[0]
-        assert "user" in session
-        assert "address" in session
+    async with get_mikrotik_client() as client:
+        sessions = await client.get_active_sessions()
+        assert isinstance(sessions, list)
+        if sessions:
+            # Check common RouterOS properties
+            session = sessions[0]
+            assert "user" in session
+            assert "address" in session
+

@@ -173,7 +173,7 @@ async def sync_radius_sessions_cron(ctx) -> None:
             
             # Sync live bytes from MikroTik routers for active sessions
             from app.integrations.mikrotik import get_mikrotik_client
-            routers = await conn.fetch("SELECT * FROM routers")
+            routers = await conn.fetch("SELECT * FROM routers WHERE status = 'online'")
             for router_row in routers:
                 try:
                     mikrotik = get_mikrotik_client(dict(router_row))
@@ -269,10 +269,12 @@ async def sync_radius_sessions_cron(ctx) -> None:
                         if not coa_success:
                             logger.info("CoA disconnect failed for expired voucher. Falling back to MikroTik REST API.", voucher=v["code"])
                             router_dict = None
-                            if v["router_id"]:
+                            # Try finding router by host first (dynamic IP alignment), fallback to router_id
+                            router_row = await conn.fetchrow("SELECT * FROM routers WHERE host = $1", active_session["router_ip"])
+                            if not router_row and v["router_id"]:
                                 router_row = await conn.fetchrow("SELECT * FROM routers WHERE id = $1", v["router_id"])
-                                if router_row:
-                                    router_dict = dict(router_row)
+                            if router_row:
+                                router_dict = dict(router_row)
                             
                             try:
                                 mikrotik = get_mikrotik_client(router_dict)
@@ -280,12 +282,24 @@ async def sync_radius_sessions_cron(ctx) -> None:
                             except Exception as e:
                                 logger.error(f"Fallback disconnect via REST API failed for expired {v['code']}: {e}", exc_info=True)
                     else:
-                        # Fallback directly to mikrotik API just in case
+                        # Fallback directly to mikrotik API just in case - try to find router via last radacct entry
+                        last_session = await conn.fetchrow(
+                            """
+                            SELECT HOST(nasipaddress) AS router_ip FROM radacct
+                            WHERE username = $1
+                            ORDER BY acctstarttime DESC
+                            LIMIT 1
+                            """,
+                            v["code"]
+                        )
                         router_dict = None
-                        if v["router_id"]:
+                        router_row = None
+                        if last_session:
+                            router_row = await conn.fetchrow("SELECT * FROM routers WHERE host = $1", last_session["router_ip"])
+                        if not router_row and v["router_id"]:
                             router_row = await conn.fetchrow("SELECT * FROM routers WHERE id = $1", v["router_id"])
-                            if router_row:
-                                router_dict = dict(router_row)
+                        if router_row:
+                            router_dict = dict(router_row)
                         
                         try:
                             mikrotik = get_mikrotik_client(router_dict)

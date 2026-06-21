@@ -6,8 +6,39 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { Loader2, Eye, Download, Receipt } from 'lucide-react';
+import { Loader2, Eye, Download, Receipt, ExternalLink } from 'lucide-react';
 import { Invoice } from '../../types/invoices';
+import { api } from '../../lib/api';
+import { toast } from 'sonner';
+
+const parseQrData = (qrData: string | null) => {
+  if (!qrData) return { qrUrl: '', kraSign: '' };
+  if (qrData.includes('|')) {
+    const parts = qrData.split('|');
+    return { kraSign: parts[0], qrUrl: parts[1] };
+  }
+  return { qrUrl: qrData, kraSign: '' };
+};
+
+const handleDownload = async (pdfUrl: string | null, invoiceNumber: string | number) => {
+  if (!pdfUrl) return;
+  try {
+    const response = await api.get(pdfUrl, {
+      responseType: 'blob',
+    });
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `invoice_${invoiceNumber}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    toast.error("Failed to download invoice PDF.");
+  }
+};
 
 export default function InvoicesPage() {
   const { data: invoices, isLoading } = useAdminInvoices();
@@ -86,34 +117,61 @@ export default function InvoicesPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Receipt className="h-5 w-5" />
-              Invoice {selectedInvoice?.invoice_number}
+              Invoice {selectedInvoice?.invoice_number ? `INV-${selectedInvoice.invoice_number}` : ''}
             </DialogTitle>
             <DialogDescription>
               Amount: <strong className="text-foreground">{selectedInvoice && formatKES(selectedInvoice.amount_kes)}</strong>
             </DialogDescription>
           </DialogHeader>
           
-          {selectedInvoice && (
-            <div className="space-y-6 py-4 flex flex-col items-center justify-center">
-              <div className="space-y-2 text-center">
-                <p className="text-sm font-medium">KRA eTIMS QR Code</p>
-                <div className="border p-2 rounded-lg bg-white inline-block">
-                  <img 
-                    src={selectedInvoice.kra_etims_qr_code || undefined} 
-                    alt="KRA eTIMS QR Code" 
-                    className="w-48 h-48 object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOWNhM2FmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+Tm8gUVIgQ29kZTwvdGV4dD48L3N2Zz4=';
-                    }}
-                  />
+          {selectedInvoice && (() => {
+            const { qrUrl, kraSign } = parseQrData(selectedInvoice.kra_etims_qr_code);
+            return (
+              <div className="space-y-6 py-4 flex flex-col items-center justify-center">
+                <div className="space-y-2 text-center w-full flex flex-col items-center">
+                  <p className="text-sm font-medium">KRA eTIMS Verification</p>
+                  
+                  {qrUrl ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="border p-2 rounded-lg bg-white inline-block shadow-sm">
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`}
+                          alt="KRA eTIMS QR Code" 
+                          className="w-44 h-44 object-contain"
+                        />
+                      </div>
+                      {kraSign && (
+                        <p className="text-[10px] font-mono text-muted-foreground max-w-[280px] break-all border bg-muted/30 p-2 rounded text-center">
+                          <strong>Signature:</strong><br />
+                          {kraSign}
+                        </p>
+                      )}
+                      <a 
+                        href={qrUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline font-semibold flex items-center gap-1.5"
+                      >
+                        Verify on KRA Portal <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="border p-4 rounded-lg bg-muted/30 text-muted-foreground text-xs max-w-[280px]">
+                      KRA eTIMS Sync Pending or Offline.
+                    </div>
+                  )}
                 </div>
+                
+                <Button 
+                  className="w-full h-10 text-xs font-semibold"
+                  disabled={!selectedInvoice.pdf_url}
+                  onClick={() => handleDownload(selectedInvoice.pdf_url, selectedInvoice.invoice_number)}
+                >
+                  <Download className="mr-2 h-4 w-4" /> Download PDF Receipt
+                </Button>
               </div>
-              
-              <Button render={<a href={selectedInvoice.pdf_url || undefined} target="_blank" rel="noopener noreferrer" download />} className="w-full">
-                <Download className="mr-2 h-4 w-4" /> Download PDF
-              </Button>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

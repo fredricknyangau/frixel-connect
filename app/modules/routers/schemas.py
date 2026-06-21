@@ -9,7 +9,7 @@ SECURITY NOTE:
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -183,4 +183,23 @@ class RouterStatusResponse(BaseModel):
     Status transitions: pending_setup → online (via /setup/{token}/confirm)
     """
     router_id: UUID
-    status: str   # 'pending_setup' | 'online' | 'offline' | 'failed' | ...
+    status: str
+    
+class RouterProvisionRequest(BaseModel):
+    """
+    Request body for POST /admin/routers/onboarding/provision/{router_id}.
+    Contains the user's choices for network service configuration.
+    """
+    service_type: Literal["hotspot", "pppoe"] = Field(
+        ...,
+        description="Type of service to configure on the router."
+    )
+    interface: str = Field(
+        ...,
+        min_length=1,
+        description="The MikroTik interface name (e.g. 'ether3', 'bridge1')."
+    )
+    ip_range: str = Field(
+        ...,
+        description="CIDR notation of the IP range (e.g. '10.0.0.1/24')."
+    )

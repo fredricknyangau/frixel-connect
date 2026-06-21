@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     #                         Default: 192.168.56.0 (VirtualBox host-only default).
     CHR_HOST_IP: str = "192.168.56.1"
     CHR_BACKEND_PORT: int = 8000
+    CHR_FRONTEND_URL: str = "http://192.168.56.1"
     CHR_HOST_ONLY_NETWORK: str = "192.168.56.0"
 
     # KRA eTIMS

@@ -32,13 +32,14 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    email: EmailStr
+    email: str
     phone: str
     role: str
     reseller_id: Optional[UUID] = None
     tenant_id: UUID
     is_active: bool
     created_at: datetime
+
 
 
 class UserUpdate(BaseModel):

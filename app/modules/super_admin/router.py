@@ -387,3 +387,20 @@ async def create_account(
             full_name=data.full_name,
             password=data.password,
         )
+
+
+@router.get(
+    "/super-admin/accounts",
+    response_model=list[SuperAdminProfile],
+    status_code=status.HTTP_200_OK,
+    summary="List all super admin accounts",
+    description="Returns all super admin accounts. Only callable by an authenticated super admin.",
+)
+async def list_super_admins(
+    current_sa: dict = Depends(get_current_super_admin),
+) -> list[dict]:
+    async with get_db() as conn:
+        return await service.get_all_super_admins(
+            conn,
+            super_admin_id=UUID(current_sa["super_admin_id"]),
+        )

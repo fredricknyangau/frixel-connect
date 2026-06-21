@@ -164,17 +164,22 @@ async def _log_impersonation_call(
     (only during active impersonation sessions).
     """
     from app.database import get_db
+    from app.core.ip_context import client_ip_var
+
+    ip_addr = client_ip_var.get()
+
     try:
         async with get_db() as conn:
             await conn.execute(
                 """
                 INSERT INTO super_admin_audit_log
-                    (super_admin_id, action, target_type, target_id, metadata)
-                VALUES ($1, 'impersonation.api_call', 'tenant', $2, $3)
+                    (super_admin_id, action, target_type, target_id, metadata, ip_address)
+                VALUES ($1, 'impersonation.api_call', 'tenant', $2, $3, $4)
                 """,
                 super_admin_id,
                 tenant_id,
                 json.dumps({"tenant_id": str(tenant_id)}),
+                ip_addr,
             )
     except Exception:
         # Swallow the exception — audit logging failure must never block the request.

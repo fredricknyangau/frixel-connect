@@ -24,7 +24,7 @@ export const ROUTEROS_COMMANDS = {
     },
     get_public_key: `/interface wireguard print
 # Look for the 'public-key' column under the 'wg-zealsync' interface`,
-    create_api_user: (password: string) => `/user group add name=zealsync-api-group policy=api,read,write,test
+    create_api_user: (password: string) => `/user group add name=zealsync-api-group policy=api,read,write,test,rest-api
 /user add name=zealsync-api \\
   password=${password} \\
   group=zealsync-api-group`,
@@ -70,7 +70,7 @@ export const WINBOX_PATHS = {
 3. Copy the value in the "Public Key" field`,
     api_user: `1. Go to "System" -> "Users"
 2. Click "Groups" tab, click "+" (Add New)
-3. Name: zealsync-api-group, check: api, read, write, test. Click OK
+3. Name: zealsync-api-group, check: api, read, write, test, rest-api. Click OK
 4. Click "Users" tab, click "+" (Add New)
 5. Name: zealsync-api, Group: zealsync-api-group, Password: [YOUR_PASSWORD]. Click OK`,
     enable_rest_api: `1. Go to "IP" -> "Services"
