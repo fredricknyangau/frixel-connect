@@ -26,11 +26,14 @@ async def get_my_wallet(
     current_user: dict = Depends(require_role("reseller")),
 ):
     reseller_id = UUID(current_user["user_id"])
+    tenant_id = UUID(current_user["tenant_id"])
     async with get_db() as conn:
         balance = await get_wallet_balance(conn, reseller_id)
         transactions = await get_wallet_transactions(conn, reseller_id, limit=20)
         wallet_ref = await conn.fetchval(
-            "SELECT wallet_reference FROM users WHERE id = $1", reseller_id
+            "SELECT wallet_reference FROM users WHERE id = $1 AND tenant_id = $2",
+            reseller_id,
+            tenant_id,
         )
     return {
         "balance": balance,

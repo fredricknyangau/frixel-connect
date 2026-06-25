@@ -173,10 +173,11 @@ async def retry_provision_payment(
                 detail="Only confirmed payments can be provisioned.",
             )
 
-        # Check if voucher already exists
+        # Check if voucher already exists (tenant-scoped)
         voucher_exists = await conn.fetchval(
-            "SELECT COUNT(*) FROM vouchers WHERE payment_id = $1",
+            "SELECT COUNT(*) FROM vouchers WHERE payment_id = $1 AND tenant_id = $2",
             payment_uuid,
+            tenant_id,
         )
         if voucher_exists > 0:
             raise HTTPException(
