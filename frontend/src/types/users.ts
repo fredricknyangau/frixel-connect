@@ -7,6 +7,7 @@ export interface User {
   phone: string;
   role: UserRole;
   reseller_id: string | null;
+  router_id?: string | null;
   is_active: boolean;
   created_at: string;
 }

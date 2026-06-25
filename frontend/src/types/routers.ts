@@ -1,3 +1,5 @@
+import type { ServiceType } from './onboarding';
+
 export type RouterStatus = 'online' | 'offline' | 'unknown' | 'pending_setup' | 'testing';
 
 export interface MikrotikRouter {
@@ -13,6 +15,8 @@ export interface MikrotikRouter {
   wireguard_public_key: string | null;
   wireguard_assigned_ip: string | null;
   wireguard_peer_public_key: string | null;
+  /** TODO: Backend should return provisioned service type (hotspot vs pppoe). */
+  service_type?: ServiceType;
 }
 
 export interface RouterCreateRequest {
