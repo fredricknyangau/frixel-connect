@@ -2,8 +2,8 @@
 -- Migration: 018_create_super_admins.sql
 -- Creates:   super_admins, super_admin_pre_auth_tokens, super_admin_audit_log
 --
--- DESIGN RATIONALE — WHY A SEPARATE TABLE (NOT A ROLE IN users):
---   1. users.tenant_id is NOT NULL in practice — super admin belongs to no tenant.
+-- DESIGN RATIONALE-WHY A SEPARATE TABLE (NOT A ROLE IN users):
+--   1. users.tenant_id is NOT NULL in practice-super admin belongs to no tenant.
 --      Adding NULL carve-outs everywhere would be error-prone and leak surface area.
 --   2. Every service function scopes queries by tenant_id; mixing super admin into
 --      that table would require guarding every query against the super_admin case.
@@ -15,7 +15,7 @@
 --   totp_secret is stored Fernet-encrypted (same key as router credentials).
 --   Even if the DB is compromised, the attacker still needs the FERNET_SECRET_KEY
 --   to derive the TOTP secrets and bypass MFA.
---   totp_secret = NULL means TOTP setup is incomplete — account cannot fully log in.
+--   totp_secret = NULL means TOTP setup is incomplete-account cannot fully log in.
 --   totp_verified_at = NULL after totp_secret is set means the QR was generated
 --   but the user has not yet scanned and verified a valid code.
 --
@@ -71,7 +71,7 @@ CREATE INDEX IF NOT EXISTS idx_super_admins_email
 --
 -- WHY HASH THE TOKEN?
 --   If the tokens table is leaked (e.g. SQL injection dump), the attacker gets
---   only SHA256 hashes — they cannot reverse a pre-auth token without already
+--   only SHA256 hashes-they cannot reverse a pre-auth token without already
 --   knowing the raw value. The raw token lives only in the HTTP response body
 --   (in flight over TLS) and the client's memory.
 
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS super_admin_pre_auth_tokens (
     -- Timestamp = consumed; any further use is rejected.
     used_at        TIMESTAMPTZ,
 
-    -- Stored for audit purposes — which IP address requested this pre-auth token?
+    -- Stored for audit purposes-which IP address requested this pre-auth token?
     ip_address     INET,
 
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS super_admin_pre_auth_tokens (
 -- ── 3. Super Admin Audit Log ──────────────────────────────────────────────────
 -- SEPARATE from the tenant-scoped audit_log table.
 -- Reasons:
---   a) tenant audit_log has a tenant_id FK — super admin has no tenant_id.
+--   a) tenant audit_log has a tenant_id FK-super admin has no tenant_id.
 --   b) tenant audit_log data belongs to ISP tenants; mixing in super admin
 --      actions would make it impossible to isolate tenant audit exports.
 --   c) Different retention requirements: super admin actions are ZealSync's
@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS super_admin_audit_log (
     -- Client IP for security forensics.
     ip_address     INET,
 
-    -- Immutable timestamp. No updated_at — audit rows are never modified.
+    -- Immutable timestamp. No updated_at-audit rows are never modified.
     created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 

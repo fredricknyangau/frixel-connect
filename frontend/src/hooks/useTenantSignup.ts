@@ -33,7 +33,7 @@ interface TenantRegisterResponse {
 
 /**
  * Tenant signup mutation. service_type and owner_name are collected in the form
- * but NOT sent to POST /tenants/register — the backend schema does not include
+ * but NOT sent to POST /tenants/register-the backend schema does not include
  * them yet. service_type is stored in localStorage for the onboarding wizard;
  * owner_name is reserved for future profile enrichment.
  */

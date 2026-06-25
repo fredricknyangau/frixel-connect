@@ -11,7 +11,8 @@ export default function PublicLayout() {
   return (
     <div className="flex min-h-screen flex-col font-sans selection:bg-primary/20 bg-background">
       {/* Premium Navigation */}
-      <nav className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
+      {!isLandingPage && (
+        <nav className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
           <Link to="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
@@ -75,12 +76,14 @@ export default function PublicLayout() {
           </div>
         )}
       </nav>
+      )}
 
       <main className="flex-1">
         <Outlet />
       </main>
 
       {/* Premium Footer */}
+      {!isLandingPage && (
       <footer className="bg-background py-12 border-t">
         <div className="container mx-auto px-4 md:px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
@@ -130,6 +133,7 @@ export default function PublicLayout() {
           </div>
         </div>
       </footer>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Re-exports onboarding helpers — canonical implementations live in
+ * Re-exports onboarding helpers-canonical implementations live in
  * types/onboarding.ts and hooks/useOnboarding.ts.
  */
 export type {
@@ -34,7 +34,7 @@ import type { OnboardingState } from '../types/onboarding';
 /** @deprecated Use getOnboardingState */
 export const readOnboardingState = getOnboardingState;
 
-/** @deprecated Use saveOnboardingState — accepts full state object */
+/** @deprecated Use saveOnboardingState-accepts full state object */
 export function writeOnboardingState(state: OnboardingState): void {
   saveOnboardingState(state);
 }

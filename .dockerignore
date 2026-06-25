@@ -1,2 +1,47 @@
-frontend/
-.git/
+# Version control
+.git
+.gitignore
+
+# Python artifacts
+__pycache__
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info
+dist/
+build/
+.eggs/
+
+# Virtual environments (we build one inside Docker)
+.venv
+venv/
+env/
+
+# Secrets-never bake these into the image
+.env
+.env.*
+*.pem
+*.key
+
+# Dev/test noise
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov/
+.coverage
+*.log
+
+# Frontend build artifacts (served by nginx, not the API image)
+frontend/node_modules
+frontend/dist
+
+# Docker files (not needed inside the image)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Editor configs
+.vscode
+.idea
+*.swp

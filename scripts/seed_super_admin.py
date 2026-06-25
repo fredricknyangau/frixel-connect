@@ -13,7 +13,7 @@ USAGE:
 
 IDEMPOTENCY:
     If a super admin with the given email already exists, the script prints
-    a message and exits cleanly — no error, no duplicate row.
+    a message and exits cleanly-no error, no duplicate row.
 
 WHAT HAPPENS AFTER RUNNING:
     The account is created with totp_secret=NULL, totp_verified_at=NULL.
@@ -48,7 +48,7 @@ from app.core.security import hash_password
 async def seed_super_admin() -> None:
     print()
     print("=" * 60)
-    print("  ZealSync — Super Admin Account Seeder")
+    print("  ZealSync-Super Admin Account Seeder")
     print("=" * 60)
     print()
     print("  This creates the first super admin (ZealSync operator) account.")
@@ -66,7 +66,7 @@ async def seed_super_admin() -> None:
         print("  ✗ Full name cannot be empty. Aborting.")
         sys.exit(1)
 
-    # getpass hides the password from terminal echo — essential for a seed script.
+    # getpass hides the password from terminal echo-essential for a seed script.
     password = getpass.getpass("  Password:      ")
     if len(password) < 12:
         print("  ✗ Password must be at least 12 characters. Aborting.")
@@ -104,7 +104,7 @@ async def seed_super_admin() -> None:
             print()
             return
 
-        # ── Hash password (slow — bcrypt with cost factor 12) ─────────────────
+        # ── Hash password (slow-bcrypt with cost factor 12) ─────────────────
         print("  Hashing password (this takes ~2 seconds)...")
         hashed = hash_password(password)
 

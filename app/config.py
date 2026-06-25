@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     DEBUG: bool = True
     ALLOWED_ORIGINS: list[str] = ["*"]
+    TRUSTED_PROXIES: Optional[str] = None
 
     # Database
     DATABASE_URL: str
@@ -51,11 +52,11 @@ class Settings(BaseSettings):
     WIREGUARD_ENDPOINT: str = "102.219.208.5:51820"
     MOCK_WIREGUARD: bool = True
 
-    # Magic Command — Production API base URL (used to build confirm_url in .rsc scripts)
+    # Magic Command-Production API base URL (used to build confirm_url in .rsc scripts)
     # Change this to your actual domain when deploying to production.
     API_BASE_URL: str = "https://api.zealsync.dev"
 
-    # Magic Command — CHR (VirtualBox) testing configuration
+    # Magic Command-CHR (VirtualBox) testing configuration
     # These settings are only used when is_chr=True is passed to /init-magic.
     # They define how the MikroTik CHR (running in VirtualBox) reaches the
     # Ubuntu host where the ZealSync backend is running.

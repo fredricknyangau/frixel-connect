@@ -1,5 +1,5 @@
 /**
- * Post-signup onboarding shell — guides new tenants through package creation,
+ * Post-signup onboarding shell-guides new tenants through package creation,
  * router magic-command setup, and go-live confirmation before the admin dashboard.
  *
  * State persists in localStorage (zealsync_onboarding_state) so a browser refresh
@@ -115,8 +115,8 @@ export default function OnboardingPage() {
 
   const packageSubtitle =
     state.service_type === 'hotspot'
-      ? 'Define what your customers buy — daily, weekly, or custom sessions with speed tiers.'
-      : 'Define your monthly subscription plans — set the speed and price your customers pay each month.';
+      ? 'Define what your customers buy-daily, weekly, or custom sessions with speed tiers.'
+      : 'Define your monthly subscription plans-set the speed and price your customers pay each month.';
 
   const routerSubtitle =
     'Your router configures itself with one command. Takes about 60 seconds.';
@@ -129,7 +129,7 @@ export default function OnboardingPage() {
     <div className="flex min-h-screen flex-col bg-background dark">
       <PageTitle title="Setup Your ISP | ZealSync" />
 
-      {/* Top bar — no sidebar during first-run onboarding */}
+      {/* Top bar-no sidebar during first-run onboarding */}
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/60 bg-background/95 px-4 backdrop-blur-sm md:px-6">
         <Link to="/" className="flex items-center gap-2">
           <Wifi className="h-5 w-5 text-primary" />
@@ -190,7 +190,7 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        {/* Step 1 — Create first package */}
+        {/* Step 1-Create first package */}
         {state.step === 'packages' && (
           <Card className="border-t-4 border-t-primary">
             <CardHeader>
@@ -217,7 +217,7 @@ export default function OnboardingPage() {
           </Card>
         )}
 
-        {/* Step 2 — Connect router (embedded magic command wizard) */}
+        {/* Step 2-Connect router (embedded magic command wizard) */}
         {state.step === 'router' && (
           <div className="space-y-6">
             <div>
@@ -237,7 +237,7 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 3 — Go live confirmation */}
+        {/* Step 3-Go live confirmation */}
         {state.step === 'complete' && (
           <Card className="border-t-4 border-t-primary">
             <CardContent className="space-y-6 p-6 sm:p-8">

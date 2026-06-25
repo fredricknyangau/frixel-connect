@@ -4,9 +4,16 @@
 
 BEGIN;
 
-ALTER TABLE packages RENAME COLUMN duration_days TO duration_minutes;
-
--- Convert existing days to minutes (e.g., 1 day = 1440 minutes, 30 days = 43200 minutes)
-UPDATE packages SET duration_minutes = duration_minutes * 1440;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name='packages' AND column_name='duration_days'
+    ) THEN
+        ALTER TABLE packages RENAME COLUMN duration_days TO duration_minutes;
+        UPDATE packages SET duration_minutes = duration_minutes * 1440;
+    END IF;
+END $$;
 
 COMMIT;

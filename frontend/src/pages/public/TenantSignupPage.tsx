@@ -15,7 +15,7 @@ import { cn } from '../../lib/utils';
 import type { ServiceType } from '../../lib/onboarding';
 import { AxiosError } from 'axios';
 
-// Pricing mirrors landing page tiers — shown live below the tier dropdown.
+// Pricing mirrors landing page tiers-shown live below the tier dropdown.
 const tierDetails = {
   starter: { price: 'KES 1,500/mo', customers: 'Up to 100 customers', routers: '1 router' },
   growth: { price: 'KES 2,500/mo', customers: 'Up to 300 customers', routers: '3 routers' },
@@ -140,7 +140,7 @@ export default function TenantSignupPage() {
 
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            {/* Service type toggle — pre-selected from ?service= landing page CTA */}
+            {/* Service type toggle-pre-selected from ?service= landing page CTA */}
             <div className="space-y-2">
               <Label>What type of ISP are you?</Label>
               <div className="grid grid-cols-2 gap-3">

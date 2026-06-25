@@ -1,6 +1,6 @@
 # CHR Magic Command Testing Guide
 
-**ZealSync Magic Command Router Onboarding — MikroTik CHR on VirtualBox**
+**ZealSync Magic Command Router Onboarding-MikroTik CHR on VirtualBox**
 
 This document walks through the complete end-to-end test of the Magic Command
 onboarding flow using MikroTik CHR (Cloud Hosted Router) running in VirtualBox.
@@ -13,7 +13,7 @@ onboarding flow using MikroTik CHR (Cloud Hosted Router) running in VirtualBox.
 
 ## 1. Prerequisites Checklist
 
-Complete ALL of these before proceeding. Skip none — each prerequisite
+Complete ALL of these before proceeding. Skip none-each prerequisite
 is a dependency of the next.
 
 ### 1.1 VirtualBox and CHR VM
@@ -28,9 +28,9 @@ vboxmanage startvm "MikroTik CHR" --type headless
 ```
 
 Verify the CHR has the correct network interfaces configured:
-- **Adapter 1 (ether1):** NAT (IP: 10.0.2.15) — gives CHR internet access for downloads
-- **Adapter 2 (ether2):** Host-Only (vboxnet0, IP: 192.168.56.100) — gives Ubuntu host access at 192.168.56.1
-- **Adapter 3 (ether3):** Bridged (br-hotspot, IP: 10.10.10.1) — Hotspot LAN interface
+- **Adapter 1 (ether1):** NAT (IP: 10.0.2.15)-gives CHR internet access for downloads
+- **Adapter 2 (ether2):** Host-Only (vboxnet0, IP: 192.168.56.100)-gives Ubuntu host access at 192.168.56.1
+- **Adapter 3 (ether3):** Bridged (br-hotspot, IP: 10.10.10.1)-Hotspot LAN interface
 
 ⚠️ **CHR:** If you are missing the host-only adapter, add it in VirtualBox
 Settings → Network → Adapter 2 → Host-Only Adapter → vboxnet0.
@@ -121,7 +121,7 @@ Click **"Connect Router"** in the top-right.
 | CHR Mode Toggle | **ON** (enable the switch) |
 
 When CHR mode is ON, you'll see the amber banner:
-> ⚠ CHR mode active — commands use your local IP (192.168.56.1). WireGuard is skipped...
+> ⚠ CHR mode active-commands use your local IP (192.168.56.1). WireGuard is skipped...
 
 ### 2.3 Generate the Command
 

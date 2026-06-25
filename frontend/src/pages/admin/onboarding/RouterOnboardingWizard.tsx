@@ -153,7 +153,7 @@ export default function RouterOnboardingWizard({
       const now = new Date();
 
       if (expiresAt > now) {
-        // Token still valid — check actual router status
+        // Token still valid-check actual router status
         api.get(`/admin/routers/onboarding/status/${activeId}`)
           .then((response) => {
             const { status } = response.data;
@@ -171,7 +171,7 @@ export default function RouterOnboardingWizard({
               setSiteName(localSite || '');
               setStep('command');
             } else if (status === 'online') {
-              // Already completed — go straight to success
+              // Already completed-go straight to success
               setInitData({
                 router_id: activeId,
                 setup_token: localToken,
@@ -188,14 +188,14 @@ export default function RouterOnboardingWizard({
             // If status is neither, fall through to details step
           })
           .catch(() => {
-            // Router not found or other error — start fresh
+            // Router not found or other error-start fresh
             clearLocalStorage();
           })
           .finally(() => {
             setIsLoadingResume(false);
           });
       } else {
-        // Token expired — show fresh form
+        // Token expired-show fresh form
         clearLocalStorage();
         setIsLoadingResume(false);
       }
@@ -413,7 +413,7 @@ export default function RouterOnboardingWizard({
                     )}
                   </div>
 
-                  {/* CHR mode toggle — native checkbox styled as a toggle */}
+                  {/* CHR mode toggle-native checkbox styled as a toggle */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3">
                       <div>
@@ -454,7 +454,7 @@ export default function RouterOnboardingWizard({
                       <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3.5 py-3 text-sm">
                         <span className="text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0">⚠</span>
                         <div className="text-amber-800 dark:text-amber-300">
-                          <span className="font-semibold">CHR mode active — </span>
+                          <span className="font-semibold">CHR mode active-</span>
                           commands use your local IP (192.168.56.1). WireGuard
                           is skipped since CHR and the backend share the same machine.{' '}
                           <span className="font-medium">Disable this for a physical MikroTik.</span>
@@ -622,7 +622,7 @@ export default function RouterOnboardingWizard({
                 <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3 text-xs text-amber-800 dark:text-amber-300">
                   <span className="text-amber-600 dark:text-amber-400 flex-shrink-0">⚠</span>
                   <span>
-                    <span className="font-semibold">CHR mode — </span>
+                    <span className="font-semibold">CHR mode-</span>
                     command uses <code className="font-mono bg-amber-100 dark:bg-amber-900/50 px-1 rounded">192.168.56.1</code>.
                     Make sure CHR can reach your Ubuntu host.
                   </span>

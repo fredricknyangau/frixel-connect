@@ -9,7 +9,7 @@
 --
 --   The setup_tokens table stores this one-time bootstrap state:
 --     - The token is the authentication mechanism for the public /setup/{token}
---       and /setup/{token}/confirm endpoints (no JWT needed — the token IS auth).
+--       and /setup/{token}/confirm endpoints (no JWT needed-the token IS auth).
 --     - router_wg_private_key is stored temporarily so the script can be
 --       re-fetched if the download is interrupted. It is NULLed out the moment
 --       the router calls /confirm, implementing zero-knowledge-after-setup.
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS setup_tokens (
     --
     -- The key is NOT Fernet-encrypted here because:
     --   1. It is already short-lived (24h expiry, single-use).
-    --   2. The token itself provides access control — only the bearer of the
+    --   2. The token itself provides access control-only the bearer of the
     --      URL-safe 43-character token can retrieve it.
     --   3. Adding Fernet encryption would require decrypting it on every
     --      script download request, adding latency with no security benefit
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS setup_tokens (
 );
 
 -- Partial index: only index tokens that have NOT been used yet.
--- This is the hot path — every /setup/{token} request hits this index.
+-- This is the hot path-every /setup/{token} request hits this index.
 -- Once a token is used (used_at IS NOT NULL), it falls out of the index
 -- and the query naturally returns 0 rows (filtered by AND used_at IS NULL).
 -- This keeps the index small (active tokens only) and the lookup fast.
@@ -78,7 +78,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_setup_tokens_active
     ON setup_tokens(token)
     WHERE used_at IS NULL;
 
--- Standard index for the router_id FK — needed for efficient CASCADE deletes
+-- Standard index for the router_id FK-needed for efficient CASCADE deletes
 -- and for looking up "does this router have a pending setup token?"
 CREATE INDEX IF NOT EXISTS idx_setup_tokens_router_id
     ON setup_tokens(router_id);

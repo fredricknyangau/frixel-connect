@@ -67,7 +67,7 @@ export const superAdminApi = axios.create({
 
 /**
  * Attaches the super admin Bearer token to every outgoing request.
- * The pre-auth token (Step 1 of login) is NOT stored here — it lives
+ * The pre-auth token (Step 1 of login) is NOT stored here-it lives
  * in memory inside SuperAdminAuthContext and is passed explicitly
  * to the TOTP verify endpoint.
  */
@@ -87,7 +87,7 @@ superAdminApi.interceptors.request.use(
 /**
  * On 401 Unauthorized:
  *   1. Clear the super admin token from localStorage.
- *   2. Redirect to /super-admin/login (NOT /login — that's the tenant portal).
+ *   2. Redirect to /super-admin/login (NOT /login-that's the tenant portal).
  *
  * There is no token refresh for super admin sessions by design:
  * the access token lifetime is 15 minutes. When it expires the super admin

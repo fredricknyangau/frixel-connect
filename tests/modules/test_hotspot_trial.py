@@ -68,7 +68,7 @@ async def test_hotspot_free_trial_flow(client: TestClient, conn: asyncpg.Connect
     assert "Mikrotik-Rate-Limit" in attributes
     assert attributes["Mikrotik-Rate-Limit"] == "2M"
     assert "Session-Timeout" in attributes
-    assert attributes["Session-Timeout"] == "600"
+    assert attributes["Session-Timeout"] == "300"
 
     # 5. Try requesting a trial again with the same phone (should raise 409 Conflict)
     response_again = client.post(

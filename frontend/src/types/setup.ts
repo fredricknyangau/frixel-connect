@@ -4,7 +4,7 @@
  * TypeScript types for the Magic Command router onboarding flow.
  *
  * These types correspond to the backend schemas defined in:
- *   app/modules/routers/schemas.py — MagicInitRequest, MagicInitResponse, RouterStatusResponse
+ *   app/modules/routers/schemas.py-MagicInitRequest, MagicInitResponse, RouterStatusResponse
  */
 
 /**
@@ -18,7 +18,7 @@ export interface MagicInitResponse {
   /**
    * The raw setup token (43 characters, URL-safe base64).
    * Stored in state so we can build the resume URL if needed.
-   * Never display the full token in the UI — it's a credential.
+   * Never display the full token in the UI-it's a credential.
    */
   setup_token: string;
 
@@ -31,7 +31,7 @@ export interface MagicInitResponse {
    */
   magic_command: string;
 
-  /** ISO 8601 timestamp — 24 hours from when init-magic was called */
+  /** ISO 8601 timestamp-24 hours from when init-magic was called */
   expires_at: string;
 
   /**

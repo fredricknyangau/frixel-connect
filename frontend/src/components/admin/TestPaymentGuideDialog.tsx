@@ -11,7 +11,7 @@ interface TestPaymentGuideDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/** Inline Daraja sandbox guide — avoids a separate /docs route for first-run tenants. */
+/** Inline Daraja sandbox guide-avoids a separate /docs route for first-run tenants. */
 export function TestPaymentGuideDialog({ open, onOpenChange }: TestPaymentGuideDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -32,7 +32,7 @@ export function TestPaymentGuideDialog({ open, onOpenChange }: TestPaymentGuideD
             number (e.g. 254708374149).
           </li>
           <li>
-            Complete the STK prompt on the test handset — amount should match one of your packages.
+            Complete the STK prompt on the test handset-amount should match one of your packages.
           </li>
           <li>
             Return to <strong className="text-foreground">Payments</strong>; the record should appear

@@ -68,10 +68,10 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground dark">
       <Helmet>
-        <title>ZealSync — WiFi & Fiber Billing Software for Kenyan ISPs | M-Pesa + MikroTik</title>
+        <title>ZealSync-WiFi & Fiber Billing Software for Kenyan ISPs | M-Pesa + MikroTik</title>
         <meta name="description" content="Automate your Kenyan ISP billing. M-Pesa STK Push + MikroTik hotspot vouchers + PPPoE fiber billing. One platform for hotspot and fiber ISPs. Free 30-day pilot." />
         <link rel="canonical" href="https://zealsync.dev/" />
-        <meta property="og:title" content="ZealSync — WiFi Billing for Kenyan ISPs" />
+        <meta property="og:title" content="ZealSync-WiFi Billing for Kenyan ISPs" />
         <meta property="og:description" content="Automate your Kenyan ISP billing. M-Pesa STK Push + MikroTik hotspot vouchers + PPPoE fiber billing. One platform for hotspot and fiber ISPs. Free 30-day pilot." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://zealsync.dev" />
@@ -176,7 +176,7 @@ export default function LandingPage() {
           </h1>
           
           <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-            From M-Pesa payment to internet access in under 60 seconds. Automate your hotspot vouchers and fiber subscriptions — no manual Winbox, no Excel sheets, no midnight calls.
+            From M-Pesa payment to internet access in under 60 seconds. Automate your hotspot vouchers and fiber subscriptions-no manual Winbox, no Excel sheets, no midnight calls.
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
@@ -287,13 +287,13 @@ export default function LandingPage() {
                 <span className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Hotspot</span>
               </div>
               <h4 className="text-2xl font-bold mb-4">Public WiFi & Captive Portal</h4>
-              <p className="text-muted-foreground mb-8">For ISPs selling session-based WiFi access in estates, malls, matatus, cyber cafés, hotels, and student hostels. Customers pay per session — daily, weekly, or custom.</p>
+              <p className="text-muted-foreground mb-8">For ISPs selling session-based WiFi access in estates, malls, matatus, cyber cafés, hotels, and student hostels. Customers pay per session-daily, weekly, or custom.</p>
               
               <div className="mb-8">
                 <h5 className="font-semibold mb-4 text-foreground/90">How it works</h5>
                 <ol className="space-y-4 text-sm text-muted-foreground">
                   <li className="flex gap-3"><span className="font-bold text-primary">1.</span> Customer joins your WiFi and opens any website</li>
-                  <li className="flex gap-3"><span className="font-bold text-primary">2.</span> They see your ZealSync captive portal — select a plan and pay via M-Pesa STK Push</li>
+                  <li className="flex gap-3"><span className="font-bold text-primary">2.</span> They see your ZealSync captive portal-select a plan and pay via M-Pesa STK Push</li>
                   <li className="flex gap-3"><span className="font-bold text-primary">3.</span> Voucher activates instantly. Internet access starts.</li>
                 </ol>
               </div>
@@ -301,10 +301,10 @@ export default function LandingPage() {
               <div className="mb-10">
                 <h5 className="font-semibold mb-4 text-foreground/90">Key features</h5>
                 <ul className="space-y-3 text-sm text-muted-foreground">
-                  <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-primary" /> M-Pesa STK Push — no manual payment collection</li>
+                  <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-primary" /> M-Pesa STK Push-no manual payment collection</li>
                   <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-primary" /> MikroTik hotspot user created automatically</li>
                   <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-primary" /> Voucher code sent via SMS (Africa's Talking)</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-primary" /> Reseller wallet — agents sell autonomously</li>
+                  <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-primary" /> Reseller wallet-agents sell autonomously</li>
                   <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-primary" /> Speed tiers: 10 / 20 / 50 Mbps profiles</li>
                 </ul>
               </div>
@@ -331,7 +331,7 @@ export default function LandingPage() {
                 <ol className="space-y-4 text-sm text-muted-foreground">
                   <li className="flex gap-3"><span className="font-bold text-[#6366f1]">1.</span> Customer subscribes to a monthly package</li>
                   <li className="flex gap-3"><span className="font-bold text-[#6366f1]">2.</span> Auto-renewal reminder sent 3 days before expiry via SMS</li>
-                  <li className="flex gap-3"><span className="font-bold text-[#6366f1]">3.</span> Payment received via M-Pesa — PPPoE secret re-enabled instantly. Customer never loses service mid-month.</li>
+                  <li className="flex gap-3"><span className="font-bold text-[#6366f1]">3.</span> Payment received via M-Pesa-PPPoE secret re-enabled instantly. Customer never loses service mid-month.</li>
                 </ol>
               </div>
 
@@ -340,7 +340,7 @@ export default function LandingPage() {
                 <ul className="space-y-3 text-sm text-muted-foreground">
                   <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-[#6366f1]" /> Monthly recurring billing via M-Pesa</li>
                   <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-[#6366f1]" /> PPPoE secret management (enable/disable on MikroTik)</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-[#6366f1]" /> Grace period — customer gets 24h before suspension</li>
+                  <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-[#6366f1]" /> Grace period-customer gets 24h before suspension</li>
                   <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-[#6366f1]" /> SMS dunning: T-3 days, T-1 day, and suspension notice</li>
                   <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-[#6366f1]" /> Auto-renewal with configurable billing cycle</li>
                 </ul>
@@ -400,7 +400,7 @@ export default function LandingPage() {
           
           <div className="text-center">
             <p className="text-xs text-muted-foreground/60 max-w-2xl mx-auto italic">
-              The setup command configures WireGuard VPN, creates the API user, sets up speed profiles, and removes itself — all without storing credentials on the router.
+              The setup command configures WireGuard VPN, creates the API user, sets up speed profiles, and removes itself-all without storing credentials on the router.
             </p>
           </div>
         </div>
@@ -419,8 +419,8 @@ export default function LandingPage() {
               { icon: Shield, title: "Duplicate payment protection", desc: "M-Pesa receipt unique constraint at database level. Daraja retry storms never double-credit a customer." },
               { icon: Wifi, title: "MikroTik RouterOS integration", desc: "Full REST API integration for hotspot users and PPPoE secrets. Works with CHR, physical RouterBOARDs, and CCRs." },
               { icon: RefreshCw, title: "Offline router recovery", desc: "Payment queued when your router blinks offline. Voucher activates automatically when connectivity restores." },
-              { icon: Users, title: "Reseller self-service portal", desc: "Resellers top up a digital wallet via M-Pesa Paybill and generate vouchers 24/7 — no calls to you needed." },
-              { icon: BarChart3, title: "Real-time admin dashboard", desc: "Revenue today, active sessions, vouchers, and router health — visible on your phone from anywhere." },
+              { icon: Users, title: "Reseller self-service portal", desc: "Resellers top up a digital wallet via M-Pesa Paybill and generate vouchers 24/7-no calls to you needed." },
+              { icon: BarChart3, title: "Real-time admin dashboard", desc: "Revenue today, active sessions, vouchers, and router health-visible on your phone from anywhere." },
               { icon: MessageSquare, title: "SMS via Africa's Talking", desc: "Voucher codes, renewal reminders, and suspension notices delivered to your customers automatically." },
               { icon: Lock, title: "WireGuard VPN security", desc: "Your router's REST API is never exposed to the internet. All ZealSync traffic goes through an encrypted VPN tunnel." },
               { icon: Receipt, title: "KRA eTIMS compliant invoices", desc: "Every payment generates a tax-compliant invoice with a KRA QR code. Automatic compliance for registered businesses." }
@@ -535,7 +535,7 @@ export default function LandingPage() {
             <h2 className="text-sm font-bold tracking-widest text-primary uppercase mb-2">Pricing</h2>
             <h3 className="text-3xl md:text-4xl font-bold mb-4">Simple flat-rate pricing. No percentage cuts.</h3>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Unlike other systems that take 3-5% of your hotspot revenue, ZealSync charges a flat monthly fee — so the more you earn, the more you keep.
+              Unlike other systems that take 3-5% of your hotspot revenue, ZealSync charges a flat monthly fee-so the more you earn, the more you keep.
             </p>
           </div>
 

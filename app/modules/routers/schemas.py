@@ -172,7 +172,7 @@ class MagicInitResponse(BaseModel):
     router_id: UUID
     setup_token: str
     magic_command: str   # The complete one-liner to paste into MikroTik terminal
-    expires_at: str      # ISO 8601 timestamp — 24 hours from now
+    expires_at: str      # ISO 8601 timestamp-24 hours from now
     is_chr: bool
 
 

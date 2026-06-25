@@ -147,7 +147,7 @@ export default function SuperAdminLoginPage() {
           </Badge>
         </div>
 
-        {/* SCREEN 1 — 'password' / 'idle' */}
+        {/* SCREEN 1-'password' / 'idle' */}
         {(loginStep === 'idle' || loginStep === 'password') && (
           <div className="space-y-4">
             <div className="text-center">
@@ -231,7 +231,7 @@ export default function SuperAdminLoginPage() {
           </div>
         )}
 
-        {/* SCREEN 2 — 'totp_setup' */}
+        {/* SCREEN 2-'totp_setup' */}
         {loginStep === 'totp_setup' && (
           <div className="space-y-4 text-center">
             <div>
@@ -288,7 +288,7 @@ export default function SuperAdminLoginPage() {
           </div>
         )}
 
-        {/* SCREEN 3 — 'totp_verify' */}
+        {/* SCREEN 3-'totp_verify' */}
         {loginStep === 'totp_verify' && (
           <div className="space-y-5 text-center">
             <div>

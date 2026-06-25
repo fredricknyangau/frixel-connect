@@ -1,1 +1,1 @@
-# Super Admin module — intentionally empty __init__.py
+# Super Admin module-intentionally empty __init__.py

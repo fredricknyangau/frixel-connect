@@ -4,7 +4,7 @@ app/modules/setup/router.py
 Public endpoints for the Magic Command router auto-configuration system.
 
 AUTHENTICATION MODEL:
-  These endpoints are intentionally public — no JWT is required.
+  These endpoints are intentionally public-no JWT is required.
   Authentication is provided by the setup token itself, which is:
   - 43 characters of URL-safe base64 (256-bit entropy)
   - Single-use (used_at column is set on /confirm)
@@ -58,7 +58,7 @@ router = APIRouter()
 # 10 requests per token per hour is generous for legitimate use:
 # the script is downloaded once, /confirm is called once.
 # More than 10 requests on a single token indicates an attack or
-# severe misconfiguration — both should be blocked.
+# severe misconfiguration-both should be blocked.
 # NOTE: The existing RateLimiter keys by IP+path. For this endpoint we
 # want per-token rate limiting. We use the token as part of the path,
 # which the RateLimiter already incorporates via request.url.path.
@@ -95,7 +95,7 @@ async def download_setup_script(
     Reason: the router will attempt to `/import` whatever it downloads.
     A JSON error body ({"detail": "..."}) would be treated as invalid RouterOS
     syntax and produce confusing error messages in the MikroTik terminal.
-    Plain text starting with # is safe — RouterOS treats lines starting with
+    Plain text starting with # is safe-RouterOS treats lines starting with
     # as comments and skips them.
     """
 
@@ -183,7 +183,7 @@ async def download_setup_script(
         # When init-magic is called with is_chr=True, the router is inserted
         # without a wireguard_peer_public_key (no WG peer was pre-registered).
         # When is_chr=False, the peer key was set during init.
-        # NOTE: The is_chr flag is not stored separately — we reconstruct it
+        # NOTE: The is_chr flag is not stored separately-we reconstruct it
         # from the absence of the WG peer public key. For CHR, there is no real
         # WG peer to register. If this logic needs to change, add an is_chr
         # column to the routers table.
@@ -222,7 +222,7 @@ async def download_setup_script(
         )
 
         # ── Write audit log entry ──────────────────────────────────────────────
-        # NEVER log the full token — only the first 8 characters for correlation.
+        # NEVER log the full token-only the first 8 characters for correlation.
         # A partial token cannot be used to download the script, so logging it
         # is safe for debugging purposes (e.g., "which download caused the issue?")
         try:
@@ -261,19 +261,19 @@ async def download_setup_script(
         status_code=status.HTTP_200_OK,
     )
 
-    # Cache-Control: no-store — do not cache this response anywhere.
+    # Cache-Control: no-store-do not cache this response anywhere.
     # The script contains credentials (API password, WG private key).
     # A cached copy could be replayed after the token is consumed.
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
 
-    # Pragma: no-cache — legacy HTTP/1.0 cache directive for older proxies.
+    # Pragma: no-cache-legacy HTTP/1.0 cache directive for older proxies.
     response.headers["Pragma"] = "no-cache"
 
-    # Content-Disposition: attachment — tells browsers to download, not display.
+    # Content-Disposition: attachment-tells browsers to download, not display.
     # Not strictly necessary (routers don't use browsers), but belt-and-suspenders.
     response.headers["Content-Disposition"] = 'attachment; filename="zealsync-setup.rsc"'
 
-    # X-Content-Type-Options: nosniff — prevents MIME-type sniffing.
+    # X-Content-Type-Options: nosniff-prevents MIME-type sniffing.
     # Without this, some proxies might re-interpret the text/plain response
     # as something else (e.g., HTML) and corrupt the script content.
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -318,7 +318,7 @@ async def confirm_setup(
     seconds. When this endpoint sets status='online', the next poll returns 'online'
     and the wizard advances to the "Setup complete!" screen.
 
-    NOTE: The router does not check the response body — it uses keep-result=no.
+    NOTE: The router does not check the response body-it uses keep-result=no.
     The HTTP 200 response is sufficient. We return JSON anyway for debugging.
     """
 
@@ -329,7 +329,7 @@ async def confirm_setup(
         )
 
     async with get_db() as conn:
-        # Validate token — same DB-level expiry check as the download endpoint
+        # Validate token-same DB-level expiry check as the download endpoint
         token_row = await conn.fetchrow(
             """
             SELECT id, router_id, tenant_id, router_wg_private_key
@@ -346,11 +346,11 @@ async def confirm_setup(
                 "Setup confirm: token not found, expired, or already used",
                 extra={"token_prefix": token[:8]},
             )
-            # Return 200 even for invalid tokens here — the router's /tool fetch
+            # Return 200 even for invalid tokens here-the router's /tool fetch
             # doesn't check the status code when keep-result=no, but returning
             # 4xx could cause the /tool fetch command to report an error in the
             # RouterOS log, confusing the ISP admin.
-            # The damage is already done if we reach here — the script ran and
+            # The damage is already done if we reach here-the script ran and
             # the router is already configured. We just can't mark it confirmed.
             return {
                 "status": "token_invalid",
@@ -364,13 +364,13 @@ async def confirm_setup(
         # All three updates happen in one transaction. If any fails, none apply.
         # This prevents partial states like "token consumed but router still pending".
         async with conn.transaction():
-            # 1. Consume the token — set used_at
+            # 1. Consume the token-set used_at
             await conn.execute(
                 "UPDATE setup_tokens SET used_at = NOW() WHERE id = $1",
                 token_row["id"],
             )
 
-            # 2. Zero out the private key — zero-knowledge after confirmation
+            # 2. Zero out the private key-zero-knowledge after confirmation
             # From this point, the server has no knowledge of the router's WG private key.
             await conn.execute(
                 "UPDATE setup_tokens SET router_wg_private_key = NULL WHERE id = $1",
@@ -412,7 +412,7 @@ async def confirm_setup(
                 )
             except Exception as wg_err:
                 # Don't fail the confirmation if WG peer re-registration fails.
-                # The router is configured and calling us — the VPN might already
+                # The router is configured and calling us-the VPN might already
                 # be working. Log for investigation but don't block the response.
                 logger.error(
                     f"WG peer re-registration failed during confirm (non-fatal): {wg_err}",

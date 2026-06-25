@@ -7,7 +7,7 @@ This module generates the WireGuard keypair, API password, setup token, and
 the complete RouterOS .rsc script downloaded and executed by the MikroTik
 router during auto-configuration.
 
-DESIGN DECISION — Server-generated WireGuard keypair:
+DESIGN DECISION-Server-generated WireGuard keypair:
   The server generates both the private and public key for the router.
   This is a conscious security tradeoff:
 
@@ -22,7 +22,7 @@ DESIGN DECISION — Server-generated WireGuard keypair:
 
   CHOSEN: Server generates the keypair, embeds the private key in the .rsc.
     Why this is acceptable:
-      - Script served over HTTPS — encrypted in transit.
+      - Script served over HTTPS-encrypted in transit.
       - Token is 256-bit entropy, single-use, expires in 24 hours.
       - Server NULLs the private key column immediately on /confirm.
         From that point the server has zero knowledge of the router key.
@@ -36,7 +36,7 @@ AUDIT FIXES APPLIED IN THIS VERSION:
                /confirm is NOT called if setup fails partway through.
   [HIGH-2]     connection-timeout=30 added to all /tool fetch commands.
   [HIGH-3]     MOCK_WIREGUARD blocked in production (APP_ENV guard).
-  [MEDIUM-1]   Section numbers corrected — now match actual assembly order.
+  [MEDIUM-1]   Section numbers corrected-now match actual assembly order.
   [ADDED]      RouterOS version check at script start (requires v7+).
   [ADDED]      Script emits structured :log lines for remote diagnostics.
   [ADDED]      WireGuard key validated for base64 format before embedding.
@@ -137,7 +137,7 @@ def generate_wireguard_keypair() -> tuple[str, str]:
         The original code returned the same static string every time.
         If two routers were set up in mock/dev mode, both would get
         identical WireGuard public keys. The WireGuard kernel module
-        rejects duplicate peer public keys — the second tunnel would
+        rejects duplicate peer public keys-the second tunnel would
         silently fail to establish.
 
     FIX [HIGH-3]: MOCK_WIREGUARD is now blocked in production.
@@ -189,7 +189,7 @@ def generate_wireguard_keypair() -> tuple[str, str]:
         )
         public_key = public_result.stdout.strip()
 
-        # Validate before returning — catch malformed output early
+        # Validate before returning-catch malformed output early
         _validate_wg_key(private_key, "private key")
         _validate_wg_key(public_key, "public key")
 
@@ -215,7 +215,7 @@ def generate_api_password() -> str:
     This character set is safe to embed in RouterOS scripting strings because
     none of the dangerous RouterOS chars ($, [, ], ", \\) appear in it.
 
-    16 bytes = 128 bits of entropy — cryptographically strong.
+    16 bytes = 128 bits of entropy-cryptographically strong.
     """
     return secrets.token_urlsafe(16)
 
@@ -225,9 +225,9 @@ def generate_setup_token() -> str:
     Generates a cryptographically random single-use setup token.
 
     secrets.token_urlsafe(32) → 43 chars of [A-Za-z0-9_-].
-    - 256-bit entropy — brute-force infeasible.
-    - URL-safe — no chars that confuse shell quoting or URL encoding.
-    - No = padding — no misinterpretation in URL paths.
+    - 256-bit entropy-brute-force infeasible.
+    - URL-safe-no chars that confuse shell quoting or URL encoding.
+    - No = padding-no misinterpretation in URL paths.
     - Length enforced in the endpoint handler (timing-attack prevention).
     """
     return secrets.token_urlsafe(32)
@@ -297,7 +297,7 @@ def build_setup_script(
     # ── Input sanitization ────────────────────────────────────────────────
     safe_name = sanitize_router_name(router_name)
 
-    # Validate WireGuard keys before embedding — fail fast, not mid-script
+    # Validate WireGuard keys before embedding-fail fast, not mid-script
     if not is_chr:
         _validate_wg_key(wg_private_key, "private key")
         _validate_wg_key(server_public_key, "server public key")
@@ -325,12 +325,12 @@ def build_setup_script(
     # ── SECTION 2: WireGuard ─────────────────────────────────────────────
     if is_chr:
         wg_section = """\
-# SECTION 2: WireGuard VPN — SKIPPED (CHR mode)
+# SECTION 2: WireGuard VPN-SKIPPED (CHR mode)
 # ------------------------------------------------
 # CHR and ZealSync backend share the same VirtualBox machine.
 # They communicate via the host-only adapter (192.168.56.x) directly.
 # On a physical MikroTik, this section creates an encrypted VPN tunnel.
-:log info "ZealSync: CHR mode — skipping WireGuard (same-machine networking)"
+:log info "ZealSync: CHR mode-skipping WireGuard (same-machine networking)"
 """
     else:
         wg_section = f"""\
@@ -357,7 +357,7 @@ def build_setup_script(
     # ── SECTION 6: Firewall ───────────────────────────────────────────────
     if is_chr:
         firewall_section = f"""\
-# SECTION 6: Firewall — allow API from VirtualBox host-only network
+# SECTION 6: Firewall-allow API from VirtualBox host-only network
 # -------------------------------------------------------------------
 # CHR mode: the ZealSync backend runs on Ubuntu at 192.168.56.x.
 # The /24 rule allows any host on the VirtualBox host-only adapter.
@@ -375,7 +375,7 @@ def build_setup_script(
 """
     else:
         firewall_section = f"""\
-# SECTION 6: Firewall — allow API from WireGuard VPN only
+# SECTION 6: Firewall-allow API from WireGuard VPN only
 # ----------------------------------------------------------
 # Restricts REST API access to the ZealSync server VPN IP only.
 # Any direct internet access to port 80 will be blocked by the
@@ -399,7 +399,7 @@ def build_setup_script(
 # ZealSync Auto-Configuration Script
 # Router:    {safe_name}
 # Generated: {timestamp}
-# Token:     {token[:8]}... (first 8 chars only — full token in URL)
+# Token:     {token[:8]}... (first 8 chars only-full token in URL)
 # Mode:      {"CHR/Development (VirtualBox)" if is_chr else "Physical MikroTik (Production)"}
 #
 # WARNING: This file contains sensitive credentials.
@@ -423,7 +423,7 @@ def build_setup_script(
 #   rest-api - explicit REST API permission (RouterOS 7 requirement)
 #
 # Uses existence checks (:if [:len [find]] = 0) so the script is
-# idempotent — safe to run twice without creating duplicate entries.
+# idempotent-safe to run twice without creating duplicate entries.
 # If zealsync-api already exists (from a previous attempt), the password
 # is updated to the new value rather than failing.
 :log info "ZealSync: Creating API user group and account..."
@@ -462,9 +462,9 @@ def build_setup_script(
 # SECTION 5: Create Hotspot Speed Profiles
 # ------------------------------------------
 # Defines the three bandwidth tiers ZealSync offers by default.
-# shared-users=1    — one device per voucher code (prevents sharing)
-# mac-cookie-timeout=1d — device stays logged in for 24h after first auth
-# keepalive-timeout=2m  — disconnects completely idle sessions after 2 min
+# shared-users=1   -one device per voucher code (prevents sharing)
+# mac-cookie-timeout=1d-device stays logged in for 24h after first auth
+# keepalive-timeout=2m -disconnects completely idle sessions after 2 min
 # Additional tiers can be added from the ZealSync dashboard after setup.
 :log info "ZealSync: Creating hotspot speed profiles..."
 :do {{
@@ -496,7 +496,7 @@ def build_setup_script(
 # Sends a POST to ZealSync to trigger the "Setup complete!" on the dashboard.
 # This fires ONLY if all previous sections completed without :error.
 #
-# connection-timeout=30 — if ZealSync is unreachable, fail after 30 seconds
+# connection-timeout=30-if ZealSync is unreachable, fail after 30 seconds
 # instead of hanging indefinitely. The ISP admin sees a clear timeout error
 # in /log rather than a frozen terminal.
 #
@@ -509,7 +509,7 @@ def build_setup_script(
     :log error "ZealSync: Could not reach ZealSync server for confirmation."
     :log error "ZealSync: Setup IS complete locally but dashboard may not reflect this."
     :log error "ZealSync: Contact support or manually mark this router online."
-    # Do NOT :error here — the router IS configured correctly.
+    # Do NOT :error here-the router IS configured correctly.
     # The only failure is the callback, not the configuration.
     # The ZealSync reconciliation cron will detect and confirm within 5 minutes.
 }}
@@ -521,7 +521,7 @@ def build_setup_script(
 #   1. Prevents accidental re-import (Section 3 handles idempotency but
 #      running twice is confusing and creates unnecessary log noise)
 #   2. Removes the embedded API password from the router filesystem
-#   3. Security hygiene — bootstrap credentials should not persist
+#   3. Security hygiene-bootstrap credentials should not persist
 :log info "ZealSync: Cleaning up setup script..."
 :delay 1s
 /file remove zealsync-setup.rsc

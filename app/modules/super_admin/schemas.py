@@ -4,7 +4,7 @@ app/modules/super_admin/schemas.py
 Pydantic v2 request/response models for the super admin portal.
 
 All models use strict typing (no Any). Field-level validators document
-the constraints enforced at the HTTP boundary — these are the FIRST layer
+the constraints enforced at the HTTP boundary-these are the FIRST layer
 of defence, before the service functions touch the database.
 """
 
@@ -24,7 +24,7 @@ class SuperAdminTOTPSetupRequest(BaseModel):
     """
     Request to generate the TOTP QR code (first login only).
     The pre_auth_token proves the caller completed step 1 (password check).
-    This is NOT a JWT — it is an opaque token tied to the pre_auth_tokens table.
+    This is NOT a JWT-it is an opaque token tied to the pre_auth_tokens table.
     """
     pre_auth_token: str = Field(min_length=32)
 
@@ -64,14 +64,14 @@ class SuperAdminPreAuthResponse(BaseModel):
 
 class SuperAdminTOTPSetupResponse(BaseModel):
     """
-    Returned by /totp/setup — contains the QR code the super admin scans.
+    Returned by /totp/setup-contains the QR code the super admin scans.
     This response is issued ONCE per account setup. After totp_verified_at
     is set, this endpoint returns 409 Conflict.
 
     qr_code_base64: A data URI ("data:image/png;base64,...") ready for <img src=...>
     secret_preview: First 4 characters of the raw Base32 secret.
                     Used ONLY for manual entry if QR scanning is impossible.
-                    NOT the full secret — revealing more would be a security risk.
+                    NOT the full secret-revealing more would be a security risk.
     """
     qr_code_base64: str
     secret_preview: str
@@ -81,11 +81,11 @@ class SuperAdminTokenResponse(BaseModel):
     """
     Full access token returned after successful TOTP verification.
     expires_in is always 900 (15 minutes). Refresh tokens are NOT issued
-    for super admin — re-authentication is required after expiry.
+    for super admin-re-authentication is required after expiry.
     """
     access_token: str
     token_type: str = "bearer"
-    expires_in: int = 900  # 15 minutes in seconds — hardcoded, not configurable
+    expires_in: int = 900  # 15 minutes in seconds-hardcoded, not configurable
     super_admin_id: str
     full_name: str
 
@@ -106,7 +106,7 @@ class SuperAdminProfile(BaseModel):
 class TenantSuspendRequest(BaseModel):
     """
     Body for POST /super-admin/tenants/{id}/suspend.
-    The reason is mandatory — it becomes part of the audit log metadata
+    The reason is mandatory-it becomes part of the audit log metadata
     and provides an audit trail for why the tenant was suspended.
     """
     reason: str = Field(min_length=5, max_length=500)

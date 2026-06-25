@@ -76,7 +76,7 @@ export function useOnboardingProgress() {
   };
 }
 
-/** Initialise onboarding after signup — writes both service key and full state. */
+/** Initialise onboarding after signup-writes both service key and full state. */
 export function initOnboardingState(serviceType: ServiceType): OnboardingState {
   const state: OnboardingState = {
     ...DEFAULT_STATE,

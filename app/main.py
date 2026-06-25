@@ -101,26 +101,19 @@ app.add_middleware(
 @app.middleware("http")
 async def extract_client_ip_middleware(request: Request, call_next):
     """
-    Middleware that extracts client IP from X-Forwarded-For (validating that it is a
-    single IP address to prevent spoofing chains), falls back to X-Real-IP, and
-    then to request.client.host. Sets client_ip_var ContextVar for downstream use.
+    Middleware that extracts client IP from X-Real-IP (set securely by Nginx),
+    falling back to X-Forwarded-For, and then to request.client.host.
+    Sets client_ip_var ContextVar for downstream use.
     """
-    client_ip = None
-    xff = request.headers.get("X-Forwarded-For")
-    if xff:
-        # Split by comma and clean whitespace
-        ips = [ip.strip() for ip in xff.split(",") if ip.strip()]
-        if len(ips) > 1:
-            # Reject if multiple IPs are detected (spoofed chain or proxy chain)
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={"detail": "Invalid X-Forwarded-For header: multiple IP addresses detected."}
-            )
-        if ips:
-            client_ip = ips[0]
-
+    client_ip = request.headers.get("X-Real-IP")
     if not client_ip:
-        client_ip = request.headers.get("X-Real-IP")
+        xff = request.headers.get("X-Forwarded-For")
+        if xff:
+            # Split by comma and clean whitespace
+            ips = [ip.strip() for ip in xff.split(",") if ip.strip()]
+            if ips:
+                client_ip = ips[0]
+
     if not client_ip:
         client_ip = request.client.host if request.client else "0.0.0.0"
 
@@ -229,7 +222,7 @@ app.include_router(invoices_router, prefix=f"{PREFIX}",           tags=["Invoice
 app.include_router(system_health_router, prefix=f"{PREFIX}",      tags=["System Health"])
 app.include_router(audit_log_router, prefix=f"{PREFIX}",          tags=["Audit Log"])
 app.include_router(hotspot_router, prefix=f"{PREFIX}/hotspot",    tags=["Hotspot"])
-# Super admin portal — NOT under /api/v1. Routes are at /super-admin/*
+# Super admin portal-NOT under /api/v1. Routes are at /super-admin/*
 # as defined in the router itself. prefix="" keeps it at the root.
 app.include_router(super_admin_router, prefix="",                  tags=["Super Admin"])
 

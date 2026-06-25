@@ -4,8 +4,8 @@
  * React Query hooks for the Magic Command router onboarding flow.
  *
  * The old 7-mutation hook has been replaced with 2 hooks:
- *   useInitMagic()        — POST /admin/routers/onboarding/init-magic
- *   useRouterStatus()     — GET  /admin/routers/onboarding/status/{id} (polling)
+ *   useInitMagic()       -POST /admin/routers/onboarding/init-magic
+ *   useRouterStatus()    -GET  /admin/routers/onboarding/status/{id} (polling)
  *
  * POLLING PATTERN (same as PaymentPolling.tsx for M-Pesa STK push):
  *   The frontend polls a lightweight status endpoint every 3 seconds.
@@ -52,7 +52,7 @@ export interface MagicInitRequest {
  *   3. Stored everything in setup_tokens
  *   4. Pre-registered the WireGuard peer
  *
- * The response contains magic_command — the one-liner to paste into MikroTik.
+ * The response contains magic_command-the one-liner to paste into MikroTik.
  */
 export function useInitMagic() {
   const queryClient = useQueryClient();
@@ -107,14 +107,14 @@ export function useRouterStatus(routerId: string | null, enabled: boolean) {
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       if (status === 'online' || status === 'failed') {
-        return false; // Stop polling — terminal state reached
+        return false; // Stop polling-terminal state reached
       }
       return 3000; // Poll every 3 seconds
     },
     // Keep showing the last known status even when refetching in background.
     // Without this, the status briefly disappears between polls.
     staleTime: 0,
-    // Do not retry failed status polls — a 404 means the router_id is invalid,
+    // Do not retry failed status polls-a 404 means the router_id is invalid,
     // and retrying won't help. The user should restart the wizard.
     retry: false,
   });

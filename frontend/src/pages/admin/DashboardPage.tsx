@@ -63,7 +63,7 @@ export default function DashboardPage() {
     {
       id: 'packages',
       title: 'Create a package',
-      description: 'Define what your customers buy — speed, duration, and price.',
+      description: 'Define what your customers buy-speed, duration, and price.',
       done: hasPackages,
       ctaLabel: 'Add package →',
       ctaHref: '/admin/packages',

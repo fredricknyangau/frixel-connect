@@ -12,7 +12,7 @@ HOW TOTP WORKS (RFC 6238):
   Both the server and the authenticator app (Google Authenticator, Authy, etc.)
   independently compute HMAC-SHA1(secret, floor(timestamp / 30)). Because they
   share the same secret and use the same clock, they always produce the same
-  6-digit output in the same time window — with NO network call required for
+  6-digit output in the same time window-with NO network call required for
   verification.
 
   The QR code encodes an otpauth:// URI containing the secret, issuer name,
@@ -30,7 +30,7 @@ HOW SETUP WORKS FOR SUPER ADMIN:
 
   The QR code is generated server-side and sent ONCE. It is never stored
   in the database or in any persistent medium. After step 6, there is no
-  way to retrieve the QR again — the super admin must keep a backup of the
+  way to retrieve the QR again-the super admin must keep a backup of the
   secret or their device.
 
 RECOVERY (DOCUMENTED BY DESIGN):
@@ -82,7 +82,7 @@ def get_totp_uri(secret: str, email: str) -> str:
 
     Args:
         secret: The raw (unencrypted) Base32 secret from generate_totp_secret().
-        email:  The super admin's email address — used as the account label.
+        email:  The super admin's email address-used as the account label.
     """
     return pyotp.TOTP(secret).provisioning_uri(
         name=email,
@@ -96,7 +96,7 @@ def generate_qr_code_base64(secret: str, email: str) -> str:
     as a base64-encoded data URI ready for embedding in an <img> tag:
         data:image/png;base64,iVBORw0K...
 
-    The QR code is generated entirely in memory — no file is written to disk.
+    The QR code is generated entirely in memory-no file is written to disk.
     This function should be called ONCE per setup flow. After the super admin
     scans the code and verifies a valid TOTP, this function must not be called
     again for the same account. The setup endpoint enforces this by checking
@@ -113,7 +113,7 @@ def generate_qr_code_base64(secret: str, email: str) -> str:
 
     # qrcode.make() returns a PIL Image. We use error correction level L
     # (lowest, ~7% data recovery) because QR codes for authenticator apps
-    # are scanned in controlled environments — high error correction just
+    # are scanned in controlled environments-high error correction just
     # makes the code denser and harder to scan on small phone screens.
     img = qrcode.make(uri)
 
@@ -136,7 +136,7 @@ def verify_totp_code(secret: str, code: str) -> bool:
 
     Returns:
         True if the code is valid, False otherwise.
-        NEVER raises — all exceptions are caught and return False.
+        NEVER raises-all exceptions are caught and return False.
         This prevents timing side channels from exception handling paths.
 
     CLOCK DRIFT:
@@ -146,7 +146,7 @@ def verify_totp_code(secret: str, code: str) -> bool:
           - The NEXT 30-second window     (the phone's clock is slightly ahead)
         This ±30-second tolerance handles minor clock drift between the server
         and the user's phone without meaningfully reducing security.
-        A valid_window > 1 is NOT used here — that would expand the attack
+        A valid_window > 1 is NOT used here-that would expand the attack
         window too much for an operator-level account.
     """
     try:
@@ -162,7 +162,7 @@ def encrypt_totp_secret(raw_secret: str) -> str:
 
     Delegates to app.core.security.encrypt_secret() which uses the
     FERNET_SECRET_KEY from settings. The same key that protects router
-    passwords also protects TOTP secrets — one key to manage, one
+    passwords also protects TOTP secrets-one key to manage, one
     rotation procedure to document.
 
     Args:
@@ -178,7 +178,7 @@ def decrypt_totp_secret(encrypted_secret: str) -> str:
     """
     Decrypts a Fernet-encrypted TOTP secret back to the raw Base32 string.
 
-    Call this ONLY at TOTP verification time — never log or cache the
+    Call this ONLY at TOTP verification time-never log or cache the
     decrypted value. The plaintext secret exists in memory only during the
     single verify_totp_code() call.
 

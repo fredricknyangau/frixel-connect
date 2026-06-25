@@ -7,7 +7,7 @@ SECURITY PRINCIPLES APPLIED THROUGHOUT:
   1. TIMING SAFETY: bcrypt.checkpw is always called, even if the email is not
      found, to prevent email enumeration via response time analysis.
 
-  2. PRE-AUTH TOKEN SAFETY: raw tokens are never stored — only SHA256 hashes.
+  2. PRE-AUTH TOKEN SAFETY: raw tokens are never stored-only SHA256 hashes.
      The raw token lives only in the HTTP response (over TLS) and the caller's
      memory. If the pre_auth_tokens table is dumped, no usable tokens are exposed.
 
@@ -61,7 +61,7 @@ from app.core.redis import get_redis_pool
 # When a login email is not found, we still call bcrypt.checkpw against this
 # dummy hash. This keeps the response time identical whether the email exists
 # or not, preventing timing-based email enumeration.
-# The hash is for "this_password_never_matches" — it will always fail.
+# The hash is for "this_password_never_matches"-it will always fail.
 _DUMMY_HASH = "$2b$12$KIXy0z5h5l5z5z5z5z5z5e1234567890123456789012345678901234"
 
 
@@ -79,7 +79,7 @@ async def _log_action(
     """
     Writes a row to super_admin_audit_log.
 
-    This helper is called by every service function — reads AND writes.
+    This helper is called by every service function-reads AND writes.
     Logging reads is unusual but necessary for a super-admin portal:
     'tenant.list' tells us when Fred was reviewing accounts,
     'tenant.view' tells us which tenant was examined before an action.
@@ -165,7 +165,7 @@ async def authenticate_password(
     raw_token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
 
-    # Store only the hash — the raw token is never written to the database.
+    # Store only the hash-the raw token is never written to the database.
     await conn.execute(
         """
         INSERT INTO super_admin_pre_auth_tokens
@@ -257,7 +257,7 @@ async def setup_totp(
     Called ONLY if totp_verified_at IS NULL (first login or after reset).
 
     Flow:
-      1. Validate the pre-auth token (NOT consumed here — the same token
+      1. Validate the pre-auth token (NOT consumed here-the same token
          will be presented again at /totp/verify after scanning).
       2. If totp_secret is already set AND totp_verified_at is non-NULL
          → the super admin already completed setup. Raise 409 Conflict.
@@ -365,7 +365,7 @@ async def verify_totp(
         raw_secret = decrypt_totp_secret(row["totp_secret"])
     except ValueError:
         # Decryption failure = data corruption or key rotation without migration.
-        # Do NOT return a 401 here — that would mislead the caller into thinking
+        # Do NOT return a 401 here-that would mislead the caller into thinking
         # their TOTP code is wrong. This is an internal server error.
         raise RuntimeError(
             "TOTP secret decryption failed. Contact the system administrator."
@@ -415,7 +415,7 @@ async def verify_totp(
     now = datetime.now(timezone.utc)
 
     # If this is the first successful TOTP verification, lock in totp_verified_at.
-    # This marks the account as "fully set up" — future logins will skip /totp/setup
+    # This marks the account as "fully set up"-future logins will skip /totp/setup
     # and go straight to /totp/verify.
     if row["totp_verified_at"] is None:
         await conn.execute(
@@ -604,7 +604,7 @@ async def get_tenant_detail(
     """
     Returns full tenant details plus platform-wide stats for that tenant.
     Raises NotFoundException if the tenant doesn't exist.
-    Logs action='tenant.view' (this is a read — audit all reads).
+    Logs action='tenant.view' (this is a read-audit all reads).
     """
     row = await conn.fetchrow(
         """
@@ -628,7 +628,7 @@ async def get_tenant_detail(
     if not row:
         raise NotFoundException("Tenant", str(tenant_id))
 
-    # Aggregate stats — each query is intentionally separate for clarity.
+    # Aggregate stats-each query is intentionally separate for clarity.
     total_customers = await conn.fetchval(
         "SELECT COUNT(*) FROM users WHERE tenant_id = $1 AND role = 'customer'",
         tenant_id,
@@ -705,7 +705,7 @@ async def suspend_tenant(
 
     After this call, every login attempt by any user under this tenant
     returns 403 (enforced by get_current_user → require_active_tenant).
-    No active sessions are terminated — they expire naturally (15–30 min).
+    No active sessions are terminated-they expire naturally (15–30 min).
 
     Raises:
         NotFoundException if the tenant doesn't exist.
@@ -790,7 +790,7 @@ async def create_impersonation_token(
         impersonation: True
         impersonated_by: super_admin_id
       The tenant portal (and its FastAPI route handlers) accepts this token
-      without any code changes — from the route handler's perspective, it is
+      without any code changes-from the route handler's perspective, it is
       just an admin token scoped to the tenant.
 
       The difference is in get_current_user (dependencies.py): when it detects
@@ -879,7 +879,7 @@ async def trigger_tenant_billing(
     """
     Manually triggers an M-Pesa STK push for a tenant's platform fee.
     Delegates to the existing initiate_platform_billing_payment() in
-    tenants/service.py — reuses the exact same logic as the automated
+    tenants/service.py-reuses the exact same logic as the automated
     billing cron job.
 
     This endpoint exists so Fred can manually trigger billing for a tenant
@@ -1066,7 +1066,7 @@ async def create_super_admin(
 ) -> dict:
     """
     Creates a new super admin account. Only callable by an existing super admin.
-    The new account starts with totp_secret=NULL — they must complete TOTP setup
+    The new account starts with totp_secret=NULL-they must complete TOTP setup
     on first login.
     """
     existing = await conn.fetchrow(

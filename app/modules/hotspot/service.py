@@ -225,7 +225,7 @@ async def provision_free_trial(
             "Free Trial",
             "10 Minutes Free Trial Access",
             1.00,  # 1 KES to bypass CHECK constraint (amount_kes > 0)
-            10,    # 10 minutes
+            5,    # 5 minutes
             2,     # 2 Mbps
             data.tenant_id,
         )

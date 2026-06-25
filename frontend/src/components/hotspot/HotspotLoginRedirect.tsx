@@ -47,18 +47,21 @@ export default function HotspotLoginRedirect({ voucherCode, linkLogin, linkOrig 
   let loginUrl = ''
   if (linkLogin) {
     try {
-      const url = new URL(linkLogin)
+      const urlString = linkLogin.startsWith('http') ? linkLogin : `http://${linkLogin}`
+      const url = new URL(urlString)
       url.searchParams.set('username', voucherCode)
       url.searchParams.set('password', voucherCode)
       if (linkOrig) {
         url.searchParams.set('dst', linkOrig)
       }
-      url.hostname = '10.10.10.1'
       loginUrl = url.toString()
     } catch (e) {
       // Fallback if linkLogin is not a valid URL
       const separator = linkLogin.includes('?') ? '&' : '?'
       loginUrl = `${linkLogin}${separator}username=${encodeURIComponent(voucherCode)}&password=${encodeURIComponent(voucherCode)}&dst=${encodeURIComponent(linkOrig)}`
+      if (!loginUrl.startsWith('http')) {
+        loginUrl = `http://${loginUrl}`
+      }
     }
   }
 
@@ -90,7 +93,7 @@ export default function HotspotLoginRedirect({ voucherCode, linkLogin, linkOrig 
     // Redirect the phone's browser to MikroTik's login endpoint after a short delay
     const timer = setTimeout(() => {
       window.location.href = loginUrl
-    }, 8000) // 8 seconds to allow saving/sharing the ticket
+    }, 3000) // 3 seconds to allow seeing the success state
 
     return () => clearTimeout(timer)
   }, [loginUrl])

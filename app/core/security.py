@@ -72,10 +72,10 @@ def create_super_admin_access_token(super_admin_id: str) -> str:
     Creates a signed JWT for a super admin session.
 
     INTENTIONAL DIFFERENCES from create_access_token():
-      - role is hardcoded to "super_admin" — never configurable
-      - NO tenant_id claim — super admin belongs to no tenant
-      - NO reseller_id claim — irrelevant for super admin
-      - Expiry is hardcoded to 15 minutes — NOT the configurable
+      - role is hardcoded to "super_admin"-never configurable
+      - NO tenant_id claim-super admin belongs to no tenant
+      - NO reseller_id claim-irrelevant for super admin
+      - Expiry is hardcoded to 15 minutes-NOT the configurable
         JWT_ACCESS_TOKEN_EXPIRE_MINUTES setting. The short window is a
         security requirement, not a preference. Refresh tokens are NOT
         issued for super admin; re-authentication (including TOTP) is
@@ -87,7 +87,7 @@ def create_super_admin_access_token(super_admin_id: str) -> str:
     token type.
     """
     now = datetime.now(timezone.utc)
-    expire = now + timedelta(minutes=15)  # Hardcoded — no bypass allowed
+    expire = now + timedelta(minutes=15)  # Hardcoded-no bypass allowed
 
     payload = {
         "sub": super_admin_id,

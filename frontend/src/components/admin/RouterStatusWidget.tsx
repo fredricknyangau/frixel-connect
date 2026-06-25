@@ -34,7 +34,7 @@ interface RouterStatusWidgetProps {
   isLoading: boolean;
 }
 
-/** Persistent infrastructure health panel — always visible on the admin dashboard. */
+/** Persistent infrastructure health panel-always visible on the admin dashboard. */
 export function RouterStatusWidget({ routers, isLoading }: RouterStatusWidgetProps) {
   const hasOffline = routers.some((r) => getRouterHealthStatus(r.status) === 'offline');
 

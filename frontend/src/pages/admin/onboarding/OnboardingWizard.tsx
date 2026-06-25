@@ -29,7 +29,7 @@ export default function OnboardingWizard() {
   const navigate = useNavigate();
   const createPackageMutation = useCreatePackage();
 
-  // Poll for routers — when the magic wizard completes and the user navigates
+  // Poll for routers-when the magic wizard completes and the user navigates
   // back here, this data will already be fresh. The refetch interval is
   // handled by React Query's default staleTime.
   const { data: routers } = useRouters();
@@ -121,7 +121,7 @@ export default function OnboardingWizard() {
           </Card>
         )}
 
-        {/* Step 2: Connect Router — Magic Command teaser */}
+        {/* Step 2: Connect Router-Magic Command teaser */}
         {step === 2 && (
           <Card className="border-t-4 border-t-primary animate-in fade-in slide-in-from-bottom-4 duration-300">
             <CardHeader>
@@ -144,7 +144,7 @@ export default function OnboardingWizard() {
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   ZealSync generates a single terminal command. Paste it into your
-                  MikroTik terminal, and the router configures itself — VPN, API user,
+                  MikroTik terminal, and the router configures itself-VPN, API user,
                   speed profiles, and firewall rules, all in one step.
                 </p>
                 <div className="rounded-lg bg-zinc-900 px-3.5 py-2.5 font-mono text-xs text-emerald-400 truncate">

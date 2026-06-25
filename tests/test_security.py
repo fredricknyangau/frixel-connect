@@ -71,3 +71,40 @@ def test_data_protection_endpoints(client: TestClient):
     # 3. Verify user can no longer log in
     login_resp = client.post("/api/v1/auth/login", json={"email": "customer@zealsync.dev", "password": "TestPassword123!"})
     assert login_resp.status_code == 401
+
+
+def test_client_ip_extraction_middleware(client: TestClient):
+    from app.main import app
+    from app.core.ip_context import client_ip_var
+    
+    # Register a temporary route to return the context var IP
+    # Try/except to prevent errors if the route is registered multiple times
+    try:
+        @app.get("/test-ip-extraction")
+        async def get_test_ip():
+            return {"ip": client_ip_var.get()}
+    except Exception:
+        pass
+        
+    # 1. Test X-Real-IP is prioritized over X-Forwarded-For
+    resp = client.get("/test-ip-extraction", headers={
+        "X-Real-IP": "196.201.214.200",
+        "X-Forwarded-For": "9.9.9.9, 172.18.0.1"
+    })
+    assert resp.status_code == 200
+    assert resp.json()["ip"] == "196.201.214.200"
+
+    # 2. Test fallback to X-Forwarded-For first element
+    resp = client.get("/test-ip-extraction", headers={
+        "X-Forwarded-For": "8.8.8.8, 172.18.0.1"
+    })
+    assert resp.status_code == 200
+    assert resp.json()["ip"] == "8.8.8.8"
+
+    # 3. Test invalid IP validation
+    resp = client.get("/test-ip-extraction", headers={
+        "X-Real-IP": "invalid-ip-format"
+    })
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "Invalid client IP address."
+

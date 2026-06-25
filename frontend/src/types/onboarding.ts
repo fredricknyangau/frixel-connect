@@ -1,4 +1,4 @@
-/** Service line chosen at signup — drives onboarding defaults and admin UI copy. */
+/** Service line chosen at signup-drives onboarding defaults and admin UI copy. */
 export type ServiceType = 'hotspot' | 'pppoe';
 
 /** Steps in the post-signup onboarding shell. */
@@ -18,7 +18,7 @@ export interface OnboardingState {
   started_at: string;
 }
 
-/** Public tenant signup payload — service_type is stored client-side until backend accepts it. */
+/** Public tenant signup payload-service_type is stored client-side until backend accepts it. */
 export interface TenantSignupRequest {
   business_name: string;
   owner_name: string;

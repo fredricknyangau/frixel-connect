@@ -6,7 +6,7 @@ HTTP route handlers for the super admin portal.
 ROUTING DESIGN:
   All routes are under /super-admin/* (no /api/v1 prefix).
   This makes the super admin portal completely separate from the tenant API
-  at the URL level — you can't stumble onto it by exploring the tenant API docs.
+  at the URL level-you can't stumble onto it by exploring the tenant API docs.
 
   The routes are registered in main.py with prefix="" so the /super-admin/
   path prefix comes from the router itself (see below), not from include_router().
@@ -73,10 +73,10 @@ def _get_client_ip(request: Request) -> str:
     "/super-admin/auth/login",
     response_model=SuperAdminPreAuthResponse,
     status_code=status.HTTP_200_OK,
-    summary="Super admin login — step 1 (email + password)",
+    summary="Super admin login-step 1 (email + password)",
     description=(
         "Validates email and password. Returns a short-lived pre-auth token (5 min). "
-        "This is NOT a full access token — it cannot call any protected endpoint. "
+        "This is NOT a full access token-it cannot call any protected endpoint. "
         "Present it to /super-admin/auth/totp/setup or /super-admin/auth/totp/verify. "
         "Rate limited to 5 attempts per IP per 15 minutes."
     ),
@@ -109,7 +109,7 @@ async def super_admin_login(
     "/super-admin/auth/totp/setup",
     response_model=SuperAdminTOTPSetupResponse,
     status_code=status.HTTP_200_OK,
-    summary="Super admin TOTP setup — generate QR code (first login only)",
+    summary="Super admin TOTP setup-generate QR code (first login only)",
     description=(
         "Generates a TOTP secret and returns a QR code for the super admin to scan "
         "with Google Authenticator or Authy. Only available when totp_verified_at IS NULL "
@@ -131,11 +131,11 @@ async def super_admin_totp_setup(
     "/super-admin/auth/totp/verify",
     response_model=SuperAdminTokenResponse,
     status_code=status.HTTP_200_OK,
-    summary="Super admin TOTP verify — step 2 (TOTP code → full JWT)",
+    summary="Super admin TOTP verify-step 2 (TOTP code → full JWT)",
     description=(
         "Validates the pre-auth token and the 6-digit TOTP code from the authenticator app. "
         "Returns a full access token (15-minute expiry). "
-        "Refresh tokens are NOT issued — re-authentication is required after expiry. "
+        "Refresh tokens are NOT issued-re-authentication is required after expiry. "
         "The pre-auth token is consumed (single-use) on success."
     ),
 )
@@ -371,7 +371,7 @@ async def audit_log(
     summary="Create a new super admin account",
     description=(
         "Only an authenticated super admin can create another super admin account. "
-        "The new account starts without TOTP configured — they must complete TOTP "
+        "The new account starts without TOTP configured-they must complete TOTP "
         "setup on their first login. The creation is audit-logged."
     ),
 )

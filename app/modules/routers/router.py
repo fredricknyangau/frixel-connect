@@ -480,7 +480,7 @@ async def onboarding_init_magic(
       6. INSERT setup_tokens record (with private key and encrypted password)
       7. Pre-register WireGuard peer on the server side
          WHY PRE-REGISTER: If we can't add the peer now, showing the admin
-         the magic command would be pointless — the VPN tunnel won't establish.
+         the magic command would be pointless-the VPN tunnel won't establish.
          Fail early so we never show an unusable command.
       8. Return the magic_command string ready to paste into MikroTik terminal
 
@@ -529,7 +529,7 @@ async def onboarding_init_magic(
         setup_token = generate_setup_token()
 
         # ── Step 4 + 5: INSERT router record ───────────────────────────────────
-        # For CHR mode: wireguard_peer_public_key is NULL — no real WG peer.
+        # For CHR mode: wireguard_peer_public_key is NULL-no real WG peer.
         # The setup/router.py uses this NULL to infer is_chr when serving the script.
         # For production: the public key is saved and the peer is pre-registered.
         wg_peer_key_to_save = None if data.is_chr else wg_public_key
@@ -578,7 +578,7 @@ async def onboarding_init_magic(
     # ── Step 7: Pre-register WireGuard peer on server ─────────────────────────
     # Done OUTSIDE the DB transaction because wg CLI is not transactional.
     # If this fails, we raise immediately before showing the admin any command.
-    # The router record and token are already in the DB — they'll be cleaned
+    # The router record and token are already in the DB-they'll be cleaned
     # up by the 24-hour expiry. A failed pre-registration means the magic
     # command would produce a router that can't VPN, so we block early.
     #

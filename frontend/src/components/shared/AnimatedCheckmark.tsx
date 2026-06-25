@@ -2,7 +2,7 @@
  * src/components/shared/AnimatedCheckmark.tsx
  * =============================================
  * SVG checkmark that draws itself on mount using CSS stroke-dashoffset animation.
- * No animation libraries — pure CSS keyframe on the SVG path's stroke-dasharray.
+ * No animation libraries-pure CSS keyframe on the SVG path's stroke-dasharray.
  *
  * HOW THE ANIMATION WORKS:
  *   SVG paths have a `stroke-dasharray` property that creates dashes in the stroke.
@@ -17,8 +17,8 @@
  *   voucher redemption, or any other success flow.
  *
  * Props:
- *   size?   — diameter in pixels (default: 80)
- *   color?  — CSS color string (default: ZealSync primary oklch(0.72 0.18 188))
+ *   size?  -diameter in pixels (default: 80)
+ *   color? -CSS color string (default: ZealSync primary oklch(0.72 0.18 188))
  */
 
 import { useEffect, useRef } from 'react';

@@ -18,7 +18,7 @@ interface SetupChecklistProps {
   items: ChecklistItem[];
 }
 
-/** First-run setup grid — each row shows completion state and a deep-link CTA. */
+/** First-run setup grid-each row shows completion state and a deep-link CTA. */
 export function SetupChecklist({ items }: SetupChecklistProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">

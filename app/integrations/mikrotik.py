@@ -11,9 +11,9 @@ WHY THE REST API:
 
   We use REST because:
     - Standard HTTP = standard debugging (curl, Postman, browser DevTools)
-    - httpx is already in requirements.txt — zero new dependencies
+    - httpx is already in requirements.txt-zero new dependencies
     - Plain JSON in logs = readable requests and responses
-    - Basic Auth out of the box — no custom auth protocol
+    - Basic Auth out of the box-no custom auth protocol
 
 HOW RouterOS REST API WORKS:
   Base URL: http://{host}:{port}/rest
@@ -64,7 +64,7 @@ logger = logging.getLogger(__name__)
 
 # Maximum retries for transient network errors (not 4xx errors from RouterOS)
 _MAX_RETRIES = 3
-# Initial backoff delay in seconds — doubles on each retry (1s, 2s, 4s)
+# Initial backoff delay in seconds-doubles on each retry (1s, 2s, 4s)
 _BACKOFF_BASE = 1.0
 
 
@@ -83,7 +83,7 @@ class MikroTikError(Exception):
             # RouterOS rejected the request (wrong credentials, duplicate name)
             log_business_error(e)
         except httpx.RequestError as e:
-            # Network failure — router unreachable, retry later
+            # Network failure-router unreachable, retry later
             enqueue_retry(payment_id)
     """
     pass
@@ -94,7 +94,7 @@ class MikroTikAuthError(MikroTikError):
     Raised specifically on HTTP 401 from RouterOS.
 
     Distinguishing auth errors from other errors matters because:
-    - A 401 means credentials are wrong — retrying won't help
+    - A 401 means credentials are wrong-retrying won't help
     - Any other error might be transient and worth retrying
     """
     pass
@@ -177,7 +177,7 @@ class MikroTikClient:
         Makes an HTTP request to the RouterOS REST API with retry logic.
 
         FIX [ADDED]: Retry on transient network errors with exponential backoff.
-        The original code had no retry — a single network hiccup (common on
+        The original code had no retry-a single network hiccup (common on
         ISP hardware) would permanently fail a voucher provisioning job.
 
         Retry policy:
@@ -197,7 +197,7 @@ class MikroTikClient:
                     params=params,
                 )
 
-                # 401 = auth error — do not retry, credentials won't change
+                # 401 = auth error-do not retry, credentials won't change
                 if response.status_code == 401:
                     raise MikroTikAuthError(
                         f"RouterOS authentication failed for {self._host}:{self._port}. "
@@ -243,7 +243,7 @@ class MikroTikClient:
 
         error_msg = (
             f"MikroTik error during [{context}] on {self._host}:{self._port}: "
-            f"{response.status_code} — {detail}"
+            f"{response.status_code}-{detail}"
         )
         logger.error(error_msg)
         raise MikroTikError(error_msg)
@@ -298,7 +298,7 @@ class MikroTikClient:
         WHY username AND password ARE THE SAME VALUE:
           A MikroTik hotspot login page has two fields (username, password).
           We set both to the voucher code so the customer enters one code
-          into either field — consistent UX regardless of which field they
+          into either field-consistent UX regardless of which field they
           try first.
 
         Returns the created user dict including the RouterOS .id.
@@ -333,7 +333,7 @@ class MikroTikClient:
 
     async def remove_hotspot_user(self, username: str) -> None:
         """
-        Deletes a hotspot user by username. Idempotent — silent if not found.
+        Deletes a hotspot user by username. Idempotent-silent if not found.
         """
         find_response = await self._request(
             "GET", "/ip/hotspot/user", params={"name": username}
@@ -342,7 +342,7 @@ class MikroTikClient:
 
         users = find_response.json()
         if not users:
-            logger.info(f"MikroTik [{self._host}]: user '{username}' not found — nothing to delete")
+            logger.info(f"MikroTik [{self._host}]: user '{username}' not found-nothing to delete")
             return
 
         mikrotik_id = users[0].get(".id")
@@ -445,7 +445,7 @@ class MikroTikClient:
         for profile in profiles:
             name = profile.get("name", "")
             if name in existing_names:
-                logger.info(f"MikroTik [{self._host}]: profile '{name}' already exists — skipping")
+                logger.info(f"MikroTik [{self._host}]: profile '{name}' already exists-skipping")
                 results[name] = False
                 continue
 
@@ -522,6 +522,7 @@ class MikroTikClient:
         radius_ip: str,
         radius_secret: str,
         login_html_url: str,  # NEW: URL to fetch login.html from backend
+        portal_host_ip: str | None = None,  # NEW: IP of the host machine for DST-NAT
     ) -> None:
         """
         Configures the IP pool, DHCP, and Hotspot server on the router.
@@ -533,7 +534,7 @@ class MikroTikClient:
             await client.post("/file/set", {".id": "hotspot/login.html", ...})
 
         Problems with original:
-          1. /file/set is not a standard RouterOS REST endpoint — it maps
+          1. /file/set is not a standard RouterOS REST endpoint-it maps
              a CLI command and may fail silently on some versions.
           2. /ip/hotspot/reset-html runs asynchronously on the router.
              The immediate /file/set call may run before reset-html finishes,
@@ -633,6 +634,27 @@ class MikroTikClient:
             )
             self._check_response(r, "create DHCP network")
 
+        # ── 3.5 Walled Garden (RESTORED) ─────────────────────────────────
+        # CRITICAL: The phone must be able to reach the external captive portal login page!
+        from urllib.parse import urlparse
+        frontend_host = urlparse(frontend_url).hostname
+        if frontend_host:
+            wg_response = await self._request("GET", "/ip/hotspot/walled-garden/ip")
+            self._check_response(wg_response, "list walled garden")
+            wg_entries = wg_response.json() if isinstance(wg_response.json(), list) else []
+            wg_exists = any(e.get("dst-address") == frontend_host and e.get("action") == "accept" for e in wg_entries)
+            if not wg_exists:
+                r = await self._request(
+                    "POST", "/ip/hotspot/walled-garden/ip/add",
+                    json={
+                        "action": "accept",
+                        "dst-address": frontend_host,
+                        "comment": "zealsync-portal"
+                    },
+                )
+                self._check_response(r, "add walled garden entry")
+                logger.info(f"MikroTik [{self._host}]: Added {frontend_host} to Walled Garden")
+
         # ── 4. Hotspot Profile ───────────────────────────────────────────
         hsprof_response = await self._request("GET", "/ip/hotspot/profile")
         self._check_response(hsprof_response, "list hotspot profiles")
@@ -683,7 +705,7 @@ class MikroTikClient:
             )
             self._check_response(r, "update hotspot server interface")
 
-        # ── 6. Login.html — router FETCHES from backend ──────────────────
+        # ── 6. Login.html-router FETCHES from backend ──────────────────
         # FIX [CRITICAL-2]: Router pulls its own login.html from ZealSync.
         # The backend serves the redirect HTML at login_html_url.
         # The router runs /tool fetch to download and save it.
@@ -884,7 +906,10 @@ class MikroTikClient:
         response = await self._request("GET", "/interface")
         self._check_response(response, "get interfaces")
         result = response.json()
-        return result if isinstance(result, list) else []
+        if isinstance(result, list):
+            # Filter out ether1 (WAN) and ether2 (Management/Host-Only) so they aren't accidentally selected
+            return [iface for iface in result if iface.get("name") not in ("ether1", "ether2")]
+        return []
 
 
 # ── Factory Function ──────────────────────────────────────────────────────────

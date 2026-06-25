@@ -33,6 +33,10 @@
 # stop everything loudly rather than silently continuing to the next file.
 set -e
 
+# Force strictly ASCII collation for predictable migration order
+# Otherwise, LC_COLLATE ignores underscores and sorts '009b' before '009_create'
+export LC_ALL=C
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -49,7 +53,7 @@ DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
 
 # The directory containing the migration files, relative to this script.
-MIGRATIONS_DIR="$(cd "$(dirname "$0")/../migrations" && pwd)"
+MIGRATIONS_DIR="$(cd "$(dirname "$0")/migrations" && pwd)"
 
 
 echo "============================================================"

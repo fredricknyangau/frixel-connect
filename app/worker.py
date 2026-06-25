@@ -7,17 +7,17 @@ Defines database pool lifecycle hooks, tasks, and cron jobs.
 
 import asyncio
 import logging
+
+import asyncpg
+import structlog
 from arq import Retry, cron
 from arq.connections import RedisSettings
-import asyncpg
+from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from app.config import settings
-from app.modules.vouchers.service import generate_voucher
-from app.modules.invoices.service import generate_invoice_for_payment
-
-import structlog
-from structlog.contextvars import bind_contextvars, clear_contextvars
 from app.core.logging import setup_logging
+from app.modules.invoices.service import generate_invoice_for_payment
+from app.modules.vouchers.service import generate_voucher
 
 # Configure logging for worker process
 setup_logging(json_logs=settings.APP_ENV == "production")
@@ -29,7 +29,7 @@ async def generate_voucher_task(ctx, payment_id: str, _request_id: str = None) -
     Durable background task to generate a voucher for a confirmed payment.
     Also generates an invoice for the payment.
     Instead of internal sleep loops, uses job-level retries handled by arq.
-    
+
     Retry Policy:
       - Max tries: 4.
       - Backoff schedule: 5s, 15s, 45s.
@@ -60,14 +60,14 @@ async def generate_voucher_task(ctx, payment_id: str, _request_id: str = None) -
                 "generate_voucher_task succeeded",
                 voucher_code=code
             )
-            
+
             # Generate invoice for the payment
             try:
                 await generate_invoice_for_payment(conn, payment_id)
             except Exception as e:
                 # Invoice generation failure shouldn't fail the voucher, but log it
                 logger.error("invoice generation failed", error=str(e), exc_info=True)
-                
+
             return code
         except Exception as e:
             if is_final_attempt:
@@ -143,10 +143,10 @@ async def sync_radius_sessions_cron(ctx) -> None:
             result = await conn.execute(
                 """
                 INSERT INTO sessions (
-                    voucher_id, customer_id, tenant_id, mac_address, ip_address, 
+                    voucher_id, customer_id, tenant_id, mac_address, ip_address,
                     bytes_uploaded, bytes_downloaded, started_at, ended_at, acct_unique_id
                 )
-                SELECT 
+                SELECT
                     v.id AS voucher_id,
                     v.customer_id,
                     v.tenant_id,
@@ -159,9 +159,9 @@ async def sync_radius_sessions_cron(ctx) -> None:
                     r.acctuniqueid AS acct_unique_id
                 FROM radacct r
                 JOIN vouchers v ON r.username = v.code
-                WHERE r.acctstoptime IS NULL 
+                WHERE r.acctstoptime IS NULL
                    OR r.acctstoptime > NOW() - INTERVAL '1 hour'
-                ON CONFLICT (acct_unique_id) 
+                ON CONFLICT (acct_unique_id)
                 DO UPDATE SET
                     bytes_uploaded = EXCLUDED.bytes_uploaded,
                     bytes_downloaded = EXCLUDED.bytes_downloaded,
@@ -170,7 +170,7 @@ async def sync_radius_sessions_cron(ctx) -> None:
                     mac_address = EXCLUDED.mac_address
                 """
             )
-            
+
             # Sync live bytes from MikroTik routers for active sessions
             from app.integrations.mikrotik import get_mikrotik_client
             routers = await conn.fetch("SELECT * FROM routers WHERE status = 'online'")
@@ -178,23 +178,23 @@ async def sync_radius_sessions_cron(ctx) -> None:
                 try:
                     mikrotik = get_mikrotik_client(dict(router_row))
                     active_sessions = await mikrotik.get_active_sessions()
-                    
+
                     for s_mk in active_sessions:
                         voucher_code = s_mk.get("user")
                         bytes_in = int(s_mk.get("bytes-in", 0))
                         bytes_out = int(s_mk.get("bytes-out", 0))
-                        
+
                         if not voucher_code or (bytes_in == 0 and bytes_out == 0):
                             continue
-                            
+
                         voucher_id = await conn.fetchval("SELECT id FROM vouchers WHERE code = $1", voucher_code)
                         if not voucher_id:
                             continue
-                            
+
                         await conn.execute(
                             """
                             UPDATE sessions
-                            SET 
+                            SET
                                 bytes_uploaded = GREATEST(bytes_uploaded, $1),
                                 bytes_downloaded = GREATEST(bytes_downloaded, $2)
                             WHERE voucher_id = $3 AND ended_at IS NULL
@@ -203,12 +203,12 @@ async def sync_radius_sessions_cron(ctx) -> None:
                         )
                 except Exception as e:
                     logger.error(f"Failed to sync live sessions from router {router_row['id']}", error=str(e))
-            
+
             # Update vouchers with their activation and expiry times based on first session
             await conn.execute(
                 """
                 UPDATE vouchers v
-                SET 
+                SET
                     activated_at = s.first_start,
                     expires_at = s.first_start + (p.duration_minutes || ' minutes')::interval
                 FROM (
@@ -221,27 +221,27 @@ async def sync_radius_sessions_cron(ctx) -> None:
                   AND v.activated_at IS NULL
                 """
             )
-            
+
             # Mark expired vouchers as 'expired' and forcefully disconnect them
             expired_vouchers = await conn.fetch(
                 """
                 UPDATE vouchers
                 SET status = 'expired'
-                WHERE status IN ('active', 'used') 
-                  AND expires_at IS NOT NULL 
+                WHERE status IN ('active', 'used')
+                  AND expires_at IS NOT NULL
                   AND expires_at <= NOW()
                 RETURNING id, code, router_id
                 """
             )
-            
+
             if expired_vouchers:
                 for v in expired_vouchers:
                     # Remove from RADIUS to prevent reconnect
                     await conn.execute("DELETE FROM radcheck WHERE username = $1", v["code"])
                     await conn.execute("DELETE FROM radreply WHERE username = $1", v["code"])
-                    
+
                     logger.info("Voucher expired. Revoking RADIUS credentials and disconnecting.", voucher=v["code"])
-                    
+
                     # Forcefully disconnect active session
                     active_session = await conn.fetchrow(
                         """
@@ -253,9 +253,9 @@ async def sync_radius_sessions_cron(ctx) -> None:
                         """,
                         v["code"]
                     )
-                    
+
                     from app.integrations.mikrotik import get_mikrotik_client
-                    
+
                     if active_session:
                         from app.integrations.radius_coa import send_coa_disconnect
                         # Attempt CoA disconnect
@@ -265,7 +265,7 @@ async def sync_radius_sessions_cron(ctx) -> None:
                             v["code"],
                             active_session["acctsessionid"]
                         )
-                        
+
                         if not coa_success:
                             logger.info("CoA disconnect failed for expired voucher. Falling back to MikroTik REST API.", voucher=v["code"])
                             router_dict = None
@@ -275,7 +275,7 @@ async def sync_radius_sessions_cron(ctx) -> None:
                                 router_row = await conn.fetchrow("SELECT * FROM routers WHERE id = $1", v["router_id"])
                             if router_row:
                                 router_dict = dict(router_row)
-                            
+
                             try:
                                 mikrotik = get_mikrotik_client(router_dict)
                                 await mikrotik.remove_active_hotspot_session(v["code"])
@@ -300,7 +300,7 @@ async def sync_radius_sessions_cron(ctx) -> None:
                             router_row = await conn.fetchrow("SELECT * FROM routers WHERE id = $1", v["router_id"])
                         if router_row:
                             router_dict = dict(router_row)
-                        
+
                         try:
                             mikrotik = get_mikrotik_client(router_dict)
                             await mikrotik.remove_active_hotspot_session(v["code"])
@@ -322,7 +322,7 @@ async def pppoe_billing_cron(ctx) -> None:
     clear_contextvars()
     bind_contextvars(cron="pppoe_billing_cron")
     logger.info("running PPPoE billing check...")
-    
+
     from app.integrations.africastalking import send_sms
     from app.integrations.mikrotik import get_mikrotik_client
 
@@ -341,29 +341,29 @@ async def pppoe_billing_cron(ctx) -> None:
 
             from datetime import datetime, timezone
             now = datetime.now(timezone.utc)
-            
+
             for s in subs:
                 days_left = (s["current_period_end"] - now).days
                 phone = s["phone"]
-                
+
                 # T-3 reminder
                 if days_left == 3 and s["auto_renew"]:
                     await send_sms(phone, "Your ZealSync WiFi subscription expires in 3 days. Please ensure you have sufficient funds to renew.")
-                
+
                 # T-1 reminder
                 elif days_left == 1 and s["auto_renew"]:
                     await send_sms(phone, "Your ZealSync WiFi subscription expires tomorrow. Please renew to avoid disconnection.")
-                
+
                 # T+0 (entering grace)
                 elif days_left == 0 and s["status"] == "active":
                     await conn.execute("UPDATE subscriptions SET status = 'grace', updated_at = NOW() WHERE id = $1", s["id"])
                     await send_sms(phone, "Your WiFi subscription has expired. You are now in a 24-hour grace period.")
-                
+
                 # Past grace (e.g. days_left < 0 or <= -1) -> Suspend
                 elif days_left < 0 and s["status"] in ("active", "grace"):
                     # Suspend
                     await conn.execute("UPDATE subscriptions SET status = 'suspended', updated_at = NOW() WHERE id = $1", s["id"])
-                    
+
                     # Disable PPPoE
                     if s["router_id"]:
                         router_row = await conn.fetchrow(
@@ -373,7 +373,7 @@ async def pppoe_billing_cron(ctx) -> None:
                             client = get_mikrotik_client(dict(router_row))
                             # Using phone as PPPoE username
                             await client.disable_ppp_secret(phone)
-                            
+
                     await send_sms(phone, "Your WiFi subscription has been suspended due to non-payment. Please pay to reconnect.")
 
             logger.info("PPPoE billing check completed")
@@ -394,7 +394,7 @@ async def tenant_billing_cron(ctx) -> None:
     logger.info("running tenant metering and billing check...")
 
     from app.integrations.daraja import daraja_client
-    
+
     TIER_PRICING = {
         "starter": 1000,
         "growth": 5000,
@@ -405,13 +405,13 @@ async def tenant_billing_cron(ctx) -> None:
     async with pool.acquire() as conn:
         try:
             tenants = await conn.fetch("SELECT id, business_name, owner_phone, subscription_tier, max_customers, status, next_billing_date FROM tenants")
-            
+
             from datetime import datetime, timezone
             now = datetime.now(timezone.utc)
-            
+
             for t in tenants:
                 tenant_id = t["id"]
-                
+
                 # 1. Metering
                 active_customers_count = await conn.fetchval(
                     "SELECT COUNT(*) FROM users WHERE tenant_id = $1 AND role = 'customer' AND is_active = TRUE",
@@ -426,14 +426,14 @@ async def tenant_billing_cron(ctx) -> None:
                         max_customers=t["max_customers"],
                         subscription_tier=t["subscription_tier"]
                     )
-            
+
                 # 2. Billing & Suspension
                 if t["status"] != "active":
                     continue
-                
+
                 next_billing_date = t["next_billing_date"]
                 days_overdue = (now - next_billing_date).days
-                
+
                 if next_billing_date <= now:
                     if days_overdue > 7:
                         # Suspend
@@ -443,8 +443,8 @@ async def tenant_billing_cron(ctx) -> None:
                         # Bill
                         recent_push = await conn.fetchval(
                             """
-                            SELECT COUNT(*) FROM platform_payments 
-                            WHERE tenant_id = $1 
+                            SELECT COUNT(*) FROM platform_payments
+                            WHERE tenant_id = $1
                               AND created_at > NOW() - INTERVAL '24 hours'
                               AND status IN ('pending', 'confirmed')
                             """, tenant_id
@@ -514,4 +514,3 @@ class WorkerSettings:
         cron(pppoe_billing_cron, hour={0}, minute={0}),  # Run at midnight
         cron(tenant_billing_cron, hour={0}, minute={0}),  # Run at midnight
     ]
-
