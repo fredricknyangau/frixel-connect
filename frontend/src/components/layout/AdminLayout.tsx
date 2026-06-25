@@ -1,10 +1,10 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Package, 
-  CreditCard, 
-  Ticket, 
+import {
+  LayoutDashboard,
+  Users,
+  Package,
+  CreditCard,
+  Ticket,
   Activity,
   LogOut,
   Menu,
@@ -14,9 +14,10 @@ import {
   ScrollText,
   Building2,
   Moon,
-  Sun
+  Sun,
 } from 'lucide-react';
 import { useAuthContext } from '../../context/AuthContext';
+import { useRouterSummary } from '../../hooks/useRouterSummary';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '../ui/sheet';
@@ -27,30 +28,53 @@ interface SidebarItem {
   icon: typeof LayoutDashboard;
   label: string;
   href: string;
+  navState?: 'active' | 'muted' | 'disabled';
 }
 
-const sidebarItems: SidebarItem[] = [
+const coreSidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard' },
   { icon: Users, label: 'Customers', href: '/admin/customers' },
   { icon: Package, label: 'Packages', href: '/admin/packages' },
   { icon: CreditCard, label: 'Payments', href: '/admin/payments' },
-  { icon: Ticket, label: 'Vouchers', href: '/admin/vouchers' },
   { icon: Receipt, label: 'Invoices', href: '/admin/invoices' },
   { icon: Activity, label: 'Sessions', href: '/admin/sessions' },
   { icon: Wifi, label: 'Routers', href: '/admin/routers' },
-  { icon: Repeat, label: 'Subscriptions', href: '/admin/subscriptions' },
-  
-  // Ops Section
   { icon: Activity, label: 'System Health', href: '/admin/system-health' },
   { icon: ScrollText, label: 'Audit Log', href: '/admin/audit-log' },
-  
-  // Billing
   { icon: Building2, label: 'Account & Billing', href: '/admin/account' },
 ];
 
 export default function AdminLayout() {
   const { logout } = useAuthContext();
   const navigate = useNavigate();
+  const { hasHotspotRouter, hasPPPoERouter, routers } = useRouterSummary();
+
+  const hasAnyRouter = routers.length > 0;
+
+  /** Vouchers: enabled when hotspot router exists; muted when no routers yet; hidden-style when fiber-only. */
+  const vouchersNavState: 'active' | 'muted' | 'disabled' = !hasAnyRouter
+    ? 'muted'
+    : hasHotspotRouter
+      ? 'active'
+      : 'disabled';
+
+  /** Subscriptions: enabled when PPPoE router exists; muted when no routers; disabled when hotspot-only. */
+  const subscriptionsNavState: 'active' | 'muted' | 'disabled' = !hasAnyRouter
+    ? 'muted'
+    : hasPPPoERouter
+      ? 'active'
+      : 'disabled';
+
+  const serviceSidebarItems: SidebarItem[] = [
+    { icon: Ticket, label: 'Vouchers', href: '/admin/vouchers', navState: vouchersNavState },
+    { icon: Repeat, label: 'Subscriptions', href: '/admin/subscriptions', navState: subscriptionsNavState },
+  ];
+
+  const sidebarItems: SidebarItem[] = [
+    ...coreSidebarItems.slice(0, 5),
+    ...serviceSidebarItems,
+    ...coreSidebarItems.slice(5),
+  ];
 
   const handleLogout = () => {
     logout();
@@ -63,41 +87,56 @@ export default function AdminLayout() {
     return (
       <nav className={cn('flex flex-col gap-2 flex-1', isMobile ? 'mt-4' : 'mt-8')}>
         <div className="flex-1 flex flex-col gap-2">
-          {sidebarItems.map((item) => (
-            <NavLink
-              key={item.href}
-              to={item.href}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )
-              }
-            >
-              <item.icon className="h-5 w-5" />
-              {item.label}
-            </NavLink>
-          ))}
+          {sidebarItems.map((item) => {
+            const navState = item.navState ?? 'active';
+
+            if (navState === 'disabled') {
+              return (
+                <span
+                  key={item.href}
+                  className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground/50"
+                  title="Connect a router with this service type first"
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </span>
+              );
+            }
+
+            return (
+              <NavLink
+                key={item.href}
+                to={item.href}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    navState === 'muted' && 'opacity-50',
+                  )
+                }
+              >
+                <item.icon className="h-5 w-5" />
+                {item.label}
+              </NavLink>
+            );
+          })}
         </div>
-        
-        <div className="mt-auto flex flex-col gap-2 pt-4 border-t">
+
+        <div className="mt-auto flex flex-col gap-2 border-t pt-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="w-full justify-start gap-2 px-2"
           >
-            {theme === 'dark'
-              ? <Sun className="w-4 h-4" />
-              : <Moon className="w-4 h-4" />
-            }
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             <span className="text-sm">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
           </Button>
 
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
             onClick={handleLogout}
           >
@@ -111,8 +150,7 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-screen bg-muted/20">
-      {/* Desktop Sidebar */}
-      <aside className="hidden w-64 flex-col border-r bg-background px-4 py-6 md:flex fixed inset-y-0 z-50">
+      <aside className="fixed inset-y-0 z-50 hidden w-64 flex-col border-r bg-background px-4 py-6 md:flex">
         <div className="flex items-center justify-between px-2">
           <span className="text-xl font-bold">ZealSync</span>
           <Badge variant="secondary">Admin</Badge>
@@ -120,15 +158,13 @@ export default function AdminLayout() {
         <NavItems />
       </aside>
 
-      {/* Main Content */}
       <div className="flex flex-1 flex-col md:pl-64">
-        {/* Mobile Header */}
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-background px-4 md:hidden">
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold">ZealSync</span>
             <Badge variant="secondary">Admin</Badge>
           </div>
-          
+
           <Sheet>
             <SheetTrigger render={<Button variant="ghost" size="icon" className="md:hidden" />}>
               <Menu className="h-6 w-6" />
@@ -141,7 +177,6 @@ export default function AdminLayout() {
           </Sheet>
         </header>
 
-        {/* Page Content */}
         <main className="flex-1 p-4 md:p-8">
           <Outlet />
         </main>

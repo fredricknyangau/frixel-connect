@@ -2,22 +2,27 @@ import { useState, useMemo, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { format, formatDistanceToNow, parseISO } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { Search, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { 
-  useAdminCustomers, 
-  useAdminCreateUser, 
-  useAdminUpdateUser, 
-  useAdminDeleteUser 
+import {
+  useAdminCustomers,
+  useAdminCreateUser,
+  useAdminUpdateUser,
+  useAdminDeleteUser,
 } from '../../hooks/useUsers';
 import { useAdminPayments } from '../../hooks/usePayments';
 import { useAdminVouchers } from '../../hooks/useVouchers';
-import { useRouters } from '../../hooks/useRouters';
+import { useAdminSubscriptions } from '../../hooks/useSubscriptions';
+import { useRouterSummary, resolveRouterServiceType } from '../../hooks/useRouterSummary';
 import { UserRole } from '../../types/auth';
 import { User } from '../../types/users';
 import { Payment } from '../../types/payments';
 import { Voucher } from '../../types/vouchers';
+import { Subscription } from '../../types/subscriptions';
+import type { ServiceType } from '../../types/onboarding';
 import { PageTitle } from '../../components/shared/PageTitle';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { formatKES, formatNairobiDate, cn } from '../../lib/utils';
@@ -43,12 +48,56 @@ const userSchema = z.object({
 
 type UserFormValues = z.infer<typeof userSchema>;
 
+const NAIROBI_TZ = 'Africa/Nairobi';
+
+function ConnectionBadge({ type }: { type: ServiceType | null }) {
+  if (!type) {
+    return <span className="text-muted-foreground text-sm">—</span>;
+  }
+  if (type === 'pppoe') {
+    return (
+      <Badge variant="outline" className="border-transparent bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200">
+        Fiber
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="border-transparent bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200">
+      Hotspot
+    </Badge>
+  );
+}
+
+function formatSubscriptionLabel(sub: Subscription): string {
+  if (sub.status === 'grace') return 'Grace period';
+  if (sub.status === 'active') {
+    const end = toZonedTime(parseISO(sub.current_period_end), NAIROBI_TZ);
+    return `Active until ${format(end, 'MMM d')}`;
+  }
+  return sub.status.charAt(0).toUpperCase() + sub.status.slice(1);
+}
+
+function formatLastVoucherActivity(customerVouchers: Voucher[]): string {
+  if (customerVouchers.length === 0) return 'No activity';
+  const sorted = [...customerVouchers].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+  const latest = sorted[0];
+  try {
+    const when = formatDistanceToNow(parseISO(latest.created_at), { addSuffix: false });
+    return `Last: ${when} ago`;
+  } catch {
+    return 'No activity';
+  }
+}
+
 export default function CustomersPage() {
   const { data: users, isLoading } = useAdminCustomers();
   const { data: payments } = useAdminPayments();
   const { data: vouchers } = useAdminVouchers();
-  
-  const { data: routers } = useRouters();
+  const { data: subscriptions } = useAdminSubscriptions();
+
+  const { routers } = useRouterSummary();
 
   const createUser = useAdminCreateUser();
   const updateUser = useAdminUpdateUser();
@@ -78,7 +127,7 @@ export default function CustomersPage() {
         phone: editingUser.phone,
         role: editingUser.role,
         password: '',
-        router_id: (editingUser as any).router_id || '',
+        router_id: editingUser.router_id || '',
       });
     } else {
       reset({ email: '', phone: '', password: '', role: 'customer', router_id: '' });
@@ -160,6 +209,28 @@ export default function CustomersPage() {
     }
   };
 
+  const subscriptionByCustomer = useMemo(() => {
+    const map = new Map<string, Subscription>();
+    subscriptions?.forEach((sub) => map.set(sub.customer_id, sub));
+    return map;
+  }, [subscriptions]);
+
+  const vouchersByCustomer = useMemo(() => {
+    const map = new Map<string, Voucher[]>();
+    vouchers?.forEach((v) => {
+      const list = map.get(v.customer_id) ?? [];
+      list.push(v);
+      map.set(v.customer_id, list);
+    });
+    return map;
+  }, [vouchers]);
+
+  const getConnectionType = (user: User): ServiceType | null => {
+    if (!user.router_id) return null;
+    const router = routers.find((r) => r.id === user.router_id);
+    return router ? resolveRouterServiceType(router) : null;
+  };
+
   const selectedUserPayments = useMemo(() => {
     if (!selectedUser || !payments) return [];
     return payments
@@ -215,7 +286,8 @@ export default function CustomersPage() {
               <TableHead>Phone</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
-              <TableHead>Reseller</TableHead>
+              <TableHead>Connection</TableHead>
+              <TableHead>Subscription</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -224,7 +296,7 @@ export default function CustomersPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={8} className="text-center py-8">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
@@ -235,7 +307,11 @@ export default function CustomersPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredUsers.map((user: User) => (
+              filteredUsers.map((user: User) => {
+                const subscription = subscriptionByCustomer.get(user.id);
+                const customerVouchers = vouchersByCustomer.get(user.id) ?? [];
+
+                return (
                 <TableRow 
                   key={user.id} 
                   className={cn("cursor-pointer hover:bg-muted/50", !user.is_active && 'text-muted-foreground opacity-60')}
@@ -245,11 +321,22 @@ export default function CustomersPage() {
                   <TableCell>{user.email}</TableCell>
                   <TableCell className="capitalize">{user.role}</TableCell>
                   <TableCell>
-                    {user.reseller_id ? (
-                      <span className="text-muted-foreground text-sm truncate max-w-[100px] inline-block" title={user.reseller_id}>
-                        {user.reseller_id.substring(0, 8)}...
-                      </span>
-                    ) : '-'}
+                    {user.role === 'customer' ? (
+                      <ConnectionBadge type={getConnectionType(user)} />
+                    ) : (
+                      <span className="text-muted-foreground text-sm">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {user.role === 'customer' ? (
+                      subscription ? (
+                        <span>{formatSubscriptionLabel(subscription)}</span>
+                      ) : (
+                        <span>{formatLastVoucherActivity(customerVouchers)}</span>
+                      )
+                    ) : (
+                      '—'
+                    )}
                   </TableCell>
                   <TableCell>
                     {user.is_active ? (
@@ -284,7 +371,8 @@ export default function CustomersPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -480,11 +568,11 @@ export default function CustomersPage() {
                         <div className="truncate" title={selectedUser.reseller_id}>{selectedUser.reseller_id.substring(0, 8)}...</div>
                       </div>
                     )}
-                    {(selectedUser as any).router_id && (
+                    {(selectedUser.router_id) && (
                       <div>
                         <div className="text-muted-foreground mb-1">Router Site</div>
                         <div>
-                          {routers?.find(r => r.id === (selectedUser as any).router_id)?.name || 'Unknown'}
+                          {routers?.find(r => r.id === selectedUser.router_id)?.name || 'Unknown'}
                         </div>
                       </div>
                     )}

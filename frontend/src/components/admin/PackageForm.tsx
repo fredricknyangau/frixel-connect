@@ -8,7 +8,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Loader2 } from 'lucide-react';
-import type { ServiceType } from '../../lib/onboarding';
+import type { ServiceType } from '../../types/onboarding';
 
 const baseSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -40,6 +40,9 @@ interface PackageFormProps {
   serviceType?: ServiceType;
   /** Hide service badge in admin CRUD mode */
   showServiceBadge?: boolean;
+  /** Admin packages page: let user pick Hotspot vs Fiber when creating/editing */
+  allowServiceTypeSelect?: boolean;
+  onServiceTypeChange?: (type: ServiceType) => void;
 }
 
 const HOTSPOT_DURATION_PRESETS = [
@@ -60,8 +63,14 @@ export function PackageForm({
   onCancel,
   serviceType,
   showServiceBadge = !!serviceType,
+  allowServiceTypeSelect = false,
+  onServiceTypeChange,
 }: PackageFormProps) {
-  const isPppoe = serviceType === 'pppoe';
+  const [selectedServiceType, setSelectedServiceType] = useState<ServiceType>(
+    serviceType ?? 'hotspot',
+  );
+  const effectiveServiceType = allowServiceTypeSelect ? selectedServiceType : serviceType;
+  const isPppoe = effectiveServiceType === 'pppoe';
   const [durationPreset, setDurationPreset] = useState<number>(isPppoe ? 30 : 1);
 
   const {
@@ -89,6 +98,12 @@ export function PackageForm({
   const durationDays = Number(watch('duration_days') ?? 1);
 
   useEffect(() => {
+    if (serviceType) {
+      setSelectedServiceType(serviceType);
+    }
+  }, [serviceType]);
+
+  useEffect(() => {
     if (isPppoe) {
       setValue('duration_days', 30);
       setDurationPreset(30);
@@ -107,11 +122,46 @@ export function PackageForm({
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-      {showServiceBadge && serviceType && (
+      {allowServiceTypeSelect && (
+        <div className="space-y-2">
+          <Label>Service type</Label>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={selectedServiceType === 'hotspot' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setSelectedServiceType('hotspot');
+                onServiceTypeChange?.('hotspot');
+              }}
+            >
+              Hotspot
+            </Button>
+            <Button
+              type="button"
+              variant={selectedServiceType === 'pppoe' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setSelectedServiceType('pppoe');
+                onServiceTypeChange?.('pppoe');
+              }}
+            >
+              Fiber PPPoE
+            </Button>
+          </div>
+          {isPppoe && (
+            <p className="text-xs text-muted-foreground">
+              Fiber packages are billed monthly via M-Pesa recurring payment.
+            </p>
+          )}
+        </div>
+      )}
+
+      {showServiceBadge && effectiveServiceType && !allowServiceTypeSelect && (
         <div className="flex items-center gap-2">
           <Label className="text-muted-foreground">Service type</Label>
-          <Badge variant={serviceType === 'hotspot' ? 'default' : 'secondary'}>
-            {serviceType === 'hotspot' ? 'Hotspot' : 'Fiber PPPoE'}
+          <Badge variant={effectiveServiceType === 'hotspot' ? 'default' : 'secondary'}>
+            {effectiveServiceType === 'hotspot' ? 'Hotspot' : 'Fiber PPPoE'}
           </Badge>
         </div>
       )}
