@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { parseISO, isSameDay, isSameMonth } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, X } from 'lucide-react';
 import { useAdminPayments } from '../../hooks/usePayments';
 import { useAdminVouchers } from '../../hooks/useVouchers';
 import { useAdminCustomers } from '../../hooks/useUsers';
@@ -9,14 +10,20 @@ import { PageTitle } from '../../components/shared/PageTitle';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { formatKES, formatNairobiDate } from '../../lib/utils';
+import { isOnboardingIncomplete } from '../../lib/onboarding';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Skeleton } from '../../components/ui/skeleton';
+import { Button } from '../../components/ui/button';
 
 const NAIROBI_TZ = 'Africa/Nairobi';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const [bannerDismissed, setBannerDismissed] = useState(
+    () => sessionStorage.getItem('zealsync_onboarding_banner_dismissed') === 'true',
+  );
+  const showOnboardingBanner = isOnboardingIncomplete() && !bannerDismissed;
   const { data: payments, isLoading: loadingPayments, error: errorPayments } = useAdminPayments();
   const { data: vouchers, isLoading: loadingVouchers, error: errorVouchers } = useAdminVouchers();
   const { data: customers, isLoading: loadingCustomers, error: errorCustomers } = useAdminCustomers();
@@ -77,6 +84,30 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageTitle title="Dashboard | ZealSync Admin" />
+
+      {showOnboardingBanner && (
+        <div className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-medium">
+            Complete your setup to start accepting payments →
+          </p>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => navigate('/admin/onboarding')}>
+              Continue setup
+            </Button>
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.setItem('zealsync_onboarding_banner_dismissed', 'true');
+                setBannerDismissed(true);
+              }}
+              className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+              aria-label="Dismiss banner"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
         <Card>

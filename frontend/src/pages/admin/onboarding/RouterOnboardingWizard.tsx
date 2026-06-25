@@ -55,9 +55,19 @@ import type { MagicInitResponse } from '../../../types/setup';
 
 type Step = 'details' | 'command' | 'provision' | 'complete';
 
+interface RouterOnboardingWizardProps {
+  /** When true, renders inline inside OnboardingPage shell (no page header/footer). */
+  embedded?: boolean;
+  /** Called when the wizard reaches the complete step in embedded mode. */
+  onComplete?: (routerId: string, routerName: string) => void;
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-export default function RouterOnboardingWizard() {
+export default function RouterOnboardingWizard({
+  embedded = false,
+  onComplete,
+}: RouterOnboardingWizardProps = {}) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -99,6 +109,30 @@ export default function RouterOnboardingWizard() {
     initData?.router_id ?? null,
     step === 'command',
   );
+
+  // Pre-select service type from signup when embedded in onboarding shell.
+  useEffect(() => {
+    if (!embedded) return;
+    const stored = localStorage.getItem('zealsync_onboarding_service');
+    if (stored === 'hotspot' || stored === 'pppoe') {
+      setServiceType(stored);
+    }
+  }, [embedded]);
+
+  // Notify parent shell when router setup completes (embedded mode only).
+  const completeCalledRef = useRef(false);
+  useEffect(() => {
+    if (
+      embedded &&
+      step === 'complete' &&
+      initData?.router_id &&
+      onComplete &&
+      !completeCalledRef.current
+    ) {
+      completeCalledRef.current = true;
+      onComplete(initData.router_id, routerName || 'Router');
+    }
+  }, [embedded, step, initData?.router_id, routerName, onComplete]);
 
   // ── Resume logic ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -145,6 +179,8 @@ export default function RouterOnboardingWizard() {
                 expires_at: localExpires,
                 is_chr: localIsChr,
               });
+              setIsChr(localIsChr);
+              setIpRange(localIsChr ? '10.10.10.1/24' : '10.0.0.1/24');
               setRouterName(localName || '');
               setSiteName(localSite || '');
               setStep('provision');
@@ -303,86 +339,27 @@ export default function RouterOnboardingWizard() {
 
   // ── Render: Loading ───────────────────────────────────────────────────────────
 
-  if (isLoadingResume) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30">
-        <PageTitle title="Router Setup | ZealSync" />
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Checking setup status...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Render: Full Page Wrapper ─────────────────────────────────────────────────
-
-  return (
-    <div className="flex flex-col min-h-screen bg-muted/30">
-      <PageTitle title="Connect a Router | ZealSync" />
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur-sm px-6 shadow-sm">
-        <div className="flex items-center space-x-3">
-          {step === 'command' && (
-            <button
-              onClick={() => setStep('details')}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Back to details"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Back</span>
-            </button>
-          )}
-          <div className="flex items-center space-x-2">
-            <Wifi className="h-5 w-5 text-primary" />
-            <h1 className="text-base font-bold tracking-tight">Connect a Router</h1>
-          </div>
-        </div>
-
-        {/* Progress indicator (only shown during setup flow) */}
-        {(step === 'command' || step === 'provision') && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary font-semibold text-[10px]">✓</span>
-              <span className="hidden sm:inline text-primary font-medium">Details</span>
-            </div>
-            <div className="h-px w-6 bg-muted-foreground/30" />
-            <div className="flex items-center gap-1.5">
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full font-semibold text-[10px] ${step === 'command' ? 'bg-primary text-primary-foreground' : 'bg-primary/20 text-primary'}`}>{step === 'command' ? '2' : '✓'}</span>
-              <span className={`hidden sm:inline ${step === 'command' ? 'font-medium' : 'text-primary font-medium'}`}>Connect</span>
-            </div>
-            <div className="h-px w-6 bg-muted-foreground/30" />
-            <div className="flex items-center gap-1.5">
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full font-semibold text-[10px] ${step === 'provision' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>3</span>
-              <span className={`hidden sm:inline ${step === 'provision' ? 'font-medium' : ''}`}>Provision</span>
-            </div>
-          </div>
-        )}
-      </header>
-
-      {/* ── Main Content ───────────────────────────────────────────────────── */}
-      <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
-        <div className="w-full max-w-md">
-
+  const wizardContent = (
+    <div className={embedded ? 'w-full' : 'w-full max-w-md'}>
           {/* ════════════════════════════════════════════════
               STEP: details
               ════════════════════════════════════════════════ */}
           {step === 'details' && (
             <Card className="border shadow-xl bg-background rounded-2xl overflow-hidden border-t-4 border-t-primary">
               <CardContent className="p-6 sm:p-8">
-                {/* Header */}
-                <div className="mb-6">
-                  <div className="flex items-center gap-2.5 mb-1.5">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                      <Terminal className="h-4.5 w-4.5 text-primary" />
+                {!embedded && (
+                  <div className="mb-6">
+                    <div className="flex items-center gap-2.5 mb-1.5">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                        <Terminal className="h-4.5 w-4.5 text-primary" />
+                      </div>
+                      <h2 className="text-xl font-bold tracking-tight">Connect a Router</h2>
                     </div>
-                    <h2 className="text-xl font-bold tracking-tight">Connect a Router</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Takes about 60 seconds. One command does everything.
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Takes about 60 seconds. One command does everything.
-                  </p>
-                </div>
+                )}
 
                 <form onSubmit={handleSubmitDetails} className="space-y-5" noValidate>
                   {/* Router name */}
@@ -450,13 +427,16 @@ export default function RouterOnboardingWizard() {
                           Uses your local IP instead of the cloud API
                         </p>
                       </div>
-                      {/* Pill-style toggle — pure CSS, no shadcn dependency */}
                       <button
                         id="chr-mode"
                         type="button"
                         role="switch"
                         aria-checked={isChr}
-                        onClick={() => setIsChr((v) => !v)}
+                        onClick={() => setIsChr((v) => {
+                          const nextVal = !v;
+                          setIpRange(nextVal ? '10.10.10.1/24' : '10.0.0.1/24');
+                          return nextVal;
+                        })}
                         className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                           isChr ? 'bg-primary' : 'bg-muted-foreground/30'
                         }`}
@@ -513,15 +493,16 @@ export default function RouterOnboardingWizard() {
               {/* Main command card */}
               <Card className="border shadow-xl bg-background rounded-2xl overflow-hidden border-t-4 border-t-primary">
                 <CardContent className="p-6 sm:p-8 space-y-5">
-                  {/* Title */}
-                  <div>
-                    <h2 className="text-xl font-bold tracking-tight">
-                      Run this on your MikroTik
-                    </h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Open your MikroTik terminal and paste this command:
-                    </p>
-                  </div>
+                  {!embedded && (
+                    <div>
+                      <h2 className="text-xl font-bold tracking-tight">
+                        Run this on your MikroTik
+                      </h2>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Open your MikroTik terminal and paste this command:
+                      </p>
+                    </div>
+                  )}
 
                   {/* Command block */}
                   <div className="rounded-xl bg-zinc-950 dark:bg-zinc-900 border border-zinc-800 overflow-hidden">
@@ -656,15 +637,17 @@ export default function RouterOnboardingWizard() {
           {step === 'provision' && initData && (
             <Card className="border shadow-xl bg-background rounded-2xl overflow-hidden border-t-4 border-t-primary">
               <CardContent className="p-6 sm:p-8">
-                <div className="mb-6 text-center">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 mb-3">
-                    <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                {!embedded && (
+                  <div className="mb-6 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 mb-3">
+                      <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <h2 className="text-xl font-bold tracking-tight">Router Online!</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      ZealSync is now connected to {routerName}. Let&apos;s set up your network.
+                    </p>
                   </div>
-                  <h2 className="text-xl font-bold tracking-tight">Router Online!</h2>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    ZealSync is now connected to {routerName}. Let's set up your network.
-                  </p>
-                </div>
+                )}
 
                 <form onSubmit={handleProvision} className="space-y-5">
                   {/* Service Type */}
@@ -763,16 +746,17 @@ export default function RouterOnboardingWizard() {
             <Card className="border shadow-xl bg-background rounded-2xl overflow-hidden">
               <CardContent className="p-6 sm:p-8">
 
-                {/* Animated checkmark */}
-                <div className="flex flex-col items-center text-center mb-6 pt-2">
-                  <AnimatedCheckmark size={88} />
-                  <h2 className="text-2xl font-bold tracking-tight mt-4">
-                    Router Connected!
-                  </h2>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Your MikroTik is now linked to ZealSync and ready to process sessions.
-                  </p>
-                </div>
+                {!embedded && (
+                  <div className="flex flex-col items-center text-center mb-6 pt-2">
+                    <AnimatedCheckmark size={88} />
+                    <h2 className="text-2xl font-bold tracking-tight mt-4">
+                      Router Connected!
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Your MikroTik is now linked to ZealSync and ready to process sessions.
+                    </p>
+                  </div>
+                )}
 
                 {/* Summary card */}
                 <div className="rounded-xl border bg-muted/30 divide-y divide-border mb-6 overflow-hidden">
@@ -825,29 +809,89 @@ export default function RouterOnboardingWizard() {
                   ))}
                 </div>
 
-                {/* Action buttons */}
-                <div className="space-y-2.5">
-                  <Button
-                    onClick={handleReset}
-                    variant="outline"
-                    className="w-full h-10"
-                    id="add-another-router"
-                  >
-                    <Wifi className="mr-2 h-4 w-4" />
-                    Add Another Router
-                  </Button>
-                  <Button
-                    onClick={() => navigate('/admin/dashboard')}
-                    className="w-full h-10"
-                    id="go-to-dashboard"
-                  >
-                    Go to Dashboard
-                  </Button>
-                </div>
+                {!embedded && (
+                  <div className="space-y-2.5">
+                    <Button
+                      onClick={handleReset}
+                      variant="outline"
+                      className="w-full h-10"
+                      id="add-another-router"
+                    >
+                      <Wifi className="mr-2 h-4 w-4" />
+                      Add Another Router
+                    </Button>
+                    <Button
+                      onClick={() => navigate('/admin/dashboard')}
+                      className="w-full h-10"
+                      id="go-to-dashboard"
+                    >
+                      Go to Dashboard
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
+    </div>
+  );
+
+  if (isLoadingResume) {
+    return (
+      <div className={embedded ? 'flex justify-center py-8' : 'flex min-h-screen items-center justify-center bg-muted/30'}>
+        {!embedded && <PageTitle title="Router Setup | ZealSync" />}
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Checking setup status...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (embedded) {
+    return wizardContent;
+  }
+
+  return (
+    <div className="flex flex-col min-h-screen bg-muted/30">
+      <PageTitle title="Connect a Router | ZealSync" />
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur-sm px-6 shadow-sm">
+        <div className="flex items-center space-x-3">
+          {step === 'command' && (
+            <button
+              onClick={() => setStep('details')}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Back to details"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+          )}
+          <div className="flex items-center space-x-2">
+            <Wifi className="h-5 w-5 text-primary" />
+            <h1 className="text-base font-bold tracking-tight">Connect a Router</h1>
+          </div>
+        </div>
+        {(step === 'command' || step === 'provision') && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary font-semibold text-[10px]">✓</span>
+              <span className="hidden sm:inline text-primary font-medium">Details</span>
+            </div>
+            <div className="h-px w-6 bg-muted-foreground/30" />
+            <div className="flex items-center gap-1.5">
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full font-semibold text-[10px] ${step === 'command' ? 'bg-primary text-primary-foreground' : 'bg-primary/20 text-primary'}`}>{step === 'command' ? '2' : '✓'}</span>
+              <span className={`hidden sm:inline ${step === 'command' ? 'font-medium' : 'text-primary font-medium'}`}>Connect</span>
+            </div>
+            <div className="h-px w-6 bg-muted-foreground/30" />
+            <div className="flex items-center gap-1.5">
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full font-semibold text-[10px] ${step === 'provision' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>3</span>
+              <span className={`hidden sm:inline ${step === 'provision' ? 'font-medium' : ''}`}>Provision</span>
+            </div>
+          </div>
+        )}
+      </header>
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
+        {wizardContent}
       </main>
     </div>
   );
