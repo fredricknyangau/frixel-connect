@@ -299,6 +299,43 @@ class DarajaClient:
         )
         return result
 
+    async def stk_push_query(self, checkout_request_id: str) -> dict:
+        """
+        Queries Daraja for the status of an STK push transaction.
+        """
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        raw = f"{settings.DARAJA_SHORTCODE}{settings.DARAJA_PASSKEY}{timestamp}"
+        password = base64.b64encode(raw.encode()).decode()
+
+        token = await self.get_access_token()
+        logger.info(f"Daraja: querying status for CheckoutRequestID={checkout_request_id}")
+
+        async with httpx.AsyncClient(base_url=self.base_url, timeout=self._timeout) as client:
+            response = await client.post(
+                "/mpesa/stkpushquery/v1/query",
+                headers={"Authorization": f"Bearer {token}"},
+                json={
+                    "BusinessShortCode": settings.DARAJA_SHORTCODE,
+                    "Password": password,
+                    "Timestamp": timestamp,
+                    "CheckoutRequestID": checkout_request_id,
+                },
+            )
+
+        if not response.is_success:
+            try:
+                err_data = response.json()
+                # 500.001.1001 usually means "The transaction is being processed"
+                if err_data.get("errorCode") == "500.001.1001":
+                    return {"ResponseCode": "pending", "ResultDesc": "The transaction is being processed"}
+            except Exception:
+                pass
+            raise DarajaError(f"Daraja STK query failed: {response.status_code} {response.text}")
+
+        result = response.json()
+        logger.info(f"Daraja: STK push query result for {checkout_request_id}: {result}")
+        return result
+
     async def register_c2b_url(
         self,
         confirmation_url: str,

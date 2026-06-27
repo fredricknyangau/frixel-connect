@@ -12,7 +12,7 @@ export default function CaptivePortalPage() {
   const mac = searchParams.get('mac') ?? ''
   const ip = searchParams.get('ip') ?? ''
   const linkLogin = searchParams.get('link-login') ?? ''
-  const linkOrig = searchParams.get('link-orig') ?? 'http://google.com'
+
 
   // Once we have a voucher code, show the login redirect
   if (voucherCode) {
@@ -20,7 +20,6 @@ export default function CaptivePortalPage() {
       <HotspotLoginRedirect
         voucherCode={voucherCode}
         linkLogin={linkLogin}
-        linkOrig={linkOrig}
       />
     )
   }

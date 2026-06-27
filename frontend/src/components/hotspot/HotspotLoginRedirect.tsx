@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 interface Props {
   voucherCode: string
   linkLogin: string
-  linkOrig: string
 }
 
 // Fallback clipboard copying helper for non-secure HTTP contexts
@@ -40,30 +39,38 @@ const copyToClipboard = (text: string): Promise<void> => {
   })
 }
 
-export default function HotspotLoginRedirect({ voucherCode, linkLogin, linkOrig }: Props) {
+export default function HotspotLoginRedirect({ voucherCode, linkLogin }: Props) {
   const [copied, setCopied] = useState(false)
 
-  // Build the MikroTik hotspot login URL safely handling existing query params
-  let loginUrl = ''
-  if (linkLogin) {
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [isOnline, setIsOnline] = useState(false)
+
+  const performLogin = async () => {
+    if (!linkLogin) return;
+    if (isLoggingIn || isOnline) return;
+
+    setIsLoggingIn(true);
+    const baseUrl = linkLogin.split('?')[0];
+    const url = baseUrl.startsWith('http') ? baseUrl : `http://${baseUrl}`;
+
     try {
-      const urlString = linkLogin.startsWith('http') ? linkLogin : `http://${linkLogin}`
-      const url = new URL(urlString)
-      url.searchParams.set('username', voucherCode)
-      url.searchParams.set('password', voucherCode)
-      if (linkOrig) {
-        url.searchParams.set('dst', linkOrig)
-      }
-      loginUrl = url.toString()
+      // Perform AJAX login to Mikrotik to avoid navigating the CNA away.
+      // The OS background captive portal probe will now succeed and close the CNA.
+      await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `username=${encodeURIComponent(voucherCode)}&password=${encodeURIComponent(voucherCode)}`,
+        mode: 'no-cors'
+      });
     } catch (e) {
-      // Fallback if linkLogin is not a valid URL
-      const separator = linkLogin.includes('?') ? '&' : '?'
-      loginUrl = `${linkLogin}${separator}username=${encodeURIComponent(voucherCode)}&password=${encodeURIComponent(voucherCode)}&dst=${encodeURIComponent(linkOrig)}`
-      if (!loginUrl.startsWith('http')) {
-        loginUrl = `http://${loginUrl}`
-      }
+      console.error('Login failed', e);
     }
-  }
+
+    setIsLoggingIn(false);
+    setIsOnline(true);
+  };
 
   const handleCopy = () => {
     copyToClipboard(voucherCode).then(() => {
@@ -85,18 +92,18 @@ export default function HotspotLoginRedirect({ voucherCode, linkLogin, linkOrig 
   }, [voucherCode])
 
   useEffect(() => {
-    if (!loginUrl) {
+    if (!linkLogin) {
       // No link-login param means the user opened the portal directly
       return
     }
 
     // Redirect the phone's browser to MikroTik's login endpoint after a short delay
     const timer = setTimeout(() => {
-      window.location.href = loginUrl
+      performLogin()
     }, 3000) // 3 seconds to allow seeing the success state
 
     return () => clearTimeout(timer)
-  }, [loginUrl])
+  }, [linkLogin])
 
   const handlePrint = () => {
     window.print()
@@ -215,15 +222,29 @@ export default function HotspotLoginRedirect({ voucherCode, linkLogin, linkOrig 
           {/* Primary Connection Redirection */}
           {linkLogin ? (
             <div className="space-y-2 pt-2">
-              <Button
-                className="w-full h-12 text-sm font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all hover:scale-[1.01] rounded-xl flex items-center justify-center gap-1.5"
-                onClick={() => window.location.href = loginUrl}
-              >
-                Go Online Now <ArrowRight className="h-4 w-4" />
-              </Button>
-              <p className="text-[10px] text-muted-foreground">
-                Redirecting automatically in a few seconds...
-              </p>
+              {isOnline ? (
+                <div className="w-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 p-3 rounded-xl flex flex-col items-center justify-center gap-1">
+                  <CheckCircle2 className="h-6 w-6 mb-1" />
+                  <span className="font-bold text-sm">You are Connected!</span>
+                  <p className="text-[10px] text-center leading-relaxed font-medium">
+                    The WiFi icon will appear at the top of your screen shortly. 
+                    <br/>You may now click "Done" or close this window.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <Button
+                    className="w-full h-12 text-sm font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all hover:scale-[1.01] rounded-xl flex items-center justify-center gap-1.5"
+                    onClick={performLogin}
+                    disabled={isLoggingIn}
+                  >
+                    {isLoggingIn ? 'Connecting...' : <>Go Online Now <ArrowRight className="h-4 w-4" /></>}
+                  </Button>
+                  <p className="text-[10px] text-muted-foreground">
+                    Connecting automatically in a few seconds...
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground pt-2">

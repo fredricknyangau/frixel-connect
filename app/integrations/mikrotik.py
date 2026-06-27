@@ -741,6 +741,16 @@ class MikroTikClient:
         tenant_prefix = str(tenant_id).replace("-", "")[:8]
         nas_identifier = f"zealsync-{tenant_prefix}"
 
+        # MikroTik RouterOS does NOT use 'nas-identifier' in /radius/add.
+        # It sends the System Identity as the NAS-Identifier in RADIUS packets.
+        # We must explicitly set the system identity to match what FreeRADIUS expects.
+        r_ident = await self._request(
+            "POST", "/system/identity/set",
+            json={"name": nas_identifier}
+        )
+        self._check_response(r_ident, "set system identity for NAS-Identifier")
+        logger.info(f"MikroTik [{self._host}]: System identity set to {nas_identifier}")
+
         r = await self._request(
             "POST", "/radius/add",
             json={
@@ -748,7 +758,6 @@ class MikroTikClient:
                 "address": radius_ip,
                 "secret": radius_secret,
                 "comment": "zealsync-radius",
-                "nas-identifier": nas_identifier,
             },
         )
         self._check_response(r, "add RADIUS client")

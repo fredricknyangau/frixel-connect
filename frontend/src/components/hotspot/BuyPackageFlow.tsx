@@ -345,7 +345,7 @@ export default function BuyPackageFlow({ tenantId, macAddress, clientIp, onVouch
               <DialogHeader className="text-left">
                 <DialogTitle className="text-xl font-bold">Claim Free Trial</DialogTitle>
                 <DialogDescription className="text-xs">
-                  Enjoy 10 minutes of free internet access at 2 Mbps. Limit: once every 24 hours.
+                  Enjoy 5 minutes of free internet access at 2 Mbps. Limit: once every 24 hours.
                 </DialogDescription>
               </DialogHeader>
 

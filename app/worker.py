@@ -151,6 +151,128 @@ async def reconcile_payments_cron(ctx) -> None:
             logger.info("no stuck payments found")
 
 
+async def poll_pending_daraja_payments_cron(ctx) -> None:
+    """
+    Background cron running every 2 minutes.
+    Queries Daraja STK Push Query API for payments that have been pending for > 2 minutes
+    but less than 2 hours. This catches webhooks that were dropped (e.g. ngrok down).
+    """
+    pool = ctx["db_pool"]
+    redis = ctx["redis"]
+
+    clear_contextvars()
+    bind_contextvars(cron="poll_pending_daraja_payments_cron")
+    logger.info("running pending payments polling check...")
+
+    from app.integrations.daraja import daraja_client
+
+    async with pool.acquire() as conn:
+        pending_payments = await conn.fetch(
+            """
+            SELECT id, tenant_id, mpesa_checkout_id, status
+            FROM payments
+            WHERE status = 'pending'
+              AND mpesa_checkout_id IS NOT NULL
+              AND created_at < NOW() - INTERVAL '2 minutes'
+              AND created_at > NOW() - INTERVAL '2 hours'
+            """
+        )
+        
+        pending_platform = await conn.fetch(
+            """
+            SELECT id, tenant_id, mpesa_checkout_id, status
+            FROM platform_payments
+            WHERE status = 'pending'
+              AND mpesa_checkout_id IS NOT NULL
+              AND created_at < NOW() - INTERVAL '2 minutes'
+              AND created_at > NOW() - INTERVAL '2 hours'
+            """
+        )
+
+        all_pending = [ (dict(row), False) for row in pending_payments ] + [ (dict(row), True) for row in pending_platform ]
+        if not all_pending:
+            logger.info("no pending daraja payments to query")
+            return
+
+        for row, is_platform in all_pending:
+            checkout_id = row["mpesa_checkout_id"]
+            payment_id = row["id"]
+            tenant_id = row["tenant_id"]
+
+            try:
+                result = await daraja_client.stk_push_query(checkout_id)
+                
+                if result.get("ResponseCode") == "pending":
+                    logger.info("payment still processing at Daraja", checkout_id=checkout_id)
+                    continue
+                
+                result_code = result.get("ResultCode")
+                result_desc = result.get("ResultDesc", "No description provided.")
+
+                if str(result_code) == "0":
+                    logger.info("Daraja query indicates success! Recovering missed webhook.", checkout_id=checkout_id)
+                    fallback_receipt = f"POLL-{checkout_id[-10:]}"
+
+                    try:
+                        async with conn.transaction():
+                            if is_platform:
+                                await conn.execute(
+                                    """
+                                    UPDATE platform_payments
+                                    SET status = 'confirmed',
+                                        mpesa_receipt_number = $1,
+                                        updated_at = NOW()
+                                    WHERE id = $2 AND status = 'pending'
+                                    """,
+                                    fallback_receipt, payment_id
+                                )
+                                await conn.execute(
+                                    """
+                                    UPDATE tenants
+                                    SET next_billing_date = next_billing_date + INTERVAL '1 month',
+                                        status = 'active',
+                                        updated_at = NOW()
+                                    WHERE id = $1
+                                    """,
+                                    tenant_id
+                                )
+                            else:
+                                await conn.execute(
+                                    """
+                                    UPDATE payments
+                                    SET status = 'confirmed',
+                                        mpesa_receipt_number = $1,
+                                        updated_at = NOW()
+                                    WHERE id = $2 AND status = 'pending'
+                                    """,
+                                    fallback_receipt, payment_id
+                                )
+                    except asyncpg.exceptions.UniqueViolationError:
+                        logger.warning("fallback receipt collision, skipping", checkout_id=checkout_id)
+                        continue
+
+                    if not is_platform:
+                        await redis.enqueue_job("generate_voucher_task", str(payment_id), str(tenant_id))
+                        logger.info("enqueued generate_voucher_task via poller", payment_id=str(payment_id))
+
+                else:
+                    logger.info("Daraja query indicates failure/cancellation", checkout_id=checkout_id, result_code=result_code, result_desc=result_desc)
+                    table_name = "platform_payments" if is_platform else "payments"
+                    await conn.execute(
+                        f"""
+                        UPDATE {table_name}
+                        SET status = 'failed',
+                            failure_reason = $1,
+                            updated_at = NOW()
+                        WHERE id = $2 AND status = 'pending'
+                        """,
+                        result_desc, payment_id
+                    )
+
+            except Exception as e:
+                logger.error("Failed to query Daraja STK status", checkout_id=checkout_id, error=str(e), exc_info=True)
+
+
 async def sync_radius_sessions_cron(ctx) -> None:
     """
     Background cron running every 10 seconds.
@@ -544,6 +666,7 @@ class WorkerSettings:
     on_shutdown = on_shutdown
     functions = [generate_voucher_task]
     cron_jobs = [
+        cron(poll_pending_daraja_payments_cron, minute=set(range(0, 60, 2))),
         cron(reconcile_payments_cron, minute=set(range(0, 60, 5))),
         cron(sync_radius_sessions_cron, second=set(range(0, 60, 10))),
         cron(pppoe_billing_cron, hour={0}, minute={0}),  # Run at midnight
