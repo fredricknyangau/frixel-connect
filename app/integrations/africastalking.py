@@ -6,7 +6,6 @@ Used heavily for dunning notifications (T-3, T-1, T+0, suspension).
 """
 
 import logging
-from typing import Optional
 
 import httpx
 

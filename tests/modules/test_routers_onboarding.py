@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 import asyncpg
-from uuid import UUID
 
 from app.core.security import create_access_token, hash_password, decrypt_secret
 

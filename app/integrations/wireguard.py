@@ -5,12 +5,13 @@ Subprocess-based integration with WireGuard CLI (wg and wg-quick).
 Includes mock fallbacks when running in development environment without wg command.
 """
 
+import logging
 import os
 import re
 import subprocess
-import logging
 import time
 from typing import Optional
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)

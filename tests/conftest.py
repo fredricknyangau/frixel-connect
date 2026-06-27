@@ -11,10 +11,8 @@ PHASE 1 UPDATE:
   - The test database URL uses the same DEFAULT_TENANT_ID as production.
 """
 
-import asyncio
 import os
 import urllib.parse
-from datetime import datetime
 from decimal import Decimal
 from typing import AsyncGenerator, Generator
 
@@ -24,7 +22,6 @@ from fastapi.testclient import TestClient
 
 from app.config import settings
 from app.core.security import hash_password
-from app.database import get_db
 
 # Extract DB credentials and construct test DB URL
 parsed_url = urllib.parse.urlparse(settings.DATABASE_URL)

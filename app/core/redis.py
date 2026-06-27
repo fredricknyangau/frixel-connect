@@ -6,14 +6,15 @@ Uses arq connection helpers to integrate cleanly with the worker.
 """
 
 import logging
-from typing import Optional
-from arq.connections import RedisSettings, ArqRedis, create_pool
+
+from arq.connections import ArqRedis, RedisSettings, create_pool
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 # Module-level global reference to the Redis pool
-redis_pool: Optional[ArqRedis] = None
+redis_pool: ArqRedis | None = None
 
 
 async def init_redis() -> ArqRedis:

@@ -4,11 +4,11 @@
 --             010_create_wallet_transactions.sql, 012_create_subscriptions.sql,
 --             014_create_security_tables.sql, 018_create_super_admins.sql
 --
--- OBJECTIVE (Phase 1-Database Layer Audit and Hardening):
+-- OBJECTIVE (Phase 1 — Database Layer Audit and Hardening):
 --   1. Enforce NOT NULL on tenant_id across all tenant-scoped data tables.
 --   2. Add composite (tenant_id, filter_column) indexes that match actual
 --      service-layer query patterns so every tenant-scoped lookup resolves
---      in a single index scan-not a seq scan with a post-filter on tenant_id.
+--      in a single index scan — not a seq scan with a post-filter on tenant_id.
 --   3. Document why PostgreSQL Row Level Security (RLS) is deferred to v3.
 --
 -- NOTE ON MIGRATION NUMBER:
@@ -16,7 +16,7 @@
 --   already exists. This migration is numbered 019 to preserve lexicographic order.
 --
 -- =============================================================================
--- 1B: ROW-LEVEL SECURITY (RLS)-ADVISORY, NOT IMPLEMENTED
+-- 1B: ROW-LEVEL SECURITY (RLS) — ADVISORY, NOT IMPLEMENTED
 -- =============================================================================
 -- PostgreSQL Row Level Security (RLS) can enforce tenant isolation at the
 -- database driver level: even if application code omits WHERE tenant_id = $1,
@@ -29,7 +29,7 @@
 --      asyncpg's connection pool reuses connections across requests. A
 --      connection that served Tenant A and returns to the pool without
 --      clearing the session variable could serve Tenant B's query with A's
---      RLS context-a catastrophic cross-tenant data leak at the DB layer.
+--      RLS context — a catastrophic cross-tenant data leak at the DB layer.
 --
 --   2. CONNECTION LIFECYCLE COMPLEXITY
 --      Mitigating (1) requires checkout/checkin hooks on every pool connection
@@ -52,7 +52,7 @@
 
 BEGIN;
 
--- Default tenant ID from migration 007-used to backfill any orphaned NULL rows
+-- Default tenant ID from migration 007 — used to backfill any orphaned NULL rows
 -- before promoting columns to NOT NULL. Safe because migration 007 already
 -- backfilled all pre-existing rows; this is a safety net for edge cases.
 DO $$
@@ -99,27 +99,27 @@ ALTER TABLE audit_log           ALTER COLUMN tenant_id SET NOT NULL;
 
 
 -- =============================================================================
--- STEP 2: Composite indexes-users
+-- STEP 2: Composite indexes — users
 -- =============================================================================
 
 -- Query: GET /admin/users?role=customer
 --        SELECT ... FROM users WHERE tenant_id = $1 AND role = 'customer'
 -- Threat: Without (tenant_id, role), PostgreSQL scans all users for the tenant
---         then filters by role-or uses a single-column role index across ALL
+--         then filters by role — or uses a single-column role index across ALL
 --         tenants, leaking cross-tenant scan cost and enabling timing attacks.
 CREATE INDEX IF NOT EXISTS idx_users_tenant_role
     ON users (tenant_id, role);
 
--- Query: POST /auth/login-email lookup scoped to tenant after registration
+-- Query: POST /auth/login — email lookup scoped to tenant after registration
 --        SELECT ... FROM users WHERE tenant_id = $1 AND email = $2
--- Threat: T1-login must not resolve a user from another tenant with the same
+-- Threat: T1 — login must not resolve a user from another tenant with the same
 --         email address. Composite index ensures tenant boundary is checked first.
 CREATE INDEX IF NOT EXISTS idx_users_tenant_email
     ON users (tenant_id, email);
 
--- Query: GET /reseller/customers-reseller customer list
+-- Query: GET /reseller/customers — reseller customer list
 --        SELECT ... FROM users WHERE tenant_id = $1 AND reseller_id = $2
--- Threat: T1-reseller must not enumerate customers from another tenant by
+-- Threat: T1 — reseller must not enumerate customers from another tenant by
 --         iterating reseller_id without a tenant_id prefix in the index.
 CREATE INDEX IF NOT EXISTS idx_users_tenant_reseller_id
     ON users (tenant_id, reseller_id);
@@ -133,12 +133,12 @@ CREATE INDEX IF NOT EXISTS idx_users_tenant_is_active
 
 
 -- =============================================================================
--- STEP 2: Composite indexes-packages
+-- STEP 2: Composite indexes — packages
 -- =============================================================================
 
--- Query: GET /packages-active packages for tenant
+-- Query: GET /packages — active packages for tenant
 --        SELECT ... FROM packages WHERE tenant_id = $1 AND is_active = TRUE
--- Threat: T1-package list must never include another tenant's packages.
+-- Threat: T1 — package list must never include another tenant's packages.
 -- Note: idx_packages_tenant_is_active may already exist from migration 007.
 CREATE INDEX IF NOT EXISTS idx_packages_tenant_is_active
     ON packages (tenant_id, is_active);
@@ -151,33 +151,33 @@ CREATE INDEX IF NOT EXISTS idx_packages_tenant_created_at
 
 
 -- =============================================================================
--- STEP 2: Composite indexes-payments
+-- STEP 2: Composite indexes — payments
 -- =============================================================================
 
 -- Query: Dashboard payment counts by status
 --        SELECT COUNT(*) FROM payments WHERE tenant_id = $1 AND status = $2
--- Threat: T1-admin dashboard must not aggregate payments across tenants.
+-- Threat: T1 — admin dashboard must not aggregate payments across tenants.
 -- Note: idx_payments_tenant_status may already exist from migration 007.
 CREATE INDEX IF NOT EXISTS idx_payments_tenant_status
     ON payments (tenant_id, status);
 
--- Query: GET /payments-recent payments list
+-- Query: GET /payments — recent payments list
 --        SELECT ... FROM payments WHERE tenant_id = $1 ORDER BY created_at DESC
 -- Note: idx_payments_tenant_created_at may already exist from migration 007.
 CREATE INDEX IF NOT EXISTS idx_payments_tenant_created_at
     ON payments (tenant_id, created_at DESC);
 
--- Query: GET /payments/me-customer payment history
+-- Query: GET /payments/me — customer payment history
 --        SELECT ... FROM payments WHERE tenant_id = $1 AND customer_id = $2
--- Threat: T1-customer must not see payment records from another tenant even
+-- Threat: T1 — customer must not see payment records from another tenant even
 --         if they guess a valid customer_id UUID from another ISP.
 CREATE INDEX IF NOT EXISTS idx_payments_tenant_customer_id
     ON payments (tenant_id, customer_id);
 
--- Query: POST /webhooks/daraja-M-Pesa callback lookup
+-- Query: POST /webhooks/daraja — M-Pesa callback lookup
 --        SELECT ... FROM payments WHERE mpesa_checkout_id = $1
 --        (Phase 3 adds: AND tenant_id = $2 for defense-in-depth)
--- Threat: T2-webhook replay must resolve the payment within the correct
+-- Threat: T2 — webhook replay must resolve the payment within the correct
 --         tenant boundary. Composite index supports tenant-scoped webhook lookup
 --         and prevents cross-tenant checkout_id collision scans.
 CREATE INDEX IF NOT EXISTS idx_payments_tenant_mpesa_checkout_id
@@ -185,7 +185,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_tenant_mpesa_checkout_id
 
 
 -- =============================================================================
--- STEP 2: Composite indexes-vouchers
+-- STEP 2: Composite indexes — vouchers
 -- =============================================================================
 
 -- Query: Dashboard active voucher count
@@ -194,39 +194,39 @@ CREATE INDEX IF NOT EXISTS idx_payments_tenant_mpesa_checkout_id
 CREATE INDEX IF NOT EXISTS idx_vouchers_tenant_status
     ON vouchers (tenant_id, status);
 
--- Query: GET /vouchers/me-customer voucher list
+-- Query: GET /vouchers/me — customer voucher list
 --        SELECT ... FROM vouchers WHERE tenant_id = $1 AND customer_id = $2
--- Threat: T1-customer must not retrieve vouchers belonging to another tenant.
+-- Threat: T1 — customer must not retrieve vouchers belonging to another tenant.
 CREATE INDEX IF NOT EXISTS idx_vouchers_tenant_customer_id
     ON vouchers (tenant_id, customer_id);
 
 -- Query: Hotspot voucher redemption lookup
 --        SELECT ... FROM vouchers WHERE tenant_id = $1 AND code = $2
--- Threat: T4 (partial)-voucher code lookup must be scoped to tenant before
+-- Threat: T4 (partial) — voucher code lookup must be scoped to tenant before
 --         RADIUS tenant scoping is fully implemented in Phase 5.
 CREATE INDEX IF NOT EXISTS idx_vouchers_tenant_code
     ON vouchers (tenant_id, code);
 
 
 -- =============================================================================
--- STEP 2: Composite indexes-sessions
+-- STEP 2: Composite indexes — sessions
 -- =============================================================================
 
--- Query: GET /sessions/me-customer session history
+-- Query: GET /sessions/me — customer session history
 --        SELECT ... FROM sessions WHERE tenant_id = $1 AND customer_id = $2
--- Threat: T1-session history must not leak across tenant boundaries.
+-- Threat: T1 — session history must not leak across tenant boundaries.
 CREATE INDEX IF NOT EXISTS idx_sessions_tenant_customer_id
     ON sessions (tenant_id, customer_id);
 
 -- Query: Admin recent sessions dashboard
 --        SELECT ... FROM sessions WHERE tenant_id = $1 ORDER BY started_at DESC
--- Threat: T1-admin session list must not include sessions from other ISPs.
+-- Threat: T1 — admin session list must not include sessions from other ISPs.
 CREATE INDEX IF NOT EXISTS idx_sessions_tenant_started_at
     ON sessions (tenant_id, started_at DESC);
 
 
 -- =============================================================================
--- STEP 2: Composite indexes-routers
+-- STEP 2: Composite indexes — routers
 -- =============================================================================
 
 -- Query: Dashboard online router check
@@ -242,56 +242,56 @@ CREATE INDEX IF NOT EXISTS idx_routers_tenant_status
 
 
 -- =============================================================================
--- STEP 2: Composite indexes-wallet_transactions
+-- STEP 2: Composite indexes — wallet_transactions
 -- =============================================================================
 
--- Query: GET /wallet/transactions-reseller wallet history
+-- Query: GET /wallet/transactions — reseller wallet history
 --        SELECT ... FROM wallet_transactions WHERE tenant_id = $1 AND reseller_id = $2
--- Threat: T1-reseller wallet history must not include transactions from
+-- Threat: T1 — reseller wallet history must not include transactions from
 --         another tenant's resellers, even with a valid reseller_id UUID.
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_tenant_reseller_id
     ON wallet_transactions (tenant_id, reseller_id);
 
 
 -- =============================================================================
--- STEP 2: Composite indexes-subscriptions
+-- STEP 2: Composite indexes — subscriptions
 -- =============================================================================
 
--- Query: Subscription billing cron-active subscriptions per tenant
+-- Query: Subscription billing cron — active subscriptions per tenant
 --        SELECT ... FROM subscriptions WHERE tenant_id = $1 AND status = 'active'
--- Threat: T3-billing cron must process subscriptions tenant-by-tenant,
+-- Threat: T3 — billing cron must process subscriptions tenant-by-tenant,
 --         never mixing Tenant A's renewals with Tenant B's package prices.
 CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant_status
     ON subscriptions (tenant_id, status);
 
--- Query: GET /subscriptions/me-customer subscription lookup
+-- Query: GET /subscriptions/me — customer subscription lookup
 --        SELECT ... FROM subscriptions WHERE tenant_id = $1 AND customer_id = $2
--- Threat: T1-customer must not see another tenant's subscription details.
+-- Threat: T1 — customer must not see another tenant's subscription details.
 CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant_customer_id
     ON subscriptions (tenant_id, customer_id);
 
--- Query: Subscription expiry cron-subscriptions due for renewal
+-- Query: Subscription expiry cron — subscriptions due for renewal
 --        SELECT ... FROM subscriptions
 --        WHERE tenant_id = $1 AND status = 'active'
 --          AND current_period_end <= NOW()
--- Threat: T3-expiry cron must not suspend or renew subscriptions across tenants.
+-- Threat: T3 — expiry cron must not suspend or renew subscriptions across tenants.
 CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant_period_end
     ON subscriptions (tenant_id, current_period_end);
 
 
 -- =============================================================================
--- STEP 2: Composite indexes-audit_log
+-- STEP 2: Composite indexes — audit_log
 -- =============================================================================
 
--- Query: GET /audit-log-admin audit log, newest first
+-- Query: GET /audit-log — admin audit log, newest first
 --        SELECT ... FROM audit_log WHERE tenant_id = $1 ORDER BY created_at DESC
--- Threat: T1-audit log must never expose another tenant's admin actions.
+-- Threat: T1 — audit log must never expose another tenant's admin actions.
 CREATE INDEX IF NOT EXISTS idx_audit_log_tenant_created_at
     ON audit_log (tenant_id, created_at DESC);
 
--- Query: GET /audit-log?action=revoked_voucher-action filter
+-- Query: GET /audit-log?action=revoked_voucher — action filter
 --        SELECT ... FROM audit_log WHERE tenant_id = $1 AND action = $2
--- Threat: T7-filtered audit queries must not scan audit entries from all tenants.
+-- Threat: T7 — filtered audit queries must not scan audit entries from all tenants.
 CREATE INDEX IF NOT EXISTS idx_audit_log_tenant_action
     ON audit_log (tenant_id, action);
 

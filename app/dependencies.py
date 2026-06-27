@@ -1,7 +1,7 @@
 """
 app/dependencies.py
 ====================
-FastAPI dependency functions-the enforcement gate for multi-tenancy.
+FastAPI dependency functions — the enforcement gate for multi-tenancy.
 
 DEPENDENCY GRAPH
 ----------------
@@ -57,7 +57,7 @@ def _decode_token(token: str) -> dict:
       - Missing 'role' claim
 
     Returns the raw payload dict.
-    Does NOT raise on missing tenant_id-super_admin tokens legitimately
+    Does NOT raise on missing tenant_id — super_admin tokens legitimately
     have no tenant_id claim.
     """
     try:
@@ -91,7 +91,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         impersonated_by - str UUID or None (set for impersonation tokens)
         reseller_id     - str UUID or None
 
-    Does NOT enforce tenant_id presence-that is get_current_tenant_id's job.
+    Does NOT enforce tenant_id presence — that is get_current_tenant_id's job.
     Super admin tokens are returned as-is so get_current_super_admin can use
     _decode_token independently on /super-admin/* routes.
     """
@@ -195,10 +195,10 @@ def require_role(*allowed_roles: str):
     Dependency factory. Enforces role-based access at the route level.
 
     Chain:
-      1. get_current_user     -decode JWT
-      2. get_current_tenant_id-validate tenant_id (blocks super_admin bypass)
-      3. _assert_tenant_active-block suspended/cancelled tenants
-      4. role check           -ForbiddenException if role not allowed
+      1. get_current_user      — decode JWT
+      2. get_current_tenant_id — validate tenant_id (blocks super_admin bypass)
+      3. _assert_tenant_active — block suspended/cancelled tenants
+      4. role check            — ForbiddenException if role not allowed
 
     Every route using require_role therefore has tenant_id validated before
     any handler code runs, even when tenant_id is not listed explicitly in
@@ -273,7 +273,7 @@ async def get_current_super_admin(
 
     Accepts ONLY tokens with role="super_admin". Uses _decode_token for
     consistent JWT validation. Deliberately does NOT call get_current_user
-    or get_current_tenant_id-super admin routes live under /super-admin/*.
+    or get_current_tenant_id — super admin routes live under /super-admin/*.
     """
     payload = _decode_token(token)
 

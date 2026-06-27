@@ -11,7 +11,7 @@ import logging
 import base64
 import uuid
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import httpx
 

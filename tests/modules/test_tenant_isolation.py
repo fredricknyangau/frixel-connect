@@ -27,7 +27,6 @@ SETUP:
 
 import pytest
 from fastapi.testclient import TestClient
-from decimal import Decimal
 import asyncpg
 
 from app.core.security import hash_password, create_access_token

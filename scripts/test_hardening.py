@@ -9,7 +9,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import asyncpg
 from app.config import settings
 from app.core.security import hash_password
-from app.services.totp_service import generate_totp_secret, verify_totp_code
 import pyotp
 
 async def run_test():

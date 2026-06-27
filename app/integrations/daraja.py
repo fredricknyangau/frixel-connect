@@ -40,7 +40,7 @@ WHY WE CACHE THE TOKEN:
 
 import base64
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 import httpx
 

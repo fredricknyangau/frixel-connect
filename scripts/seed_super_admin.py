@@ -100,7 +100,7 @@ async def seed_super_admin() -> None:
                 print("     TOTP setup is NOT complete. Log in to complete setup:")
             else:
                 print("     TOTP is fully configured. Account is ready.")
-            print(f"     Login at: /super-admin/auth/login")
+            print("     Login at: /super-admin/auth/login")
             print()
             return
 

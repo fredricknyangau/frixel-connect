@@ -16,7 +16,7 @@ until pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME"; do
   sleep 2
 done
 
-bash ./run_migrations.sh
+bash scripts/run_migrations.sh
 
 echo "Seeding database..."
 python scripts/seed_db.py

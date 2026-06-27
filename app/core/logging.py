@@ -1,7 +1,9 @@
 import logging
 import sys
+
 import structlog
-from structlog.contextvars import merge_contextvars, clear_contextvars
+from structlog.contextvars import merge_contextvars
+
 
 def setup_logging(json_logs: bool = True):
     """
@@ -33,7 +35,7 @@ def setup_logging(json_logs: bool = True):
 
     # Standard logging configuration
     formatter_processor = structlog.processors.JSONRenderer() if json_logs else structlog.dev.ConsoleRenderer()
-    
+
     formatter = structlog.stdlib.ProcessorFormatter(
         foreign_pre_chain=shared_processors,
         processors=[
@@ -44,7 +46,7 @@ def setup_logging(json_logs: bool = True):
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
-    
+
     root_logger = logging.getLogger()
     root_logger.addHandler(handler)
     root_logger.setLevel(logging.INFO)

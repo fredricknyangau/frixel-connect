@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from app.config import settings
-from app.integrations.mikrotik import get_mikrotik_client, MikroTikError
+from app.integrations.mikrotik import get_mikrotik_client
 
 # ── Reachability Check ────────────────────────────────────────────────────────
 # Performs a quick synchronous ping to RouterOS to determine if the virtual router is booted.

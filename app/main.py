@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-import logging
 import asyncio
 import time
 import traceback

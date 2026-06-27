@@ -21,8 +21,8 @@ script twice doesn't fail -it just skips rows that already exist.
 """
 
 import asyncio
-import sys
 import os
+import sys
 
 import asyncpg
 
@@ -199,7 +199,7 @@ async def seed():
         print("")
         print("=" * 60)
         print("  Seeding complete.")
-        print(f"  Login credentials for all test accounts:")
+        print("  Login credentials for all test accounts:")
         print(f"    Password:  {TEST_PASSWORD}")
         print(f"    Admin:     {ADMIN_EMAIL}")
         print(f"    Reseller:  {RESELLER_EMAIL}")

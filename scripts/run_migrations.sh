@@ -33,6 +33,10 @@
 # stop everything loudly rather than silently continuing to the next file.
 set -e
 
+# Force strictly ASCII collation for predictable migration order
+# Otherwise, LC_COLLATE ignores underscores and sorts '009b' before '009_create'
+export LC_ALL=C
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------

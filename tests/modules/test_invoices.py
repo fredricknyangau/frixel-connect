@@ -1,6 +1,5 @@
 import pytest
 from uuid import uuid4
-from decimal import Decimal
 from asyncpg import Connection
 from app.modules.invoices.service import generate_invoice_for_payment
 
