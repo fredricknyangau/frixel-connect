@@ -1,46 +1,68 @@
 import { DecodedToken, UserRole } from '../types/auth';
 
-const TOKEN_KEY = 'zealsync_access_token';
-const REFRESH_TOKEN_KEY = 'zealsync_refresh_token';
+const TOKEN_KEY = (tenantId: string) => `zealsync_token_${tenantId}`;
+const REFRESH_KEY = (tenantId: string) => `zealsync_refresh_${tenantId}`;
+export const ACTIVE_TENANT_KEY = 'zealsync_active_tenant';
 
-// SECURITY: localStorage is vulnerable to XSS. An injected
-// script can read this token. In v1 we accept this risk for
-// simplicity. In v2, switch to httpOnly cookies set by the backend
-// so JavaScript cannot access the token at all. 
-// See v2 cookie migration plan.
-export function saveToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+// SECURITY: localStorage is vulnerable to XSS. An injected script can read tokens.
+// v2: switch to httpOnly cookies set by the backend.
+//
+// SECURITY: localStorage is shared across all tabs of the same origin.
+// Writing ACTIVE_TENANT_KEY on login means a second tab opening after login
+// reads the new tenant's token. v2: use sessionStorage per-tab for full T6 isolation.
+// Super admin impersonation uses sessionStorage (see api.ts) — correct for that flow.
+
+export function saveToken(token: string, tenantId: string): void {
+  localStorage.setItem(TOKEN_KEY(tenantId), token);
+  localStorage.setItem(ACTIVE_TENANT_KEY, tenantId);
 }
 
-// SECURITY: see v2 cookie migration plan
 export function getToken(): string | null {
-  const impersonationToken = sessionStorage.getItem('zealsync_impersonation_token');
-  if (impersonationToken) return impersonationToken;
-  return localStorage.getItem(TOKEN_KEY);
+  const tenantId = localStorage.getItem(ACTIVE_TENANT_KEY);
+  if (!tenantId) return null;
+  return localStorage.getItem(TOKEN_KEY(tenantId));
 }
 
-// SECURITY: see v2 cookie migration plan
+export function getTokenForTenant(tenantId: string): string | null {
+  return localStorage.getItem(TOKEN_KEY(tenantId));
+}
+
 export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
+  const tenantId = localStorage.getItem(ACTIVE_TENANT_KEY);
+  if (tenantId) {
+    localStorage.removeItem(TOKEN_KEY(tenantId));
+    localStorage.removeItem(REFRESH_KEY(tenantId));
+  }
+  localStorage.removeItem(ACTIVE_TENANT_KEY);
 }
 
-export function saveRefreshToken(token: string): void {
-  localStorage.setItem(REFRESH_TOKEN_KEY, token);
+export function clearAllTenantTokens(): void {
+  Object.keys(localStorage)
+    .filter((k) => k.startsWith('zealsync_token_'))
+    .forEach((k) => localStorage.removeItem(k));
+  Object.keys(localStorage)
+    .filter((k) => k.startsWith('zealsync_refresh_'))
+    .forEach((k) => localStorage.removeItem(k));
+  localStorage.removeItem(ACTIVE_TENANT_KEY);
+}
+
+export function saveRefreshToken(token: string, tenantId: string): void {
+  localStorage.setItem(REFRESH_KEY(tenantId), token);
 }
 
 export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+  const tenantId = localStorage.getItem(ACTIVE_TENANT_KEY);
+  if (!tenantId) return null;
+  return localStorage.getItem(REFRESH_KEY(tenantId));
 }
 
 export function clearRefreshToken(): void {
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  const tenantId = localStorage.getItem(ACTIVE_TENANT_KEY);
+  if (tenantId) {
+    localStorage.removeItem(REFRESH_KEY(tenantId));
+  }
 }
 
-/**
- * Decodes the JWT payload without needing an external library.
- * Explain JWT structure: header.payload.signature
- * We read only the payload (the middle part).
- */
 export function decodeToken(token: string): DecodedToken | null {
   try {
     const base64Url = token.split('.')[1];
@@ -62,7 +84,6 @@ export function decodeToken(token: string): DecodedToken | null {
 export function isTokenExpired(token: string): boolean {
   const decoded = decodeToken(token);
   if (!decoded) return true;
-  // exp is in seconds, Date.now() is in milliseconds
   return decoded.exp < Date.now() / 1000;
 }
 

@@ -1,6 +1,16 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { UserRole } from '../types/auth';
-import { saveToken, clearToken, getToken, isTokenExpired, decodeToken, saveRefreshToken, clearRefreshToken } from '../lib/auth';
+import {
+  saveToken,
+  clearToken,
+  clearAllTenantTokens,
+  getToken,
+  isTokenExpired,
+  decodeToken,
+  saveRefreshToken,
+  clearRefreshToken,
+} from '../lib/auth';
+import { queryClient } from '../lib/queryClient';
 
 interface AuthUser {
   user_id: string;
@@ -27,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = getToken();
     if (token && !isTokenExpired(token)) {
       const decoded = decodeToken(token);
-      if (decoded) {
+      if (decoded?.tenant_id) {
         setUser({
           user_id: decoded.sub,
           role: decoded.role,
@@ -49,10 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = (accessToken: string, refreshToken: string) => {
-    saveToken(accessToken);
-    saveRefreshToken(refreshToken);
+    queryClient.clear();
     const decoded = decodeToken(accessToken);
-    if (decoded) {
+    if (decoded?.tenant_id) {
+      saveToken(accessToken, decoded.tenant_id);
+      saveRefreshToken(refreshToken, decoded.tenant_id);
       setUser({
         user_id: decoded.sub,
         role: decoded.role,
@@ -62,7 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    clearToken();
+    queryClient.clear();
+    clearAllTenantTokens();
     clearRefreshToken();
     setUser(null);
     window.location.href = '/login';
@@ -72,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = getToken();
     if (token) {
       const decoded = decodeToken(token);
-      if (decoded) {
+      if (decoded?.tenant_id) {
         setUser({
           user_id: decoded.sub,
           role: decoded.role,
