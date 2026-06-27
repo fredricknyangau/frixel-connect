@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { api } from '../lib/api';
+import { queryKeys } from '../lib/queryKeys';
+import { useAuthContext } from '../context/AuthContext';
 import { MikrotikRouter } from '../types/routers';
 import type { ServiceType } from '../types/onboarding';
 
@@ -12,10 +14,6 @@ export interface RouterSummary {
   isLoading: boolean;
 }
 
-/**
- * Resolve router service type for sidebar / customer badges.
- * TODO: Remove fallback once GET /admin/routers includes service_type per router.
- */
 export function resolveRouterServiceType(router: MikrotikRouter): ServiceType {
   if (router.service_type === 'pppoe') return 'pppoe';
   if (router.service_type === 'hotspot') return 'hotspot';
@@ -37,14 +35,17 @@ function summariseRouters(routers: MikrotikRouter[]): Omit<RouterSummary, 'isLoa
   return { hasHotspotRouter, hasPPPoERouter, hasOnlineRouter, routers };
 }
 
-/** Cached router list with service-type flags for sidebar and dashboard widgets. */
 export function useRouterSummary(): RouterSummary {
+  const { user } = useAuthContext();
+  const tenantId = user?.tenant_id ?? '';
+
   const { data, isLoading } = useQuery<MikrotikRouter[], AxiosError<{ detail: string }>>({
-    queryKey: ['routers'],
+    queryKey: queryKeys.routers.all(tenantId),
     queryFn: async () => {
       const response = await api.get<MikrotikRouter[]>('/admin/routers');
       return response.data;
     },
+    enabled: !!tenantId,
     staleTime: 5 * 60 * 1000,
   });
 

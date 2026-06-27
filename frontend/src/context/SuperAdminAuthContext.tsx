@@ -22,6 +22,11 @@ interface SuperAdminAuthContextType {
 
 const SuperAdminAuthContext = createContext<SuperAdminAuthContextType | undefined>(undefined);
 
+// CACHE ISOLATION: The impersonation tab is a separate browser tab.
+// TanStack Query's in-memory cache is per-JavaScript-process — the impersonation
+// tab starts with an empty cache and its data never contaminates the super admin's
+// main session cache. No cache clearing is needed on impersonation start or end.
+
 // Helper to decode JWT payload safely
 function decodeSuperAdminToken(token: string): { sub: string; full_name?: string; exp: number } | null {
   try {

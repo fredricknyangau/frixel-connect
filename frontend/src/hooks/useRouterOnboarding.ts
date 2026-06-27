@@ -25,6 +25,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { api } from '../lib/api';
+import { queryKeys } from '../lib/queryKeys';
+import { useAuthContext } from '../context/AuthContext';
 import type { MagicInitResponse, RouterStatusResponse } from '../types/setup';
 
 // ── Request types ─────────────────────────────────────────────────────────────
@@ -56,6 +58,8 @@ export interface MagicInitRequest {
  */
 export function useInitMagic() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
+  const tenantId = user?.tenant_id ?? '';
 
   return useMutation<MagicInitResponse, AxiosError<{ detail: string }>, MagicInitRequest>({
     mutationFn: async (data) => {
@@ -66,9 +70,9 @@ export function useInitMagic() {
       return response.data;
     },
     onSuccess: () => {
-      // Invalidate the routers list so the new pending_setup router
-      // appears in the RoutersPage table immediately.
-      queryClient.invalidateQueries({ queryKey: ['routers'] });
+      if (tenantId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.routers.all(tenantId) });
+      }
     },
   });
 }
@@ -93,8 +97,11 @@ export function useInitMagic() {
  * @param enabled   false until we have a routerId from init-magic
  */
 export function useRouterStatus(routerId: string | null, enabled: boolean) {
+  const { user } = useAuthContext();
+  const tenantId = user?.tenant_id ?? '';
+
   return useQuery<RouterStatusResponse, AxiosError<{ detail: string }>>({
-    queryKey: ['router-onboarding-status', routerId],
+    queryKey: queryKeys.routers.onboarding(tenantId, routerId ?? ''),
     queryFn: async () => {
       const response = await api.get<RouterStatusResponse>(
         `/admin/routers/onboarding/status/${routerId}`,

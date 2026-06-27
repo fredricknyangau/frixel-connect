@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuthContext } from '../context/AuthContext';
 import { Tenant, TenantRegisterRequest } from '../types/tenants';
+import { queryKeys } from '../lib/queryKeys';
 import { TokenResponse } from '../types/auth';
 import { AxiosError } from 'axios';
 
@@ -23,14 +24,16 @@ export const useRegisterTenant = () => {
 };
 
 export const useTenantMe = () => {
-  const { isAuthenticated } = useAuthContext();
+  const { isAuthenticated, user } = useAuthContext();
+  const tenantId = user?.tenant_id ?? '';
+
   return useQuery<Tenant, AxiosError<{ detail: string }>>({
-    queryKey: ['tenant_me'],
+    queryKey: queryKeys.tenant.me(tenantId),
     queryFn: async () => {
       const response = await api.get<Tenant>('/tenants/me');
       return response.data;
     },
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !!tenantId,
   });
 };
 
