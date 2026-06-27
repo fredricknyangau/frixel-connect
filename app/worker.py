@@ -5,6 +5,7 @@ Entry point for the arq background worker process.
 Defines database pool lifecycle hooks, tasks, and cron jobs.
 """
 
+import asyncio
 from uuid import UUID
 
 import asyncpg
@@ -259,9 +260,20 @@ async def sync_radius_sessions_cron(ctx) -> None:
 
             if expired_vouchers:
                 for v in expired_vouchers:
-                    # Remove from RADIUS to prevent reconnect
-                    await conn.execute("DELETE FROM radcheck WHERE username = $1", v["code"])
-                    await conn.execute("DELETE FROM radreply WHERE username = $1", v["code"])
+                    voucher_tenant_id = await conn.fetchval(
+                        "SELECT tenant_id FROM vouchers WHERE id = $1",
+                        v["id"],
+                    )
+                    await conn.execute(
+                        "DELETE FROM radcheck WHERE username = $1 AND tenant_id = $2",
+                        v["code"],
+                        voucher_tenant_id,
+                    )
+                    await conn.execute(
+                        "DELETE FROM radreply WHERE username = $1 AND tenant_id = $2",
+                        v["code"],
+                        voucher_tenant_id,
+                    )
 
                     logger.info("Voucher expired. Revoking RADIUS credentials and disconnecting.", voucher=v["code"])
 
