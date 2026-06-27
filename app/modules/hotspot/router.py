@@ -8,10 +8,10 @@ to browse packages and initiate payments.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 
 from app.database import get_db
-from app.core.rate_limit import RateLimiter
+from app.core.rate_limit import RateLimiter, get_client_ip
 from app.modules.packages.schemas import PackageResponse
 from app.modules.packages.service import get_all_packages
 from app.modules.payments.schemas import PaymentResponse, PaymentStatusResponse
@@ -20,6 +20,9 @@ from app.modules.hotspot import service as hotspot_service
 
 
 router = APIRouter()
+
+hotspot_stk_rate_limiter = RateLimiter(requests=3, window=60, endpoint="hotspot.payments.stk")
+hotspot_trial_rate_limiter = RateLimiter(requests=2, window=60, endpoint="hotspot.trial")
 
 
 @router.get(
@@ -42,13 +45,17 @@ async def list_hotspot_packages(tenant_id: UUID) -> list[PackageResponse]:
     response_model=PaymentResponse,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Initiate M-Pesa STK push payment (public)",
-    dependencies=[Depends(RateLimiter(requests=3, window=60))],
 )
-async def create_hotspot_stk_push(data: PortalSTKPushRequest):
+async def create_hotspot_stk_push(request: Request, data: PortalSTKPushRequest):
     """
     Public STK push endpoint for the captive portal flow.
-    No JWT required.
+    No JWT required — rate limit scoped by tenant_id from request body.
     """
+    await hotspot_stk_rate_limiter.check(
+        "hotspot.payments.stk",
+        str(data.tenant_id),
+        get_client_ip(request),
+    )
     async with get_db() as conn:
         payment = await hotspot_service.initiate_hotspot_payment(conn, data)
     return payment
@@ -73,13 +80,17 @@ async def check_hotspot_payment_status(payment_id: str):
     "/trial",
     response_model=PortalFreeTrialResponse,
     summary="Request a 10-minute free trial voucher (public)",
-    dependencies=[Depends(RateLimiter(requests=2, window=60))],
 )
-async def request_free_trial(data: PortalFreeTrialRequest):
+async def request_free_trial(request: Request, data: PortalFreeTrialRequest):
     """
     Public rate-limited free trial activation.
     Provisions a 10-minute trial voucher if user hasn't claimed one in 24 hours.
     """
+    await hotspot_trial_rate_limiter.check(
+        "hotspot.trial",
+        str(data.tenant_id),
+        get_client_ip(request),
+    )
     async with get_db() as conn:
         voucher_code = await hotspot_service.provision_free_trial(conn, data)
     return {"voucher_code": voucher_code}

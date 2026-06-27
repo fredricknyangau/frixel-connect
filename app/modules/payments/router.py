@@ -6,10 +6,10 @@ Router for payment processing -fully tenant-scoped.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, Request, status, HTTPException
 
 from app.database import get_db
-from app.core.rate_limit import RateLimiter
+from app.core.rate_limit import RateLimiter, get_client_ip
 from app.dependencies import require_role
 from app.core.exceptions import NotFoundException
 from app.modules.payments.schemas import STKPushRequest, PaymentResponse, PaymentStatusResponse
@@ -24,18 +24,25 @@ from app.modules.payments.service import (
 
 router = APIRouter()
 
+stk_rate_limiter = RateLimiter(requests=3, window=60, endpoint="payments.stk")
+
 
 @router.post(
     "/payments/stk",
     response_model=PaymentResponse,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Initiate M-Pesa STK push payment (customer only)",
-    dependencies=[Depends(RateLimiter(requests=3, window=60))],
 )
 async def create_stk_push(
+    request: Request,
     data: STKPushRequest,
     current_user: dict = Depends(require_role("customer")),
 ):
+    await stk_rate_limiter.check(
+        "payments.stk",
+        current_user["tenant_id"],
+        get_client_ip(request),
+    )
     async with get_db() as conn:
         payment = await initiate_stk_push(
             conn,
