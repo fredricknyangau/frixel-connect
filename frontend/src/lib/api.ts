@@ -1,5 +1,18 @@
 import axios from 'axios';
-import { getToken, clearToken, getRefreshToken, saveToken, saveRefreshToken, clearRefreshToken } from './auth';
+import {
+  getToken,
+  clearToken,
+  getRefreshToken,
+  saveToken,
+  saveRefreshToken,
+  clearRefreshToken,
+  clearAllTenantTokens,
+  decodeToken,
+  isTokenExpired,
+  ACTIVE_TENANT_KEY,
+} from './auth';
+
+const IMPERSONATION_TOKEN_KEY = 'zealsync_impersonation_token';
 
 export class RateLimitedError extends Error {
   constructor(message = 'Too many attempts, try again shortly') {
@@ -9,9 +22,21 @@ export class RateLimitedError extends Error {
 }
 
 /**
- * Configure our Axios instance.
- * The baseURL is loaded from our environment variables.
+ * Impersonation sessions use sessionStorage (per-tab, cleared on tab close).
+ * Regular tenant sessions use tenant-scoped localStorage keys.
  */
+function getRequestToken(): string | null {
+  const impersonationToken = sessionStorage.getItem(IMPERSONATION_TOKEN_KEY);
+  if (impersonationToken) {
+    return impersonationToken;
+  }
+  const token = getToken();
+  if (token && isTokenExpired(token)) {
+    return null;
+  }
+  return token;
+}
+
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
@@ -19,13 +44,9 @@ export const api = axios.create({
   },
 });
 
-/**
- * REQUEST INTERCEPTOR
- * Runs before every request automatically.
- */
 api.interceptors.request.use(
   (config) => {
-    const token = getToken();
+    const token = getRequestToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -34,15 +55,13 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// CONCURRENCY QUEUE CONTROL FOR REFRESH TOKENS
-// If multiple requests get a 401 simultaneously, we hold a single in-flight promise.
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (value: unknown) => void;
   reject: (error: unknown) => void;
 }> = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
@@ -53,23 +72,26 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-/**
- * RESPONSE INTERCEPTOR
- * Runs when the response returns.
- * If we get a 401 Unauthorized, we attempt to silently refresh the tokens.
- * Handles 429 specifically with a RateLimitedError.
- */
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // Handle Rate Limiting (429)
     if (error.response?.status === 429) {
       return Promise.reject(new RateLimitedError());
     }
 
-    // Handle 401 Unauthorized and prevent infinite loops via _retry flag
+    // Impersonation tabs do not refresh — redirect to login on expiry
+    if (sessionStorage.getItem(IMPERSONATION_TOKEN_KEY)) {
+      if (error.response?.status === 401) {
+        sessionStorage.removeItem(IMPERSONATION_TOKEN_KEY);
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      }
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -79,9 +101,7 @@ api.interceptors.response.use(
             originalRequest.headers.Authorization = `Bearer ${token}`;
             return api(originalRequest);
           })
-          .catch((err) => {
-            return Promise.reject(err);
-          });
+          .catch((err) => Promise.reject(err));
       }
 
       originalRequest._retry = true;
@@ -104,8 +124,12 @@ api.interceptors.response.use(
         });
 
         const { access_token, refresh_token: newRefreshToken } = response.data;
-        saveToken(access_token);
-        saveRefreshToken(newRefreshToken);
+        const decoded = decodeToken(access_token);
+        const tenantId = decoded?.tenant_id;
+        if (tenantId) {
+          saveToken(access_token, tenantId);
+          saveRefreshToken(newRefreshToken, tenantId);
+        }
 
         api.defaults.headers.common.Authorization = `Bearer ${access_token}`;
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
@@ -117,8 +141,8 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         isRefreshing = false;
-        clearToken();
-        clearRefreshToken();
+        clearAllTenantTokens();
+        localStorage.removeItem(ACTIVE_TENANT_KEY);
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';
         }

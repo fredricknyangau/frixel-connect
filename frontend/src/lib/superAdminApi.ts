@@ -4,22 +4,17 @@
  *
  * WHY A SEPARATE INSTANCE?
  * ─────────────────────────
- * The tenant portal's `api` instance reads from 'zealsync_access_token'.
- * If both portals shared one Axios instance and one localStorage key, then:
- *   1. A super admin who opens an impersonation tab would have their
- *      super admin token overwritten by the tenant token (or vice versa).
+ * The tenant portal's `api` instance reads tenant-scoped localStorage keys
+ * (zealsync_token_{tenant_id}). If both portals shared one Axios instance:
+ *   1. A super admin who opens an impersonation tab would contaminate tokens.
  *   2. A 401 from a tenant-scoped endpoint would log out the super admin.
- *   3. Token refresh logic in `api.ts` would fire for super admin 401s,
- *      attempt a /auth/refresh call, fail, and redirect to /login (wrong page).
+ *   3. Token refresh logic in `api.ts` would fire for super admin 401s incorrectly.
  *
- * By using a separate instance + separate localStorage key + separate 401
- * handler, the two sessions are completely isolated.
- *
- * SECURITY NOTE:
- * localStorage is vulnerable to XSS. An injected script on the page can read
- * this token. The super admin portal should only be used on trusted devices.
- * In v2: switch to httpOnly cookies with stricter CSP headers so JavaScript
- * cannot access the token at all. See v2 cookie migration plan.
+ * IMPERSONATION ISOLATION:
+ * Impersonation tokens live in sessionStorage (zealsync_impersonation_token), read
+ * by the tenant portal's `api.ts` when that tab is opened from the super admin UI.
+ * sessionStorage is per-tab and cleared on tab close — never written to localStorage.
+ * The super admin's own JWT stays in localStorage under zealsync_super_admin_token.
  */
 
 import axios from 'axios';
