@@ -36,7 +36,6 @@ import asyncpg
 
 from app.core.exceptions import (
     ConflictException,
-    ForbiddenException,
     NotFoundException,
     UnauthorisedException,
 )
@@ -44,7 +43,6 @@ from app.core.security import (
     create_super_admin_access_token,
     hash_password,
     verify_password,
-    create_access_token,
 )
 from app.services.totp_service import (
     decrypt_totp_secret,
@@ -920,7 +918,6 @@ async def get_platform_stats(
     Returns system-wide statistics for the super admin dashboard.
     All queries are independent and run against the full dataset (no tenant_id filter).
     """
-    from datetime import date
 
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     month_start = today_start.replace(day=1)

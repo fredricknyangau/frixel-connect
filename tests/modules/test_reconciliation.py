@@ -14,7 +14,6 @@ from arq import Retry
 from fastapi.testclient import TestClient
 
 from app.core.security import hash_password, create_access_token
-from app.modules.payments.service import get_stuck_payments
 from app.worker import generate_voucher_task, reconcile_payments_cron
 from tests.conftest import DEFAULT_TENANT_ID, TEST_PASSWORD
 
@@ -194,7 +193,12 @@ async def test_retry_provision_payment_endpoint(mock_get_redis, conn: asyncpg.Co
     resp = client.post(f"/api/v1/admin/payments/{stuck_id}/retry-provision", headers=headers_a)
     assert resp.status_code == 202
     assert resp.json() == {"message": "Provisioning task enqueued."}
-    mock_redis.enqueue_job.assert_called_once_with("generate_voucher_task", str(stuck_id), _request_id=ANY)
+    mock_redis.enqueue_job.assert_called_once_with(
+        "generate_voucher_task",
+        str(stuck_id),
+        DEFAULT_TENANT_ID,
+        _request_id=ANY,
+    )
     mock_redis.enqueue_job.reset_mock()
 
     # 2. Invalid UUID
@@ -298,56 +302,86 @@ async def test_reconcile_payments_cron(conn: asyncpg.Connection, db_pool: asyncp
     await reconcile_payments_cron(ctx)
 
     # Verify stuck payment is enqueued, recent payment is not
-    mock_redis.enqueue_job.assert_called_once_with("generate_voucher_task", str(stuck_id))
+    mock_redis.enqueue_job.assert_called_once_with(
+        "generate_voucher_task",
+        str(stuck_id),
+        DEFAULT_TENANT_ID,
+    )
 
 
 @pytest.mark.asyncio
 @patch("app.worker.generate_voucher")
-async def test_generate_voucher_task(mock_generate_voucher, db_pool: asyncpg.Pool):
+async def test_generate_voucher_task(
+    mock_generate_voucher,
+    db_pool: asyncpg.Pool,
+    conn: asyncpg.Connection,
+):
     """
     Asserts that:
       1. A successful generate_voucher returns the code.
       2. Attempts 1-3 fail and raise arq.exceptions.Retry.
       3. Attempt 4 (final) fails and bubbles up the original exception.
+      4. Wrong tenant_id aborts without calling generate_voucher.
     """
-    ctx = {
-        "db_pool": db_pool,
-    }
-    payment_id = str(uuid4())
+    customer_id, package_id = await get_test_customer_and_package_ids(conn)
+    payment_id = await conn.fetchval(
+        """
+        INSERT INTO payments (customer_id, package_id, amount_kes, status, phone_number, tenant_id)
+        VALUES ($1, $2, 50.00, 'confirmed', '254708374149', $3)
+        RETURNING id
+        """,
+        customer_id,
+        package_id,
+        UUID(DEFAULT_TENANT_ID),
+    )
 
-    # 1. Success case
+    ctx = {"db_pool": db_pool}
+    payment_id_str = str(payment_id)
+    tenant_id_str = DEFAULT_TENANT_ID
+
     mock_generate_voucher.return_value = "ABCDEFGH22"
     ctx["job_try"] = 1
-    code = await generate_voucher_task(ctx, payment_id)
+    code = await generate_voucher_task(ctx, payment_id_str, tenant_id_str)
     assert code == "ABCDEFGH22"
-    mock_generate_voucher.assert_called_with(ANY, payment_id, is_final_attempt=False)
+    mock_generate_voucher.assert_called_with(
+        ANY,
+        payment_id_str,
+        UUID(DEFAULT_TENANT_ID),
+        is_final_attempt=False,
+    )
     mock_generate_voucher.reset_mock()
 
-    # 2. Attempt 1 failure -> raise Retry
     mock_generate_voucher.side_effect = ValueError("MikroTik not reachable")
     ctx["job_try"] = 1
     with pytest.raises(Retry) as exc_info:
-        await generate_voucher_task(ctx, payment_id)
+        await generate_voucher_task(ctx, payment_id_str, tenant_id_str)
     assert exc_info.value.defer_score == 5000
-    mock_generate_voucher.assert_called_with(ANY, payment_id, is_final_attempt=False)
     mock_generate_voucher.reset_mock()
 
-    # Attempt 2 failure -> raise Retry with 15s delay
     ctx["job_try"] = 2
     with pytest.raises(Retry) as exc_info:
-        await generate_voucher_task(ctx, payment_id)
+        await generate_voucher_task(ctx, payment_id_str, tenant_id_str)
     assert exc_info.value.defer_score == 15000
     mock_generate_voucher.reset_mock()
 
-    # Attempt 3 failure -> raise Retry with 45s delay
     ctx["job_try"] = 3
     with pytest.raises(Retry) as exc_info:
-        await generate_voucher_task(ctx, payment_id)
+        await generate_voucher_task(ctx, payment_id_str, tenant_id_str)
     assert exc_info.value.defer_score == 45000
     mock_generate_voucher.reset_mock()
 
-    # 3. Attempt 4 failure (final attempt) -> bubbles exception, sets is_final_attempt = True
     ctx["job_try"] = 4
     with pytest.raises(ValueError, match="MikroTik not reachable"):
-        await generate_voucher_task(ctx, payment_id)
-    mock_generate_voucher.assert_called_with(ANY, payment_id, is_final_attempt=True)
+        await generate_voucher_task(ctx, payment_id_str, tenant_id_str)
+    mock_generate_voucher.assert_called_with(
+        ANY,
+        payment_id_str,
+        UUID(DEFAULT_TENANT_ID),
+        is_final_attempt=True,
+    )
+    mock_generate_voucher.reset_mock()
+
+    wrong_tenant = str(uuid4())
+    result = await generate_voucher_task(ctx, payment_id_str, wrong_tenant)
+    assert result is None
+    mock_generate_voucher.assert_not_called()

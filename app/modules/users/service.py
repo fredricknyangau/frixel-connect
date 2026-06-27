@@ -27,6 +27,7 @@ from typing import Optional
 
 import asyncpg
 
+from app.core.db_helpers import get_or_404
 from app.core.exceptions import NotFoundException, ConflictException
 from app.core.security import hash_password
 from app.modules.users.schemas import CreateCustomerRequest, UserUpdate, AdminUserCreate, AdminUserUpdate
@@ -44,20 +45,17 @@ async def get_my_profile(
       - The user doesn't exist at all.
       - The user exists but belongs to a different tenant (same 404 -no leakage).
     """
-    row = await conn.fetchrow(
-        """
-        SELECT id, email, phone, role, reseller_id, tenant_id, is_active, created_at
-        FROM users
-        WHERE id = $1
-          AND tenant_id = $2
-        """,
-        user_id,
-        tenant_id,
-    )
-    if not row:
-        raise NotFoundException("User", str(user_id))
-
-    return dict(row)
+    row = await get_or_404(conn, "users", user_id, tenant_id, "User")
+    return {
+        "id": row["id"],
+        "email": row["email"],
+        "phone": row["phone"],
+        "role": row["role"],
+        "reseller_id": row["reseller_id"],
+        "tenant_id": row["tenant_id"],
+        "is_active": row["is_active"],
+        "created_at": row["created_at"],
+    }
 
 
 async def update_my_profile(
@@ -282,13 +280,7 @@ async def admin_update_user(
 ) -> dict:
     """Admin partially updates a user within the tenant."""
     # Confirm user exists in this tenant
-    current = await conn.fetchrow(
-        "SELECT * FROM users WHERE id = $1 AND tenant_id = $2",
-        user_id,
-        tenant_id,
-    )
-    if not current:
-        raise NotFoundException("User", str(user_id))
+    current = await get_or_404(conn, "users", user_id, tenant_id, "User")
 
     update_data = data.model_dump(exclude_unset=True)
 
@@ -388,13 +380,7 @@ async def admin_deactivate_user(
     user_id: UUID,
 ) -> None:
     """Soft-deactivates a user within the tenant."""
-    row = await conn.fetchrow(
-        "SELECT id FROM users WHERE id = $1 AND tenant_id = $2",
-        user_id,
-        tenant_id,
-    )
-    if not row:
-        raise NotFoundException("User", str(user_id))
+    await get_or_404(conn, "users", user_id, tenant_id, "User")
 
     await conn.execute(
         "UPDATE users SET is_active = FALSE, updated_at = NOW() WHERE id = $1 AND tenant_id = $2",

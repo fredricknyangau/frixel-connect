@@ -248,6 +248,8 @@ async def provision_free_trial(
 
     # 4. Invoke voucher generation pipeline
     from app.modules.vouchers import service as vouchers_service
-    voucher_code = await vouchers_service.generate_voucher(conn, str(payment_id), is_final_attempt=True)
+    voucher_code = await vouchers_service.generate_voucher(
+        conn, str(payment_id), data.tenant_id, is_final_attempt=True
+    )
     return voucher_code
 

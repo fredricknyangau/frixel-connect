@@ -2,7 +2,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
-import asyncpg
 from datetime import datetime
 
 from app.database import get_db

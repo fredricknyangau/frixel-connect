@@ -21,6 +21,7 @@ from uuid import UUID
 
 import asyncpg
 
+from app.core.db_helpers import get_or_404
 from app.core.exceptions import NotFoundException, ConflictException
 from app.modules.packages.schemas import PackageCreate, PackageUpdate
 

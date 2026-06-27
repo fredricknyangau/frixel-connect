@@ -5,8 +5,7 @@ Entry point for the arq background worker process.
 Defines database pool lifecycle hooks, tasks, and cron jobs.
 """
 
-import asyncio
-import logging
+from uuid import UUID
 
 import asyncpg
 import structlog
@@ -24,16 +23,18 @@ setup_logging(json_logs=settings.APP_ENV == "production")
 logger = structlog.get_logger(__name__)
 
 
-async def generate_voucher_task(ctx, payment_id: str, _request_id: str = None) -> str:
+async def generate_voucher_task(
+    ctx,
+    payment_id: str,
+    tenant_id: str,
+    _request_id: str = None,
+) -> str | None:
     """
     Durable background task to generate a voucher for a confirmed payment.
-    Also generates an invoice for the payment.
-    Instead of internal sleep loops, uses job-level retries handled by arq.
 
-    Retry Policy:
-      - Max tries: 4.
-      - Backoff schedule: 5s, 15s, 45s.
-      - On the 4th (final) attempt, records it as 'pending_provision' in the DB.
+    tenant_id is passed explicitly because arq jobs run outside the FastAPI
+    request context. The webhook handler passes payment.tenant_id at enqueue
+    time. We verify the payment belongs to the claimed tenant before processing.
     """
     job_try = ctx.get("job_try", 1)
     max_tries = 4
@@ -43,29 +44,41 @@ async def generate_voucher_task(ctx, payment_id: str, _request_id: str = None) -
     clear_contextvars()
     if _request_id:
         bind_contextvars(request_id=_request_id)
-    bind_contextvars(payment_id=payment_id)
+    bind_contextvars(payment_id=payment_id, tenant_id=tenant_id)
 
     logger.info(
         "processing generate_voucher_task",
         job_try=job_try,
-        max_tries=max_tries
+        max_tries=max_tries,
     )
 
     pool = ctx["db_pool"]
     async with pool.acquire() as conn:
-        try:
-            # We call generate_voucher. If it fails, it bubbles up.
-            code = await generate_voucher(conn, payment_id, is_final_attempt=is_final_attempt)
-            logger.info(
-                "generate_voucher_task succeeded",
-                voucher_code=code
+        payment = await conn.fetchrow(
+            "SELECT id FROM payments WHERE id = $1 AND tenant_id = $2",
+            payment_id,
+            UUID(tenant_id),
+        )
+        if not payment:
+            logger.error(
+                "generate_voucher_task: payment not found or wrong tenant — aborting",
+                payment_id=payment_id,
+                tenant_id=tenant_id,
             )
+            return None
 
-            # Generate invoice for the payment
+        try:
+            code = await generate_voucher(
+                conn,
+                payment_id,
+                UUID(tenant_id),
+                is_final_attempt=is_final_attempt,
+            )
+            logger.info("generate_voucher_task succeeded", voucher_code=code)
+
             try:
                 await generate_invoice_for_payment(conn, payment_id)
             except Exception as e:
-                # Invoice generation failure shouldn't fail the voucher, but log it
                 logger.error("invoice generation failed", error=str(e), exc_info=True)
 
             return code
@@ -74,18 +87,17 @@ async def generate_voucher_task(ctx, payment_id: str, _request_id: str = None) -
                 logger.error(
                     "final attempt failed, voucher pending_provision",
                     job_try=job_try,
-                    error=str(e)
+                    error=str(e),
                 )
                 raise e
-            else:
-                delay = delays[job_try - 1]
-                logger.warning(
-                    "attempt failed, retrying",
-                    job_try=job_try,
-                    delay_seconds=delay,
-                    error=str(e)
-                )
-                raise Retry(defer=delay)
+            delay = delays[job_try - 1]
+            logger.warning(
+                "attempt failed, retrying",
+                job_try=job_try,
+                delay_seconds=delay,
+                error=str(e),
+            )
+            raise Retry(defer=delay)
 
 
 async def reconcile_payments_cron(ctx) -> None:
@@ -104,11 +116,14 @@ async def reconcile_payments_cron(ctx) -> None:
     async with pool.acquire() as conn:
         stuck_payments = await conn.fetch(
             """
-            SELECT id FROM payments p
-            WHERE status = 'confirmed'
-              AND created_at < NOW() - INTERVAL '2 minutes'
+            SELECT p.id AS payment_id, p.tenant_id
+            FROM payments p
+            WHERE p.status = 'confirmed'
+              AND p.created_at < NOW() - INTERVAL '2 minutes'
               AND NOT EXISTS (
-                  SELECT 1 FROM vouchers v WHERE v.payment_id = p.id
+                  SELECT 1 FROM vouchers v
+                  WHERE v.payment_id = p.id
+                    AND v.tenant_id = p.tenant_id
               )
             """
         )
@@ -116,13 +131,21 @@ async def reconcile_payments_cron(ctx) -> None:
         if stuck_payments:
             logger.info(
                 "found confirmed payments without vouchers. Re-enqueueing provisioning tasks...",
-                count=len(stuck_payments)
+                count=len(stuck_payments),
             )
-            for p in stuck_payments:
-                payment_id = str(p["id"])
-                # We do not pass _request_id from cron since it's an internal background event
-                await redis.enqueue_job("generate_voucher_task", payment_id)
-                logger.info("re-enqueued generate_voucher_task", payment_id=payment_id)
+            for row in stuck_payments:
+                payment_id = str(row["payment_id"])
+                tenant_id = str(row["tenant_id"])
+                await redis.enqueue_job(
+                    "generate_voucher_task",
+                    payment_id,
+                    tenant_id,
+                )
+                logger.info(
+                    "re-enqueued generate_voucher_task",
+                    payment_id=payment_id,
+                    tenant_id=tenant_id,
+                )
         else:
             logger.info("no stuck payments found")
 
@@ -304,7 +327,7 @@ async def sync_radius_sessions_cron(ctx) -> None:
                         try:
                             mikrotik = get_mikrotik_client(router_dict)
                             await mikrotik.remove_active_hotspot_session(v["code"])
-                        except Exception as e:
+                        except Exception:
                             pass
 
             logger.info("RADIUS session sync completed", result=result)
@@ -457,7 +480,7 @@ async def tenant_billing_cron(ctx) -> None:
                                 result = await daraja_client.stk_push(
                                     phone=phone,
                                     amount=amount,
-                                    account_reference=f"ZEALSYNC",
+                                    account_reference="ZEALSYNC",
                                     description="ZealSync Platform"
                                 )
                                 await conn.execute(

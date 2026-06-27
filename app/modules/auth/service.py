@@ -30,7 +30,7 @@ from datetime import datetime, timedelta, timezone
 import asyncpg
 
 from app.core.exceptions import ConflictException, UnauthorisedException, ForbiddenException
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import hash_password, verify_password
 from app.modules.auth.schemas import RegisterRequest
 
 

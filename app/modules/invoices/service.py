@@ -40,7 +40,7 @@ async def _generate_pdf(
     
     # Title
     c.setFont("Helvetica-Bold", 24)
-    c.drawString(50, height - 50, f"TAX INVOICE")
+    c.drawString(50, height - 50, "TAX INVOICE")
     
     # Tenant Info
     c.setFont("Helvetica-Bold", 14)
@@ -121,8 +121,9 @@ async def generate_invoice_for_payment(conn: Connection, payment_id: str) -> Non
         
     # 2. Check if invoice already exists
     existing = await conn.fetchrow(
-        "SELECT id, invoice_number FROM invoices WHERE payment_id = $1", 
-        payment_id
+        "SELECT id, invoice_number FROM invoices WHERE payment_id = $1 AND tenant_id = $2",
+        payment_id,
+        row["tenant_id"],
     )
     if existing:
         logger.info(f"Invoice already exists for payment {payment_id}.")
@@ -183,8 +184,8 @@ async def generate_invoice_for_payment(conn: Connection, payment_id: str) -> Non
     await conn.execute("""
         UPDATE invoices
         SET kra_etims_qr_code = $1, pdf_path = $2
-        WHERE id = $3
-    """, kra_qr_code_data, pdf_path, invoice_id)
+        WHERE id = $3 AND tenant_id = $4
+    """, kra_qr_code_data, pdf_path, invoice_id, row["tenant_id"])
     
     logger.info(f"Successfully generated invoice {invoice_number} for payment {payment_id}")
 

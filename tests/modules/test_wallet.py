@@ -14,7 +14,6 @@ Asserts:
 
 import asyncio
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import asyncpg
@@ -24,7 +23,6 @@ from fastapi.testclient import TestClient
 from app.core.security import hash_password, create_access_token
 from app.modules.wallets.service import (
     topup_wallet,
-    debit_wallet,
     get_wallet_balance,
     get_wallet_transactions,
 )
@@ -243,7 +241,7 @@ async def test_daraja_c2b_validation(client: TestClient, conn: asyncpg.Connectio
 async def test_daraja_c2b_confirmation_and_idempotency(client: TestClient, conn: asyncpg.Connection):
     """Asserts that C2B confirmation tops up the wallet and handles duplicate webhooks idempotently."""
     # 1. Create reseller
-    _, reseller_id, token, wallet_ref = await create_tenant_and_reseller(
+    tenant_id, reseller_id, token, wallet_ref = await create_tenant_and_reseller(
         conn, "C2B Confirm ISP", "c2b_confirm@test.com", "254722000003", wallet_ref="WS66666"
     )
 
@@ -263,7 +261,7 @@ async def test_daraja_c2b_confirmation_and_idempotency(client: TestClient, conn:
     }
 
     # Verify balance was updated
-    balance = await get_wallet_balance(conn, UUID(reseller_id))
+    balance = await get_wallet_balance(conn, UUID(reseller_id), UUID(tenant_id))
     assert balance == Decimal("400.00")
 
     # 3. Send duplicate webhook with same TransID
@@ -275,7 +273,7 @@ async def test_daraja_c2b_confirmation_and_idempotency(client: TestClient, conn:
     }
 
     # Verify balance is still KES 400.00 (was not topped up twice)
-    balance = await get_wallet_balance(conn, UUID(reseller_id))
+    balance = await get_wallet_balance(conn, UUID(reseller_id), UUID(tenant_id))
     assert balance == Decimal("400.00")
 
 
@@ -321,11 +319,11 @@ async def test_generate_reseller_voucher_success(client: TestClient, conn: async
 
     # 5. Verify database checks
     # Wallet balance debited
-    balance = await get_wallet_balance(conn, UUID(reseller_id))
+    balance = await get_wallet_balance(conn, UUID(reseller_id), UUID(tenant_id))
     assert balance == Decimal("180.00")
 
     # Transaction ledger entry created
-    transactions = await get_wallet_transactions(conn, UUID(reseller_id))
+    transactions = await get_wallet_transactions(conn, UUID(reseller_id), UUID(tenant_id))
     assert len(transactions) == 2
     assert transactions[0]["type"] == "debit"
     assert Decimal(transactions[0]["amount_kes"]) == Decimal("120.00")
@@ -376,7 +374,7 @@ async def test_generate_reseller_voucher_insufficient_balance(client: TestClient
     assert "insufficient balance" in resp.json()["detail"].lower()
 
     # 4. Verify no debit happened, no payment inserted
-    balance = await get_wallet_balance(conn, UUID(reseller_id))
+    balance = await get_wallet_balance(conn, UUID(reseller_id), UUID(tenant_id))
     assert balance == Decimal("0.00")
 
     payment_count = await conn.fetchval("SELECT COUNT(*) FROM payments")
@@ -492,9 +490,9 @@ async def test_wallet_concurrency_locking(db_pool: asyncpg.Pool):
 
     # Assert final balance is exactly 10 * 100.00 = 1000.00
     async with db_pool.acquire() as verify_conn:
-        final_balance = await get_wallet_balance(verify_conn, res_uuid)
+        final_balance = await get_wallet_balance(verify_conn, res_uuid, ten_uuid)
         assert final_balance == Decimal("1000.00")
 
         # Verify 10 transactions were logged in the ledger
-        transactions = await get_wallet_transactions(verify_conn, res_uuid, limit=50)
+        transactions = await get_wallet_transactions(verify_conn, res_uuid, ten_uuid, limit=50)
         assert len(transactions) == 10

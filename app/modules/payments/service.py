@@ -12,7 +12,6 @@ MULTI-TENANCY CHANGE (Phase 1):
 """
 
 import logging
-from typing import Optional
 from uuid import UUID
 
 import asyncpg
@@ -96,10 +95,12 @@ async def initiate_stk_push(
             UPDATE payments
             SET mpesa_checkout_id = $1, updated_at = NOW()
             WHERE id = $2
+              AND tenant_id = $3
             RETURNING id, customer_id, package_id, amount_kes, status, phone_number, mpesa_receipt_number, created_at
             """,
             checkout_id,
             payment_id,
+            tenant_id,
         )
         logger.info(f"Payment: STK push initiated. CheckoutRequestID={checkout_id}")
         return dict(updated_payment)
@@ -113,9 +114,11 @@ async def initiate_stk_push(
             UPDATE payments
             SET status = 'failed', failure_reason = $1, updated_at = NOW()
             WHERE id = $2
+              AND tenant_id = $3
             """,
             failure_msg,
             payment_id,
+            tenant_id,
         )
         raise PaymentException(f"M-Pesa payment initiation failed: {failure_msg}")
 
@@ -142,7 +145,7 @@ async def get_payment_status(
             p.customer_id,
             v.code AS voucher_code
         FROM payments p
-        LEFT JOIN vouchers v ON p.id = v.payment_id
+        LEFT JOIN vouchers v ON p.id = v.payment_id AND v.tenant_id = p.tenant_id
         WHERE p.id = $1
           AND p.tenant_id = $2
         """,
@@ -175,7 +178,7 @@ async def get_customer_payments(
         SELECT p.id, p.customer_id, p.package_id, p.amount_kes, p.status, p.phone_number, p.mpesa_receipt_number, p.created_at,
                pkg.name AS package_name
         FROM payments p
-        JOIN packages pkg ON p.package_id = pkg.id
+        JOIN packages pkg ON p.package_id = pkg.id AND pkg.tenant_id = p.tenant_id
         WHERE p.customer_id = $1
           AND p.tenant_id = $2
         ORDER BY p.created_at DESC
@@ -199,7 +202,7 @@ async def get_reseller_payments(
                pkg.name AS package_name
         FROM payments p
         JOIN users u ON p.customer_id = u.id
-        JOIN packages pkg ON p.package_id = pkg.id
+        JOIN packages pkg ON p.package_id = pkg.id AND pkg.tenant_id = p.tenant_id
         WHERE u.reseller_id = $1
           AND p.tenant_id = $2
         ORDER BY p.created_at DESC
@@ -220,7 +223,7 @@ async def get_all_payments(
         SELECT p.id, p.customer_id, p.package_id, p.amount_kes, p.status, p.phone_number, p.mpesa_receipt_number, p.created_at,
                pkg.name AS package_name
         FROM payments p
-        JOIN packages pkg ON p.package_id = pkg.id
+        JOIN packages pkg ON p.package_id = pkg.id AND pkg.tenant_id = p.tenant_id
         WHERE p.tenant_id = $1
         ORDER BY p.created_at DESC
         """,
@@ -245,7 +248,9 @@ async def get_stuck_payments(
           AND status = 'confirmed'
           AND created_at < NOW() - INTERVAL '2 minutes'
           AND NOT EXISTS (
-              SELECT 1 FROM vouchers v WHERE v.payment_id = p.id
+              SELECT 1 FROM vouchers v
+              WHERE v.payment_id = p.id
+                AND v.tenant_id = p.tenant_id
           )
         ORDER BY created_at DESC
         """,

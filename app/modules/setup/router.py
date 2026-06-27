@@ -39,7 +39,6 @@ SECURITY MODEL:
 
 import json
 import logging
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import PlainTextResponse

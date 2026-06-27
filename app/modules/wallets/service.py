@@ -16,20 +16,26 @@ from app.core.exceptions import InsufficientBalanceException
 logger = logging.getLogger(__name__)
 
 
-async def get_wallet_balance(conn: asyncpg.Connection, reseller_id: UUID) -> Decimal:
+async def get_wallet_balance(
+    conn: asyncpg.Connection,
+    reseller_id: UUID,
+    tenant_id: UUID,
+) -> Decimal:
     """
-    Reads the balance_after of the most recent ledger row for the reseller.
-    If no ledger entries exist, the balance defaults to 0.00.
+    Reads the balance_after of the most recent ledger row for the reseller
+    within the tenant.
     """
     balance = await conn.fetchval(
         """
         SELECT balance_after
         FROM wallet_transactions
         WHERE reseller_id = $1
+          AND tenant_id = $2
         ORDER BY sequence_id DESC
         LIMIT 1
         """,
         reseller_id,
+        tenant_id,
     )
     return Decimal(str(balance)) if balance is not None else Decimal("0.00")
 
@@ -37,18 +43,21 @@ async def get_wallet_balance(conn: asyncpg.Connection, reseller_id: UUID) -> Dec
 async def get_wallet_transactions(
     conn: asyncpg.Connection,
     reseller_id: UUID,
+    tenant_id: UUID,
     limit: int = 20,
 ) -> list[dict]:
-    """Retrieves the last N ledger entries for a reseller, sorted by newest first."""
+    """Retrieves the last N ledger entries for a reseller within the tenant."""
     rows = await conn.fetch(
         """
         SELECT id, tenant_id, reseller_id, type, amount_kes, balance_after, reference, created_at
         FROM wallet_transactions
         WHERE reseller_id = $1
+          AND tenant_id = $2
         ORDER BY sequence_id DESC
-        LIMIT $2
+        LIMIT $3
         """,
         reseller_id,
+        tenant_id,
         limit,
     )
     return [dict(r) for r in rows]
@@ -63,15 +72,18 @@ async def topup_wallet(
 ) -> dict:
     """
     Tops up the reseller's wallet.
-    Acquires an exclusive lock on the reseller's user record in the users table
+    Acquires an exclusive lock on the reseller's user record scoped to tenant
     before reading the current balance and inserting the new transaction.
-    This strictly serializes all financial modifications for this reseller.
     """
-    # 1. Lock the reseller user record to serialize reads/writes
-    await conn.execute("SELECT id FROM users WHERE id = $1 FOR UPDATE", reseller_id)
+    locked = await conn.fetchrow(
+        "SELECT id FROM users WHERE id = $1 AND tenant_id = $2 FOR UPDATE",
+        reseller_id,
+        tenant_id,
+    )
+    if not locked:
+        raise InsufficientBalanceException("Reseller not found in this tenant.")
 
-    # 2. Derive balance and calculate new balance after topup
-    current_balance = await get_wallet_balance(conn, reseller_id)
+    current_balance = await get_wallet_balance(conn, reseller_id, tenant_id)
     new_balance = current_balance + amount
 
     logger.info(
@@ -79,7 +91,6 @@ async def topup_wallet(
         f"old balance KES {current_balance}, new balance KES {new_balance}, reference '{reference}'"
     )
 
-    # 3. Insert ledger entry (append-only)
     row = await conn.fetchrow(
         """
         INSERT INTO wallet_transactions
@@ -104,16 +115,18 @@ async def debit_wallet(
     reference: str,
 ) -> dict:
     """
-    Debits the reseller's wallet.
-    Acquires an exclusive lock on the reseller's user record in the users table
-    before verifying balance and appending a new transaction.
-    Raises InsufficientBalanceException if amount > current balance, with no row inserted.
+    Debits the reseller's wallet within the tenant.
+    Raises InsufficientBalanceException if amount > current balance.
     """
-    # 1. Lock the reseller user record to serialize reads/writes
-    await conn.execute("SELECT id FROM users WHERE id = $1 FOR UPDATE", reseller_id)
+    locked = await conn.fetchrow(
+        "SELECT id FROM users WHERE id = $1 AND tenant_id = $2 FOR UPDATE",
+        reseller_id,
+        tenant_id,
+    )
+    if not locked:
+        raise InsufficientBalanceException("Reseller not found in this tenant.")
 
-    # 2. Derive balance and verify
-    current_balance = await get_wallet_balance(conn, reseller_id)
+    current_balance = await get_wallet_balance(conn, reseller_id, tenant_id)
 
     if current_balance < amount:
         raise InsufficientBalanceException(
@@ -127,7 +140,6 @@ async def debit_wallet(
         f"old balance KES {current_balance}, new balance KES {new_balance}, reference '{reference}'"
     )
 
-    # 3. Insert ledger entry (append-only)
     row = await conn.fetchrow(
         """
         INSERT INTO wallet_transactions

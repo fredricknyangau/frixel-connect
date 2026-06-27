@@ -219,7 +219,7 @@ async def generate_reseller_voucher(
             )
 
             # Generate voucher (passes through standard get_mikrotik_client etc.)
-            code = await generate_voucher(conn, str(payment_id), is_final_attempt=True)
+            code = await generate_voucher(conn, str(payment_id), tenant_id, is_final_attempt=True)
 
         # Fetch full voucher response details to return
         voucher_row = await conn.fetchrow(

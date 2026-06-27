@@ -238,7 +238,7 @@ async def test_router_id_recorded_without_mikrotik_provisioning(conn: asyncpg.Co
         customer_id, package_id, tenant_id
     )
 
-    code_1 = await generate_voucher(conn, payment_id_1)
+    code_1 = await generate_voucher(conn, str(payment_id_1), UUID(tenant_id))
     assert code_1 is not None
 
     voucher_1 = await conn.fetchrow("SELECT router_id FROM vouchers WHERE payment_id = $1", payment_id_1)
@@ -267,7 +267,7 @@ async def test_router_id_recorded_without_mikrotik_provisioning(conn: asyncpg.Co
         customer_id, package_id, tenant_id
     )
 
-    code_2 = await generate_voucher(conn, payment_id_2)
+    code_2 = await generate_voucher(conn, str(payment_id_2), UUID(tenant_id))
     assert code_2 is not None
 
     voucher_2 = await conn.fetchrow("SELECT router_id FROM vouchers WHERE payment_id = $1", payment_id_2)

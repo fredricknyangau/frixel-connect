@@ -7,7 +7,7 @@ import asyncpg
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.security import create_access_token, hash_password
+from app.core.security import create_access_token
 from app.modules.vouchers.service import generate_voucher
 from tests.conftest import DEFAULT_TENANT_ID, TEST_PASSWORD
 
@@ -187,7 +187,7 @@ async def test_voucher_generation_does_not_call_mikrotik_hotspot_user(
         package_id,
     )
 
-    code = await generate_voucher(conn, str(payment_id), is_final_attempt=True)
+    code = await generate_voucher(conn, str(payment_id), UUID(DEFAULT_TENANT_ID), is_final_attempt=True)
     mock_generate_hotspot_user.assert_not_called()
 
     radcheck_count = await conn.fetchval("SELECT COUNT(*) FROM radcheck WHERE username = $1", code)

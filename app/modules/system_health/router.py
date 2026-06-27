@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timezone
-import asyncpg
 
 from app.database import get_db
 from app.dependencies import require_role

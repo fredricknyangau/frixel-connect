@@ -12,8 +12,7 @@ from uuid import UUID
 
 import asyncpg
 
-from app.core.exceptions import NotFoundException, ConflictException
-from app.modules.subscriptions.schemas import SubscriptionCreate, SubscriptionUpdate
+from app.core.exceptions import NotFoundException
 
 logger = logging.getLogger(__name__)
 
@@ -192,11 +191,12 @@ async def process_renewal_payment(
             
         await conn.execute(
             """
-            UPDATE subscriptions 
+            UPDATE subscriptions
             SET status = 'active', current_period_end = $1, package_id = $2, updated_at = NOW()
             WHERE id = $3
+              AND tenant_id = $4
             """,
-            new_end, package_id, sub["id"]
+            new_end, package_id, sub["id"], tenant_id
         )
         
         # If it was suspended, re-enable PPPoE secret

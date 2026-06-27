@@ -189,6 +189,11 @@ async def retry_provision_payment(
     from structlog.contextvars import get_contextvars
     redis = get_redis_pool()
     request_id = get_contextvars().get("request_id")
-    await redis.enqueue_job("generate_voucher_task", payment_id, _request_id=request_id)
+    await redis.enqueue_job(
+        "generate_voucher_task",
+        payment_id,
+        str(tenant_id),
+        _request_id=request_id,
+    )
 
     return {"message": "Provisioning task enqueued."}

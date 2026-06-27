@@ -9,20 +9,22 @@ Asserts:
   3. Session sync cron job correctly pulls active radacct sessions into the local sessions table.
 """
 
-import asyncio
-from unittest.mock import AsyncMock, patch
-from uuid import UUID
+from unittest.mock import patch
 
 import asyncpg
 import pytest
 from fastapi.testclient import TestClient
 
+from uuid import UUID
+
 from app.modules.vouchers.service import generate_voucher
 from app.worker import sync_radius_sessions_cron
 
+DEFAULT_TENANT_ID = UUID("aaaaaaaa-0000-0000-0000-000000000001")
+
+
 @pytest.fixture
 async def sample_payment(conn: asyncpg.Connection) -> str:
-    """Creates a sample payment and returns its ID."""
     # 1. Ensure a customer exists in default tenant
     tenant_id = "aaaaaaaa-0000-0000-0000-000000000001"
     customer = await conn.fetchrow("SELECT id, phone FROM users WHERE role = 'customer' LIMIT 1")
@@ -53,7 +55,7 @@ async def test_voucher_generation_provisions_radius(
     """Asserts that generating a voucher inserts Cleartext-Password into radcheck and Rate-Limit into radreply."""
     # Generate voucher directly via service
     async with conn.transaction():
-        code = await generate_voucher(conn, sample_payment, is_final_attempt=True)
+        code = await generate_voucher(conn, sample_payment, DEFAULT_TENANT_ID, is_final_attempt=True)
 
     assert code is not None
 
@@ -79,7 +81,7 @@ async def test_voucher_revocation_triggers_coa(
     """Asserts that revoking a voucher deletes radcheck/radreply and sends a CoA disconnect."""
     # Generate a voucher first
     async with conn.transaction():
-        code = await generate_voucher(conn, sample_payment, is_final_attempt=True)
+        code = await generate_voucher(conn, sample_payment, DEFAULT_TENANT_ID, is_final_attempt=True)
     
     # Get the voucher ID
     voucher = await conn.fetchrow("SELECT id FROM vouchers WHERE code = $1", code)
@@ -131,7 +133,7 @@ async def test_sync_radius_sessions_cron(
     """Asserts that the session sync cron job copies radacct rows into the local sessions table."""
     # Generate a voucher
     async with conn.transaction():
-        code = await generate_voucher(conn, sample_payment, is_final_attempt=True)
+        code = await generate_voucher(conn, sample_payment, DEFAULT_TENANT_ID, is_final_attempt=True)
     
     voucher = await conn.fetchrow("SELECT id FROM vouchers WHERE code = $1", code)
     voucher_id = voucher["id"]

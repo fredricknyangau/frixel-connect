@@ -5,8 +5,13 @@ Integration and pipeline tests for the Safaricom Daraja webhooks endpoint.
 """
 
 from unittest.mock import patch
+from uuid import UUID
+
 import asyncpg
 from fastapi.testclient import TestClient
+
+DEFAULT_TENANT_ID = UUID("aaaaaaaa-0000-0000-0000-000000000001")
+
 
 class MockArqRedis:
     def __init__(self):
@@ -83,10 +88,11 @@ async def test_webhook_successful_payment(mock_get_redis, client: TestClient, co
     assert len(mock_redis.enqueued_jobs) == 1
     assert mock_redis.enqueued_jobs[0][0] == "generate_voucher_task"
     assert mock_redis.enqueued_jobs[0][1][0] == str(payment_id)
+    assert mock_redis.enqueued_jobs[0][1][1] == str(DEFAULT_TENANT_ID)
 
     # 5. Execute generate_voucher synchronously within the test loop context
     from app.modules.vouchers.service import generate_voucher
-    await generate_voucher(conn, payment_id)
+    await generate_voucher(conn, str(payment_id), DEFAULT_TENANT_ID, is_final_attempt=True)
 
     # 6. Assert the voucher and RADIUS credentials were created
     voucher = await conn.fetchrow("SELECT code, status FROM vouchers WHERE payment_id = $1", payment_id)
@@ -160,7 +166,7 @@ async def test_webhook_idempotency(mock_get_redis, client: TestClient, conn: asy
 
     # Call generate_voucher manually to verify it provisions RADIUS once
     from app.modules.vouchers.service import generate_voucher
-    code = await generate_voucher(conn, payment_id)
+    code = await generate_voucher(conn, str(payment_id), DEFAULT_TENANT_ID, is_final_attempt=True)
     radcheck_count = await conn.fetchval("SELECT COUNT(*) FROM radcheck WHERE username = $1", code)
     assert radcheck_count == 1
 

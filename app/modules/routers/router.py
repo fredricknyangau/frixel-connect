@@ -88,8 +88,6 @@ async def get_router(
     tenant_id = UUID(user["tenant_id"])
     async with get_db() as conn:
         router_device = await service.get_router_by_id(conn, tenant_id, router_id)
-    if not router_device:
-        raise NotFoundException("Router", str(router_id))
     return RouterResponse.model_validate(router_device)
 
 

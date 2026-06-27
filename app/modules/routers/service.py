@@ -6,13 +6,12 @@ and background heartbeat monitoring.
 """
 
 import asyncio
-from datetime import datetime
 import logging
-from typing import Optional
 from uuid import UUID
 
 import asyncpg
 
+from app.core.db_helpers import get_or_404
 from app.core.exceptions import NotFoundException, ConflictException
 from app.core.security import encrypt_secret
 from app.integrations.mikrotik import get_mikrotik_client
@@ -81,22 +80,13 @@ async def get_router_by_id(
     conn: asyncpg.Connection,
     tenant_id: UUID,
     router_id: UUID,
-) -> Optional[dict]:
+) -> dict:
     """
-    Retrieves a specific router config.
-    Returns None for cross-tenant requests (404-not-403 rule).
+    Retrieves a specific router config within the tenant.
+    Raises NotFoundException for cross-tenant UUIDs (404-not-403 rule).
     """
-    row = await conn.fetchrow(
-        """
-        SELECT id, tenant_id, name, host, port, username, site_name, status, last_heartbeat_at, created_at,
-               wireguard_public_key, wireguard_assigned_ip, wireguard_peer_public_key
-        FROM routers
-        WHERE id = $1 AND tenant_id = $2
-        """,
-        router_id,
-        tenant_id,
-    )
-    return dict(row) if row else None
+    row = await get_or_404(conn, "routers", router_id, tenant_id, "Router")
+    return dict(row)
 
 
 async def update_router(

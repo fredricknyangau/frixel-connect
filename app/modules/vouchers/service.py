@@ -86,23 +86,21 @@ async def _provision_radius_credentials(
 async def generate_voucher(
     conn: asyncpg.Connection,
     payment_id: str,
+    tenant_id: UUID,
     is_final_attempt: bool = False,
 ) -> str:
     """
     Core voucher generation pipeline:
-      1. Fetch payment + package details (scoped to payment's tenant_id).
+      1. Fetch payment + package scoped to tenant_id (T1/T2 defence).
       2. Retrieve customer's assigned router_id from users table.
-      3. Generate a secure voucher code.
+      3. Generate a secure voucher code unique within the tenant.
       4. Write FreeRADIUS credentials.
       5. Insert voucher with tenant_id and router_id.
       6. Return the voucher code.
 
-    Task Queue Integration:
-      - If RADIUS/DB writes fail and is_final_attempt=False, raises immediately
-        without writing to database (triggering arq retry).
-      - The is_final_attempt argument is kept for worker API compatibility.
+    tenant_id is always passed explicitly — never derived only from the
+    payment row inside this function without matching the caller's claim.
     """
-    # ── Step 1: Fetch payment, package, and tenant ────────────────────────────
     row = await conn.fetchrow(
         """
         SELECT
@@ -115,22 +113,24 @@ async def generate_voucher(
             pkg.speed_mbps,
             pkg.data_quota_mb
         FROM payments p
-        JOIN packages pkg ON p.package_id = pkg.id
+        JOIN packages pkg ON pkg.id = p.package_id AND pkg.tenant_id = $2
         WHERE p.id = $1
+          AND p.tenant_id = $2
         """,
         payment_id,
+        tenant_id,
     )
     if not row:
-        raise ValueError(f"Payment {payment_id} not found when generating voucher")
+        raise ValueError(
+            f"Payment {payment_id} not found for tenant {tenant_id} when generating voucher"
+        )
 
     customer_id = row["customer_id"]
-    package_id  = row["package_id"]
-    tenant_id   = row["tenant_id"]
+    package_id = row["package_id"]
     duration_minutes = row["duration_minutes"]
-    speed_mbps    = row["speed_mbps"]
+    speed_mbps = row["speed_mbps"]
     data_quota_mb = row["data_quota_mb"]
 
-    # ── Step 2: Retrieve customer's assigned router_id and details ─────────
     user_row = await conn.fetchrow(
         "SELECT router_id, phone, email FROM users WHERE id = $1 AND tenant_id = $2",
         customer_id,
@@ -140,22 +140,20 @@ async def generate_voucher(
     customer_phone = user_row["phone"] if user_row else None
     customer_email = user_row["email"] if user_row else ""
 
-    # ── Step 3: Generate globally unique voucher code ─────────────────────────
     code = generate_voucher_code()
     collision = await conn.fetchval(
-        "SELECT COUNT(*) FROM vouchers WHERE code = $1",
+        "SELECT COUNT(*) FROM vouchers WHERE code = $1 AND tenant_id = $2",
         code,
+        tenant_id,
     )
     if collision > 0:
         code = generate_voucher_code()
 
-    # ── Step 4: Provision RADIUS credentials ─────────────────────────────────
     logger.info(
         f"Voucher: provisioning RADIUS credentials for '{code}' on router '{router_id or 'global'}' "
         f"for payment {payment_id} (tenant {tenant_id})"
     )
 
-    # ── Step 5: Insert voucher with tenant_id and router_id ──────────────────
     try:
         await _provision_radius_credentials(
             conn=conn,
@@ -181,23 +179,26 @@ async def generate_voucher(
         )
         logger.info(f"Voucher: recorded '{code}' in DB with status 'active' under router '{router_id or 'global'}'")
 
-        # ── Step 6: Set user password to their first voucher code (Guest linking) ─
         from app.core.security import hash_password
-        
+
         if customer_email.endswith("@guest.example.com"):
             await conn.execute(
                 """
-                UPDATE users 
-                SET hashed_password = $1 
+                UPDATE users
+                SET hashed_password = $1
                 WHERE id = $2
+                  AND tenant_id = $3
                 """,
                 hash_password(code),
-                customer_id
+                customer_id,
+                tenant_id,
             )
-            
-            # Send SMS with PIN to frictionless guest
+
             from app.integrations.africastalking import send_sms
-            msg = f"ZealSync Wi-Fi: Payment successful! Your voucher code is {code}. You can also use this code as your PIN to log into the Customer Portal on the login page."
+            msg = (
+                f"ZealSync Wi-Fi: Payment successful! Your voucher code is {code}. "
+                "You can also use this code as your PIN to log into the Customer Portal on the login page."
+            )
             try:
                 await send_sms(customer_phone, msg)
                 logger.info(f"Voucher: Sent welcome SMS to guest {customer_phone} with PIN {code}")
@@ -211,13 +212,21 @@ async def generate_voucher(
     return code
 
 
-async def generate_voucher_task(payment_id: str) -> None:
+async def generate_voucher_task(payment_id: str, tenant_id: str) -> None:
     """Legacy compatibility wrapper; arq worker uses app.worker.generate_voucher_task."""
     try:
         async with get_db() as conn:
-            await generate_voucher(conn, payment_id, is_final_attempt=True)
+            await generate_voucher(
+                conn,
+                payment_id,
+                UUID(tenant_id),
+                is_final_attempt=True,
+            )
     except Exception as e:
-        logger.error(f"Voucher Background Task: failed for payment {payment_id}: {e}", exc_info=True)
+        logger.error(
+            f"Voucher Background Task: failed for payment {payment_id}: {e}",
+            exc_info=True,
+        )
 
 
 async def get_customer_vouchers(
@@ -367,7 +376,11 @@ async def admin_revoke_voucher(
             logger.info("CoA disconnect failed or unsupported. Falling back to MikroTik REST API.")
             router_dict = None
             if voucher["router_id"]:
-                router_row = await conn.fetchrow("SELECT * FROM routers WHERE id = $1", voucher["router_id"])
+                router_row = await conn.fetchrow(
+                    "SELECT * FROM routers WHERE id = $1 AND tenant_id = $2",
+                    voucher["router_id"],
+                    tenant_id,
+                )
                 if router_row:
                     router_dict = dict(router_row)
             
@@ -477,8 +490,9 @@ async def provision_retry_poller() -> None:
                                 data_quota_mb=v["data_quota_mb"],
                             )
                             await conn.execute(
-                                "UPDATE vouchers SET status = 'active' WHERE id = $1",
+                                "UPDATE vouchers SET status = 'active' WHERE id = $1 AND tenant_id = $2",
                                 v["id"],
+                                v["tenant_id"],
                             )
                             logger.info(f"Voucher Poller: recovered RADIUS credentials for '{code}' on router '{router_id or 'global'}'")
                         except Exception as e:
