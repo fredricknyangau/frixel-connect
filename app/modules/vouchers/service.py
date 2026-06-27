@@ -33,53 +33,62 @@ async def _provision_radius_credentials(
     password: str,
     speed_mbps: int,
     duration_minutes: int,
+    tenant_id: UUID,
     data_quota_mb: Optional[int] = None,
 ) -> None:
     """Helper to write RADIUS credentials to radcheck and radreply tables (idempotent)."""
-    # 1. Clear any existing records for this user to be safe
-    await conn.execute("DELETE FROM radcheck WHERE username = $1", username)
-    await conn.execute("DELETE FROM radreply WHERE username = $1", username)
+    # Scope deletes by tenant_id so cross-tenant username collisions cannot wipe another tenant.
+    await conn.execute(
+        "DELETE FROM radcheck WHERE username = $1 AND tenant_id = $2",
+        username,
+        tenant_id,
+    )
+    await conn.execute(
+        "DELETE FROM radreply WHERE username = $1 AND tenant_id = $2",
+        username,
+        tenant_id,
+    )
 
-    # 2. Insert Cleartext-Password into radcheck
     await conn.execute(
         """
-        INSERT INTO radcheck (username, attribute, op, value)
-        VALUES ($1, 'Cleartext-Password', ':=', $2)
+        INSERT INTO radcheck (username, attribute, op, value, tenant_id)
+        VALUES ($1, 'Cleartext-Password', ':=', $2, $3)
         """,
         username,
         password,
+        tenant_id,
     )
 
-    # 3. Insert Mikrotik-Rate-Limit into radreply
     await conn.execute(
         """
-        INSERT INTO radreply (username, attribute, op, value)
-        VALUES ($1, 'Mikrotik-Rate-Limit', ':=', $2)
+        INSERT INTO radreply (username, attribute, op, value, tenant_id)
+        VALUES ($1, 'Mikrotik-Rate-Limit', ':=', $2, $3)
         """,
         username,
         f"{speed_mbps}M",
+        tenant_id,
     )
 
-    # 4. Insert Session-Timeout into radreply (to avoid fallback to default hotspot profiles)
     await conn.execute(
         """
-        INSERT INTO radreply (username, attribute, op, value)
-        VALUES ($1, 'Session-Timeout', ':=', $2)
+        INSERT INTO radreply (username, attribute, op, value, tenant_id)
+        VALUES ($1, 'Session-Timeout', ':=', $2, $3)
         """,
         username,
         str(duration_minutes * 60),
+        tenant_id,
     )
 
-    # 5. Insert optional Mikrotik-Total-Limit into radreply
     if data_quota_mb:
         limit_bytes = data_quota_mb * 1024 * 1024
         await conn.execute(
             """
-            INSERT INTO radreply (username, attribute, op, value)
-            VALUES ($1, 'Mikrotik-Total-Limit', ':=', $2)
+            INSERT INTO radreply (username, attribute, op, value, tenant_id)
+            VALUES ($1, 'Mikrotik-Total-Limit', ':=', $2, $3)
             """,
             username,
             str(limit_bytes),
+            tenant_id,
         )
 
 
@@ -161,6 +170,7 @@ async def generate_voucher(
             password=code,
             speed_mbps=speed_mbps,
             duration_minutes=duration_minutes,
+            tenant_id=tenant_id,
             data_quota_mb=data_quota_mb,
         )
 
@@ -347,9 +357,17 @@ async def admin_revoke_voucher(
         tenant_id,
     )
 
-    # Delete RADIUS credentials
-    await conn.execute("DELETE FROM radcheck WHERE username = $1", voucher["code"])
-    await conn.execute("DELETE FROM radreply WHERE username = $1", voucher["code"])
+    # Delete RADIUS credentials (tenant-scoped)
+    await conn.execute(
+        "DELETE FROM radcheck WHERE username = $1 AND tenant_id = $2",
+        voucher["code"],
+        tenant_id,
+    )
+    await conn.execute(
+        "DELETE FROM radreply WHERE username = $1 AND tenant_id = $2",
+        voucher["code"],
+        tenant_id,
+    )
 
     # Fetch active session and trigger CoA Disconnect-Request
     active_session = await conn.fetchrow(
@@ -432,6 +450,7 @@ async def admin_retry_voucher(
             password=code,
             speed_mbps=row["speed_mbps"],
             duration_minutes=row["duration_minutes"],
+            tenant_id=tenant_id,
             data_quota_mb=row["data_quota_mb"],
         )
     except Exception as e:
@@ -487,6 +506,7 @@ async def provision_retry_poller() -> None:
                                 password=code,
                                 speed_mbps=v["speed_mbps"],
                                 duration_minutes=v["duration_minutes"],
+                                tenant_id=tenant_id,
                                 data_quota_mb=v["data_quota_mb"],
                             )
                             await conn.execute(

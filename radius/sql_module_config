@@ -418,4 +418,30 @@ sql {
 
 	# Read database-specific queries
 	$INCLUDE ${modconfdir}/${.:name}/main/${dialect}/queries.conf
+
+	# T4: Tenant-scoped authorization — NAS-Identifier set during MikroTik provisioning
+	# as zealsync-{first 8 hex chars of tenant UUID}. Production should use routers.nas_identifier.
+	authorize_check_query = "\
+		SELECT id, username, attribute, value, op \
+		FROM ${authcheck_table} \
+		WHERE username = '%{SQL-User-Name}' \
+		  AND tenant_id = ( \
+		    SELECT id FROM tenants \
+		    WHERE left(replace(id::text, '-', ''), 8) = substring('%{NAS-Identifier}' from 10 for 8) \
+		      AND status = 'active' \
+		    LIMIT 1 \
+		  ) \
+		ORDER BY id"
+
+	authorize_reply_query = "\
+		SELECT id, username, attribute, value, op \
+		FROM ${authreply_table} \
+		WHERE username = '%{SQL-User-Name}' \
+		  AND tenant_id = ( \
+		    SELECT id FROM tenants \
+		    WHERE left(replace(id::text, '-', ''), 8) = substring('%{NAS-Identifier}' from 10 for 8) \
+		      AND status = 'active' \
+		    LIMIT 1 \
+		  ) \
+		ORDER BY id"
 }

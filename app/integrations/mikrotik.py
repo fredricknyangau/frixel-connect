@@ -52,7 +52,6 @@ AUDIT FIXES APPLIED IN THIS VERSION:
 
 import asyncio
 import logging
-from typing import Optional
 
 import httpx
 
@@ -169,8 +168,8 @@ class MikroTikClient:
         method: str,
         path: str,
         *,
-        json: Optional[dict] = None,
-        params: Optional[dict] = None,
+        json: dict | None = None,
+        params: dict | None = None,
         retries: int = _MAX_RETRIES,
     ) -> httpx.Response:
         """
@@ -186,7 +185,7 @@ class MikroTikClient:
             A 401 or 404 from RouterOS means the request is wrong, not the network.
           - Backoff: 1s → 2s → 4s (exponential, base _BACKOFF_BASE)
         """
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(retries + 1):
             try:
@@ -403,7 +402,7 @@ class MikroTikClient:
 
     async def create_speed_profiles(
         self,
-        profiles: Optional[list[dict]] = None,
+        profiles: list[dict] | None = None,
     ) -> dict[str, bool]:
         """
         FIX [ADDED IDEMPOTENCY]: Uses GET-first pattern instead of catching
@@ -737,7 +736,10 @@ class MikroTikClient:
                 rc_id = rc.get(".id")
                 if rc_id:
                     del_r = await self._request("DELETE", f"/radius/{rc_id}")
-                    self._check_response(del_r, f"remove old RADIUS client")
+                    self._check_response(del_r, "remove old RADIUS client")
+
+        tenant_prefix = str(tenant_id).replace("-", "")[:8]
+        nas_identifier = f"zealsync-{tenant_prefix}"
 
         r = await self._request(
             "POST", "/radius/add",
@@ -746,10 +748,14 @@ class MikroTikClient:
                 "address": radius_ip,
                 "secret": radius_secret,
                 "comment": "zealsync-radius",
+                "nas-identifier": nas_identifier,
             },
         )
         self._check_response(r, "add RADIUS client")
-        logger.info(f"MikroTik [{self._host}]: RADIUS client added → {radius_ip}")
+        logger.info(
+            f"MikroTik [{self._host}]: RADIUS client added → {radius_ip} "
+            f"(NAS-Identifier={nas_identifier})"
+        )
 
         # ── 8. RADIUS CoA (Change of Authorization) ──────────────────────
         # RouterOS REST API requires POST /radius/incoming/set to update
@@ -914,7 +920,7 @@ class MikroTikClient:
 
 # ── Factory Function ──────────────────────────────────────────────────────────
 
-def get_mikrotik_client(router: Optional[dict] = None) -> MikroTikClient:
+def get_mikrotik_client(router: dict | None = None) -> MikroTikClient:
     """
     Factory that decrypts the router password and returns a MikroTikClient.
 
