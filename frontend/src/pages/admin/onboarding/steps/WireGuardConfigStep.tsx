@@ -9,8 +9,8 @@ import { ROUTEROS_COMMANDS, WINBOX_PATHS } from '../RouterOSInstructions';
 interface WireGuardConfigStepProps {
   initDetails: {
     router_id: string;
-    Frixel Connect_server_endpoint: string;
-    Frixel Connect_public_key: string;
+    'Frixel Connect_server_endpoint': string;
+    'Frixel Connect_public_key': string;
     assigned_ip: string;
     server_wg_ip: string;
   };
@@ -29,8 +29,8 @@ export function WireGuardConfigStep({ initDetails, version, onNext }: WireGuardC
   };
 
   const params = {
-    serverPublicKey: initDetails.Frixel Connect_public_key,
-    serverEndpoint: initDetails.Frixel Connect_server_endpoint,
+    serverPublicKey: initDetails['Frixel Connect_public_key'],
+    serverEndpoint: initDetails['Frixel Connect_server_endpoint'],
     assignedIp: initDetails.assigned_ip,
   };
 
@@ -54,8 +54,8 @@ export function WireGuardConfigStep({ initDetails, version, onNext }: WireGuardC
       {/* Grid of parameters */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[
-          { label: 'Frixel Connect VPN Endpoint', value: initDetails.Frixel Connect_server_endpoint, id: 'endpoint' },
-          { label: 'Frixel Connect VPN Public Key', value: initDetails.Frixel Connect_public_key, id: 'pubkey', truncate: true },
+          { label: 'Frixel Connect VPN Endpoint', value: initDetails['Frixel Connect_server_endpoint'], id: 'endpoint' },
+          { label: 'Frixel Connect VPN Public Key', value: initDetails['Frixel Connect_public_key'], id: 'pubkey', truncate: true },
           { label: "Your Router's Assigned IP", value: `${initDetails.assigned_ip}/24`, id: 'assigned_ip' },
           { label: 'Frixel Connect VPN Server IP', value: initDetails.server_wg_ip, id: 'server_ip' },
         ].map((item) => (
