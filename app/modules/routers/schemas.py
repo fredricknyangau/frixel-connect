@@ -101,9 +101,11 @@ class OnboardingInitRequest(BaseModel):
 
 
 class OnboardingInitResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     router_id: UUID
-    Frixel Connect_server_endpoint: str
-    Frixel Connect_public_key: str
+    frixel_connect_server_endpoint: str = Field(alias="Frixel Connect_server_endpoint")
+    frixel_connect_public_key: str = Field(alias="Frixel Connect_public_key")
     assigned_ip: str
     server_wg_ip: str
 

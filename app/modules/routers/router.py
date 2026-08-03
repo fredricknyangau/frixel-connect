@@ -144,7 +144,7 @@ async def onboarding_init(
             raise ConflictException(f"A router with name '{data.name}' already exists.")
 
         assigned_ip = await assign_peer_ip(conn)
-        Frixel Connect_pubkey = get_server_public_key()
+        server_public_key = get_server_public_key()
 
         # Insert PENDING router record (no host, port, username, password yet)
         row = await conn.fetchrow(
@@ -157,16 +157,16 @@ async def onboarding_init(
             data.name,
             data.site_name,
             assigned_ip,
-            Frixel Connect_pubkey,
+            server_public_key,
         )
         router_id = row["id"]
 
     return OnboardingInitResponse(
         router_id=router_id,
-        Frixel Connect_server_endpoint=settings.WIREGUARD_ENDPOINT,
-        Frixel Connect_public_key=Frixel Connect_pubkey,
+        frixel_connect_server_endpoint=settings.WIREGUARD_ENDPOINT,
+        frixel_connect_public_key=server_public_key,
         assigned_ip=assigned_ip,
-        server_wg_ip="10.8.0.1"
+        server_wg_ip="10.8.0.1",
     )
 
 
