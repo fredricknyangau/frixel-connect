@@ -2,7 +2,7 @@
  * Post-signup onboarding shell-guides new tenants through package creation,
  * router magic-command setup, and go-live confirmation before the admin dashboard.
  *
- * State persists in localStorage (zealsync_onboarding_state) so a browser refresh
+ * State persists in localStorage (Frixel Connect_onboarding_state) so a browser refresh
  * resumes at the last incomplete step.
  */
 
@@ -127,13 +127,13 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background dark">
-      <PageTitle title="Setup Your ISP | ZealSync" />
+      <PageTitle title="Setup Your ISP | Frixel Connect" />
 
       {/* Top bar-no sidebar during first-run onboarding */}
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/60 bg-background/95 px-4 backdrop-blur-sm md:px-6">
         <Link to="/" className="flex items-center gap-2">
           <Wifi className="h-5 w-5 text-primary" />
-          <span className="font-bold text-primary">ZealSync</span>
+          <span className="font-bold text-primary">Frixel Connect</span>
         </Link>
         <div className="flex items-center gap-3 text-sm">
           <span className="hidden text-muted-foreground sm:inline">{tenant?.owner_email}</span>
@@ -286,7 +286,7 @@ export default function OnboardingPage() {
 
               {!state.router_done && (
                 <p className="text-center text-xs text-muted-foreground">
-                  Without a router, ZealSync can&apos;t accept payments or create vouchers. You can
+                  Without a router, Frixel Connect can&apos;t accept payments or create vouchers. You can
                   connect one anytime from the Routers section in your dashboard.
                 </p>
               )}

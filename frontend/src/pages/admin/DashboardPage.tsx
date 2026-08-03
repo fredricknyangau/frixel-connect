@@ -23,7 +23,7 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { Button } from '../../components/ui/button';
 
 const NAIROBI_TZ = 'Africa/Nairobi';
-const FIRST_RUN_BANNER_KEY = 'zealsync_first_run_banner_dismissed';
+const FIRST_RUN_BANNER_KEY = 'Frixel Connect_first_run_banner_dismissed';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -32,7 +32,7 @@ export default function DashboardPage() {
   const { routers, hasOnlineRouter, isLoading: loadingRouters } = useRouterSummary();
 
   const [onboardingBannerDismissed, setOnboardingBannerDismissed] = useState(
-    () => sessionStorage.getItem('zealsync_onboarding_banner_dismissed') === 'true',
+    () => sessionStorage.getItem('Frixel Connect_onboarding_banner_dismissed') === 'true',
   );
   const [firstRunBannerDismissed, setFirstRunBannerDismissed] = useState(
     () => localStorage.getItem(FIRST_RUN_BANNER_KEY) === 'true',
@@ -98,7 +98,7 @@ export default function DashboardPage() {
   if (isError) {
     return (
       <div className="p-4">
-        <PageTitle title="Dashboard | ZealSync Admin" />
+        <PageTitle title="Dashboard | Frixel Connect Admin" />
         <EmptyState
           icon={AlertCircle}
           title="Failed to load dashboard"
@@ -154,7 +154,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Dashboard | ZealSync Admin" />
+      <PageTitle title="Dashboard | Frixel Connect Admin" />
 
       {showOnboardingBanner && (
         <div className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -166,7 +166,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => {
-                sessionStorage.setItem('zealsync_onboarding_banner_dismissed', 'true');
+                sessionStorage.setItem('Frixel Connect_onboarding_banner_dismissed', 'true');
                 setOnboardingBannerDismissed(true);
               }}
               className="rounded-md p-1 text-muted-foreground hover:text-foreground"
@@ -192,7 +192,7 @@ export default function DashboardPage() {
             <X className="h-4 w-4" />
           </button>
           <h2 className="text-lg font-semibold">
-            Welcome to ZealSync, {tenant?.business_name ?? 'there'}!
+            Welcome to Frixel Connect, {tenant?.business_name ?? 'there'}!
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             You&apos;re set up. Here&apos;s what to do first to start accepting your first M-Pesa

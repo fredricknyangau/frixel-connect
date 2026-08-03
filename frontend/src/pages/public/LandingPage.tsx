@@ -34,8 +34,8 @@ export default function LandingPage() {
     "@graph": [
       {
         "@type": "Organization",
-        "name": "ZealSync",
-        "url": "https://zealsync.dev",
+        "name": "Frixel Connect",
+        "url": "https://Frixel Connect.dev",
         "address": {
           "@type": "PostalAddress",
           "addressLocality": "Nairobi",
@@ -44,7 +44,7 @@ export default function LandingPage() {
       },
       {
         "@type": "SoftwareApplication",
-        "name": "ZealSync",
+        "name": "Frixel Connect",
         "applicationCategory": "BusinessApplication",
         "operatingSystem": "Web",
         "offers": [
@@ -68,13 +68,13 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground dark">
       <Helmet>
-        <title>ZealSync-WiFi & Fiber Billing Software for Kenyan ISPs | M-Pesa + MikroTik</title>
+        <title>Frixel Connect-WiFi & Fiber Billing Software for Kenyan ISPs | M-Pesa + MikroTik</title>
         <meta name="description" content="Automate your Kenyan ISP billing. M-Pesa STK Push + MikroTik hotspot vouchers + PPPoE fiber billing. One platform for hotspot and fiber ISPs. Free 30-day pilot." />
-        <link rel="canonical" href="https://zealsync.dev/" />
-        <meta property="og:title" content="ZealSync-WiFi Billing for Kenyan ISPs" />
+        <link rel="canonical" href="https://Frixel Connect.dev/" />
+        <meta property="og:title" content="Frixel Connect-WiFi Billing for Kenyan ISPs" />
         <meta property="og:description" content="Automate your Kenyan ISP billing. M-Pesa STK Push + MikroTik hotspot vouchers + PPPoE fiber billing. One platform for hotspot and fiber ISPs. Free 30-day pilot." />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://zealsync.dev" />
+        <meta property="og:url" content="https://Frixel Connect.dev" />
         <script type="application/ld+json">
           {JSON.stringify(jsonLdData)}
         </script>
@@ -85,7 +85,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <Wifi className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold tracking-tight text-primary">ZealSync</span>
+            <span className="text-xl font-bold tracking-tight text-primary">Frixel Connect</span>
           </Link>
           
           <div className="hidden md:flex items-center gap-6">
@@ -112,7 +112,7 @@ export default function LandingPage() {
               <SheetContent side="right" className="flex flex-col gap-4 bg-background">
                 <div className="flex items-center gap-2 mb-4">
                   <Wifi className="h-6 w-6 text-primary" />
-                  <span className="text-xl font-bold text-primary">ZealSync</span>
+                  <span className="text-xl font-bold text-primary">Frixel Connect</span>
                 </div>
                 <button
                   onClick={() => {
@@ -201,7 +201,7 @@ export default function LandingPage() {
               {/* Phone (Left) */}
               <rect x="50" y="25" width="120" height="200" rx="16" fill="currentColor" className="text-background" stroke="currentColor" strokeWidth="4" />
               <rect x="58" y="33" width="104" height="184" rx="10" fill="currentColor" className="text-card" />
-              <text x="110" y="80" textAnchor="middle" fill="currentColor" className="text-primary text-[14px] font-bold">ZealSync WiFi</text>
+              <text x="110" y="80" textAnchor="middle" fill="currentColor" className="text-primary text-[14px] font-bold">Frixel Connect WiFi</text>
               <rect x="70" y="100" width="80" height="30" rx="6" fill="currentColor" className="text-primary/20" />
               <text x="110" y="120" textAnchor="middle" fill="currentColor" className="text-foreground text-[12px] font-bold">Pay KES 100</text>
               
@@ -269,7 +269,7 @@ export default function LandingPage() {
       <section id="services" className="py-24 px-4 md:px-6">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-16">
-            <h2 className="text-sm font-bold tracking-widest text-primary uppercase mb-2">What ZealSync supports</h2>
+            <h2 className="text-sm font-bold tracking-widest text-primary uppercase mb-2">What Frixel Connect supports</h2>
             <h3 className="text-3xl md:text-4xl font-bold">One platform for both types of Kenyan ISP</h3>
           </div>
 
@@ -293,7 +293,7 @@ export default function LandingPage() {
                 <h5 className="font-semibold mb-4 text-foreground/90">How it works</h5>
                 <ol className="space-y-4 text-sm text-muted-foreground">
                   <li className="flex gap-3"><span className="font-bold text-primary">1.</span> Customer joins your WiFi and opens any website</li>
-                  <li className="flex gap-3"><span className="font-bold text-primary">2.</span> They see your ZealSync captive portal-select a plan and pay via M-Pesa STK Push</li>
+                  <li className="flex gap-3"><span className="font-bold text-primary">2.</span> They see your Frixel Connect captive portal-select a plan and pay via M-Pesa STK Push</li>
                   <li className="flex gap-3"><span className="font-bold text-primary">3.</span> Voucher activates instantly. Internet access starts.</li>
                 </ol>
               </div>
@@ -361,7 +361,7 @@ export default function LandingPage() {
             <h2 className="text-sm font-bold tracking-widest text-primary uppercase mb-2">Setup in 60 seconds</h2>
             <h3 className="text-3xl md:text-4xl font-bold mb-6">Your MikroTik configures itself</h3>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              No SSH sessions. No Winbox navigation. No calling a technician. One command in the MikroTik terminal and ZealSync does the rest.
+              No SSH sessions. No Winbox navigation. No calling a technician. One command in the MikroTik terminal and Frixel Connect does the rest.
             </p>
           </div>
 
@@ -374,7 +374,7 @@ export default function LandingPage() {
                 <Terminal className="h-8 w-8 text-primary" />
               </div>
               <h4 className="text-xl font-bold mb-3">Generate your setup command</h4>
-              <p className="text-muted-foreground text-sm">Sign up, enter your router name, and ZealSync generates a unique one-line command just for your router.</p>
+              <p className="text-muted-foreground text-sm">Sign up, enter your router name, and Frixel Connect generates a unique one-line command just for your router.</p>
             </div>
 
             <div className="relative text-center md:text-left z-10 bg-muted/20 md:bg-transparent p-6 md:p-0 rounded-2xl md:rounded-none">
@@ -384,8 +384,8 @@ export default function LandingPage() {
               <h4 className="text-xl font-bold mb-3">Paste it into your MikroTik terminal</h4>
               <p className="text-muted-foreground text-sm mb-4">Open Winbox Terminal, WebFig, or SSH. Paste the command. Press Enter. Walk away.</p>
               <div className="bg-[#0f172a] p-3 rounded-lg border border-border/20 text-left overflow-x-auto text-xs font-mono text-gray-300">
-                /tool fetch url="https://api.zealsync.dev/api/v1/setup/TOKEN" \<br />
-                &nbsp;&nbsp;dst-path=zealsync-setup.rsc mode=https; /import zealsync-setup.rsc
+                /tool fetch url="https://api.Frixel Connect.dev/api/v1/setup/TOKEN" \<br />
+                &nbsp;&nbsp;dst-path=Frixel Connect-setup.rsc mode=https; /import Frixel Connect-setup.rsc
               </div>
             </div>
 
@@ -394,7 +394,7 @@ export default function LandingPage() {
                 <CheckCircle className="h-8 w-8 text-primary" />
               </div>
               <h4 className="text-xl font-bold mb-3">Dashboard updates automatically</h4>
-              <p className="text-muted-foreground text-sm">ZealSync detects when your router is ready. No manual confirmation needed. Your dashboard shows the router as Online within 30 seconds.</p>
+              <p className="text-muted-foreground text-sm">Frixel Connect detects when your router is ready. No manual confirmation needed. Your dashboard shows the router as Online within 30 seconds.</p>
             </div>
           </div>
           
@@ -422,7 +422,7 @@ export default function LandingPage() {
               { icon: Users, title: "Reseller self-service portal", desc: "Resellers top up a digital wallet via M-Pesa Paybill and generate vouchers 24/7-no calls to you needed." },
               { icon: BarChart3, title: "Real-time admin dashboard", desc: "Revenue today, active sessions, vouchers, and router health-visible on your phone from anywhere." },
               { icon: MessageSquare, title: "SMS via Africa's Talking", desc: "Voucher codes, renewal reminders, and suspension notices delivered to your customers automatically." },
-              { icon: Lock, title: "WireGuard VPN security", desc: "Your router's REST API is never exposed to the internet. All ZealSync traffic goes through an encrypted VPN tunnel." },
+              { icon: Lock, title: "WireGuard VPN security", desc: "Your router's REST API is never exposed to the internet. All Frixel Connect traffic goes through an encrypted VPN tunnel." },
               { icon: Receipt, title: "KRA eTIMS compliant invoices", desc: "Every payment generates a tax-compliant invoice with a KRA QR code. Automatic compliance for registered businesses." }
             ].map((feat, idx) => (
               <div key={idx} className="bg-card border border-border p-6 rounded-2xl shadow-sm hover:border-primary/30 transition-colors flex flex-col items-start text-left">
@@ -450,7 +450,7 @@ export default function LandingPage() {
             <div className="hidden md:flex flex-col w-64 bg-[#0a0c12] border-r border-border/30 p-4">
               <div className="flex items-center gap-2 mb-10 mt-2 px-2">
                 <Wifi className="h-5 w-5 text-primary" />
-                <span className="font-bold text-white tracking-tight">ZealSync Admin</span>
+                <span className="font-bold text-white tracking-tight">Frixel Connect Admin</span>
               </div>
               <div className="space-y-1">
                 {['Dashboard', 'Customers', 'Payments', 'Vouchers', 'Routers'].map((item, i) => (
@@ -535,7 +535,7 @@ export default function LandingPage() {
             <h2 className="text-sm font-bold tracking-widest text-primary uppercase mb-2">Pricing</h2>
             <h3 className="text-3xl md:text-4xl font-bold mb-4">Simple flat-rate pricing. No percentage cuts.</h3>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Unlike other systems that take 3-5% of your hotspot revenue, ZealSync charges a flat monthly fee-so the more you earn, the more you keep.
+              Unlike other systems that take 3-5% of your hotspot revenue, Frixel Connect charges a flat monthly fee-so the more you earn, the more you keep.
             </p>
           </div>
 
@@ -632,7 +632,7 @@ export default function LandingPage() {
           <div className="container relative mx-auto max-w-4xl text-center">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Ready to stop managing billing manually?</h2>
             <p className="text-lg text-gray-400 mb-8 max-w-2xl mx-auto">
-              Join Kenyan ISPs who automated their operations with ZealSync.
+              Join Kenyan ISPs who automated their operations with Frixel Connect.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90 rounded-full" render={<Link to="/signup" />}>
@@ -651,7 +651,7 @@ export default function LandingPage() {
             <div className="col-span-1 md:col-span-1">
               <Link to="/" className="flex items-center gap-2 mb-4">
                 <Wifi className="h-6 w-6 text-primary" />
-                <span className="text-xl font-bold tracking-tight text-foreground">ZealSync</span>
+                <span className="text-xl font-bold tracking-tight text-foreground">Frixel Connect</span>
               </Link>
               <p className="text-sm text-muted-foreground">
                 WiFi billing for Kenyan ISPs
@@ -688,7 +688,7 @@ export default function LandingPage() {
           </div>
           
           <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-border text-sm text-muted-foreground">
-            <p>© 2026 Zeal Digital Solutions. Made in Nairobi, Kenya.</p>
+            <p>© 2026 Frixel Labs. Made in Nairobi, Kenya.</p>
             <div className="flex gap-4 mt-4 md:mt-0">
               <a href="#" className="hover:text-foreground transition-colors">GitHub</a>
               <a href="#" className="hover:text-foreground transition-colors">LinkedIn</a>

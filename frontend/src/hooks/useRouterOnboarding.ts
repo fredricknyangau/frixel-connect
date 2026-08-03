@@ -36,7 +36,7 @@ export interface MagicInitRequest {
   site_name: string;
   /**
    * Set to true when testing with MikroTik CHR on VirtualBox.
-   * Changes the generated script URL from https://api.zealsync.dev/...
+   * Changes the generated script URL from https://api.Frixel Connect.dev/...
    * to http://192.168.56.1:8000/... and removes the WireGuard commands
    * from the script (CHR and backend share the same machine).
    */

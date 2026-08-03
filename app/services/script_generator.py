@@ -1,7 +1,7 @@
 """
 app/services/script_generator.py
 =================================
-Core of the ZealSync Magic Command system.
+Core of the Frixel Connect Magic Command system.
 
 This module generates the WireGuard keypair, API password, setup token, and
 the complete RouterOS .rsc script downloaded and executed by the MikroTik
@@ -13,7 +13,7 @@ DESIGN DECISION-Server-generated WireGuard keypair:
 
   ALTERNATIVE (rejected): Router generates its own keypair.
     The router would run `wg genkey | wg pubkey`, display the public key,
-    the ISP admin copies it, pastes it into ZealSync, the server registers
+    the ISP admin copies it, pastes it into Frixel Connect, the server registers
     the peer, and then the router can start the VPN. This requires:
       - ISP admin to run 2 commands on MikroTik
       - Copy-paste a 44-character base64 key between terminal and browser
@@ -92,7 +92,7 @@ def sanitize_router_name(name: str) -> str:
     # RouterOS identity has a 64-character limit
     sanitized = sanitized[:64]
     # Fall back to a safe default if the entire name was stripped
-    return sanitized if sanitized else "zealsync-router"
+    return sanitized if sanitized else "Frixel Connect-router"
 
 
 def _validate_wg_key(key: str, label: str) -> None:
@@ -209,7 +209,7 @@ def generate_wireguard_keypair() -> tuple[str, str]:
 
 def generate_api_password() -> str:
     """
-    Generates a secure random API password for the MikroTik zealsync-api user.
+    Generates a secure random API password for the MikroTik Frixel Connect-api user.
 
     Uses secrets.token_urlsafe(16) → 22 chars of [A-Za-z0-9_-].
     This character set is safe to embed in RouterOS scripting strings because
@@ -269,10 +269,10 @@ def build_setup_script(
         If user creation fails (e.g. permission denied), the script logs
         the error and halts cleanly. The /confirm callback in Section 8
         is only reached if all prior sections succeeded. This prevents
-        ZealSync from marking a router 'online' when it is misconfigured.
+        Frixel Connect from marking a router 'online' when it is misconfigured.
 
     FIX [HIGH-2]: All /tool fetch commands include connection-timeout=30.
-        Without this, if ZealSync is temporarily unreachable when the
+        Without this, if Frixel Connect is temporarily unreachable when the
         router calls /confirm, the script hangs indefinitely and the
         terminal appears frozen to the ISP admin.
 
@@ -316,10 +316,10 @@ def build_setup_script(
 :local ros [/system resource get version]
 :local rosMajor [:tonum [:pick $ros 0 1]]
 :if ($rosMajor < 7) do={
-    :log error "ZealSync: RouterOS v7+ required. Current version: $ros"
-    :error "ZealSync setup requires RouterOS 7 or newer. Please upgrade."
+    :log error "Frixel Connect: RouterOS v7+ required. Current version: $ros"
+    :error "Frixel Connect setup requires RouterOS 7 or newer. Please upgrade."
 }
-:log info "ZealSync: RouterOS version $ros - OK"
+:log info "Frixel Connect: RouterOS version $ros - OK"
 """
 
     # ── SECTION 2: WireGuard ─────────────────────────────────────────────
@@ -327,30 +327,30 @@ def build_setup_script(
         wg_section = """\
 # SECTION 2: WireGuard VPN-SKIPPED (CHR mode)
 # ------------------------------------------------
-# CHR and ZealSync backend share the same VirtualBox machine.
+# CHR and Frixel Connect backend share the same VirtualBox machine.
 # They communicate via the host-only adapter (192.168.56.x) directly.
 # On a physical MikroTik, this section creates an encrypted VPN tunnel.
-:log info "ZealSync: CHR mode-skipping WireGuard (same-machine networking)"
+:log info "Frixel Connect: CHR mode-skipping WireGuard (same-machine networking)"
 """
     else:
         wg_section = f"""\
 # SECTION 2: WireGuard VPN
 # --------------------------
-# Creates an encrypted tunnel between this router and ZealSync.
+# Creates an encrypted tunnel between this router and Frixel Connect.
 # persistent-keepalive=25s keeps the tunnel alive through NAT without
 # requiring the router to have a static public IP address.
-# The private key embedded here is deleted from the ZealSync database
+# The private key embedded here is deleted from the Frixel Connect database
 # the moment this script calls /confirm in Section 8.
-:log info "ZealSync: Configuring WireGuard VPN..."
+:log info "Frixel Connect: Configuring WireGuard VPN..."
 :do {{
-    /interface wireguard add name=wg-zealsync private-key="{wg_private_key}" listen-port=13231 comment="ZealSync VPN - do not modify"
-    /interface wireguard peers add interface=wg-zealsync public-key="{server_public_key}" endpoint-address="{server_endpoint}" allowed-address={server_wg_ip}/32 persistent-keepalive=25s comment="ZealSync Server"
-    /ip address add address={assigned_wg_ip}/24 interface=wg-zealsync comment="ZealSync VPN address"
+    /interface wireguard add name=wg-Frixel Connect private-key="{wg_private_key}" listen-port=13231 comment="Frixel Connect VPN - do not modify"
+    /interface wireguard peers add interface=wg-Frixel Connect public-key="{server_public_key}" endpoint-address="{server_endpoint}" allowed-address={server_wg_ip}/32 persistent-keepalive=25s comment="Frixel Connect Server"
+    /ip address add address={assigned_wg_ip}/24 interface=wg-Frixel Connect comment="Frixel Connect VPN address"
     :delay 3s
-    :log info "ZealSync: WireGuard interface created. Waiting for tunnel..."
+    :log info "Frixel Connect: WireGuard interface created. Waiting for tunnel..."
 }} on-error={{
-    :log error "ZealSync: WireGuard setup failed. Is WireGuard supported on this router?"
-    :error "ZealSync setup failed at WireGuard configuration. See /log."
+    :log error "Frixel Connect: WireGuard setup failed. Is WireGuard supported on this router?"
+    :error "Frixel Connect setup failed at WireGuard configuration. See /log."
 }}
 """
 
@@ -359,44 +359,44 @@ def build_setup_script(
         firewall_section = f"""\
 # SECTION 6: Firewall-allow API from VirtualBox host-only network
 # -------------------------------------------------------------------
-# CHR mode: the ZealSync backend runs on Ubuntu at 192.168.56.x.
+# CHR mode: the Frixel Connect backend runs on Ubuntu at 192.168.56.x.
 # The /24 rule allows any host on the VirtualBox host-only adapter.
-:log info "ZealSync: Adding API firewall rule (CHR host-only mode)..."
+:log info "Frixel Connect: Adding API firewall rule (CHR host-only mode)..."
 :do {{
     :local firstRule [/ip firewall filter find]
     :if ([:len $firstRule] > 0) do={{
-        /ip firewall filter add chain=input src-address={chr_net}/24 protocol=tcp dst-port=80 action=accept place-before=[:pick $firstRule 0] comment="ZealSync API - dev host"
+        /ip firewall filter add chain=input src-address={chr_net}/24 protocol=tcp dst-port=80 action=accept place-before=[:pick $firstRule 0] comment="Frixel Connect API - dev host"
     }} else={{
-        /ip firewall filter add chain=input src-address={chr_net}/24 protocol=tcp dst-port=80 action=accept comment="ZealSync API - dev host"
+        /ip firewall filter add chain=input src-address={chr_net}/24 protocol=tcp dst-port=80 action=accept comment="Frixel Connect API - dev host"
     }}
 }} on-error={{
-    :log warning "ZealSync: Firewall rule add failed - API may be inaccessible"
+    :log warning "Frixel Connect: Firewall rule add failed - API may be inaccessible"
 }}
 """
     else:
         firewall_section = f"""\
 # SECTION 6: Firewall-allow API from WireGuard VPN only
 # ----------------------------------------------------------
-# Restricts REST API access to the ZealSync server VPN IP only.
+# Restricts REST API access to the Frixel Connect server VPN IP only.
 # Any direct internet access to port 80 will be blocked by the
 # existing default-deny chain, protecting the API from the internet.
-:log info "ZealSync: Adding API firewall rule (VPN-only access)..."
+:log info "Frixel Connect: Adding API firewall rule (VPN-only access)..."
 :do {{
     :local firstRule [/ip firewall filter find]
     :if ([:len $firstRule] > 0) do={{
-        /ip firewall filter add chain=input src-address={server_wg_ip}/32 protocol=tcp dst-port=80 action=accept place-before=[:pick $firstRule 0] comment="ZealSync API - VPN only"
+        /ip firewall filter add chain=input src-address={server_wg_ip}/32 protocol=tcp dst-port=80 action=accept place-before=[:pick $firstRule 0] comment="Frixel Connect API - VPN only"
     }} else={{
-        /ip firewall filter add chain=input src-address={server_wg_ip}/32 protocol=tcp dst-port=80 action=accept comment="ZealSync API - VPN only"
+        /ip firewall filter add chain=input src-address={server_wg_ip}/32 protocol=tcp dst-port=80 action=accept comment="Frixel Connect API - VPN only"
     }}
 }} on-error={{
-    :log warning "ZealSync: Firewall rule add failed - API may be inaccessible"
+    :log warning "Frixel Connect: Firewall rule add failed - API may be inaccessible"
 }}
 """
 
     # ── Assemble full script ──────────────────────────────────────────────
     script = f"""\
 # =======================================================================
-# ZealSync Auto-Configuration Script
+# Frixel Connect Auto-Configuration Script
 # Router:    {safe_name}
 # Generated: {timestamp}
 # Token:     {token[:8]}... (first 8 chars only-full token in URL)
@@ -408,12 +408,12 @@ def build_setup_script(
 # Token is single-use and expires 24 hours from generation.
 # =======================================================================
 
-:log info "ZealSync: ====== Auto-configuration starting ======"
-:log info "ZealSync: Router={safe_name} Mode={"CHR" if is_chr else "Production"}"
+:log info "Frixel Connect: ====== Auto-configuration starting ======"
+:log info "Frixel Connect: Router={safe_name} Mode={"CHR" if is_chr else "Production"}"
 
 {version_check}
 {wg_section}
-# SECTION 3: Create ZealSync API User
+# SECTION 3: Create Frixel Connect API User
 # --------------------------------------
 # Creates a dedicated group and user with the minimum permissions required:
 #   api      - REST API access (required for /rest/* endpoints in RouterOS 7)
@@ -424,49 +424,49 @@ def build_setup_script(
 #
 # Uses existence checks (:if [:len [find]] = 0) so the script is
 # idempotent-safe to run twice without creating duplicate entries.
-# If zealsync-api already exists (from a previous attempt), the password
+# If Frixel Connect-api already exists (from a previous attempt), the password
 # is updated to the new value rather than failing.
-:log info "ZealSync: Creating API user group and account..."
+:log info "Frixel Connect: Creating API user group and account..."
 :do {{
-    :if ([:len [/user group find name="zealsync-api-group"]] = 0) do={{
-        /user group add name=zealsync-api-group policy=api,read,write,test,rest-api,ftp,sensitive comment="ZealSync API group - do not modify"
-        :log info "ZealSync: Created group zealsync-api-group"
+    :if ([:len [/user group find name="Frixel Connect-api-group"]] = 0) do={{
+        /user group add name=Frixel Connect-api-group policy=api,read,write,test,rest-api,ftp,sensitive comment="Frixel Connect API group - do not modify"
+        :log info "Frixel Connect: Created group Frixel Connect-api-group"
     }} else={{
-        /user group set zealsync-api-group policy=api,read,write,test,rest-api,ftp,sensitive
-        :log info "ZealSync: Updated policy for zealsync-api-group"
+        /user group set Frixel Connect-api-group policy=api,read,write,test,rest-api,ftp,sensitive
+        :log info "Frixel Connect: Updated policy for Frixel Connect-api-group"
     }}
-    :if ([:len [/user find name="zealsync-api"]] = 0) do={{
-        /user add name=zealsync-api password="{api_password}" group=zealsync-api-group comment="ZealSync API user - do not modify"
-        :log info "ZealSync: Created user zealsync-api"
+    :if ([:len [/user find name="Frixel Connect-api"]] = 0) do={{
+        /user add name=Frixel Connect-api password="{api_password}" group=Frixel Connect-api-group comment="Frixel Connect API user - do not modify"
+        :log info "Frixel Connect: Created user Frixel Connect-api"
     }} else={{
-        /user set zealsync-api password="{api_password}"
-        :log info "ZealSync: Updated password for existing zealsync-api"
+        /user set Frixel Connect-api password="{api_password}"
+        :log info "Frixel Connect: Updated password for existing Frixel Connect-api"
     }}
 }} on-error={{
-    :log error "ZealSync: User/group creation failed."
-    :error "ZealSync setup failed at Section 3 (API user). See /log."
+    :log error "Frixel Connect: User/group creation failed."
+    :error "Frixel Connect setup failed at Section 3 (API user). See /log."
 }}
 
 # SECTION 4: Enable REST API Service
 # ------------------------------------
 # The RouterOS REST API runs on the www (HTTP) service at port 80.
 # Section 6 (firewall) restricts which source IPs can reach it.
-:log info "ZealSync: Enabling REST API service on port 80..."
+:log info "Frixel Connect: Enabling REST API service on port 80..."
 :do {{
     /ip service enable www
     /ip service set www port=80
 }} on-error={{
-    :log warning "ZealSync: Could not set REST API service - may already be configured"
+    :log warning "Frixel Connect: Could not set REST API service - may already be configured"
 }}
 
 # SECTION 5: Create Hotspot Speed Profiles
 # ------------------------------------------
-# Defines the three bandwidth tiers ZealSync offers by default.
+# Defines the three bandwidth tiers Frixel Connect offers by default.
 # shared-users=1   -one device per voucher code (prevents sharing)
 # mac-cookie-timeout=1d-device stays logged in for 24h after first auth
 # keepalive-timeout=2m -disconnects completely idle sessions after 2 min
-# Additional tiers can be added from the ZealSync dashboard after setup.
-:log info "ZealSync: Creating hotspot speed profiles..."
+# Additional tiers can be added from the Frixel Connect dashboard after setup.
+:log info "Frixel Connect: Creating hotspot speed profiles..."
 :do {{
     :if ([:len [/ip hotspot user profile find name="10Mbps"]] = 0) do={{
         /ip hotspot user profile add name="10Mbps" rate-limit="10M/10M" shared-users=1 mac-cookie-timeout=1d keepalive-timeout=2m
@@ -478,40 +478,40 @@ def build_setup_script(
         /ip hotspot user profile add name="50Mbps" rate-limit="50M/50M" shared-users=1 mac-cookie-timeout=1d keepalive-timeout=2m
     }}
 }} on-error={{
-    :log warning "ZealSync: Speed profile creation had errors - check /ip hotspot user profile"
+    :log warning "Frixel Connect: Speed profile creation had errors - check /ip hotspot user profile"
 }}
 
 {firewall_section}
 # SECTION 7: Set Router Identity
 # --------------------------------
-:log info "ZealSync: Setting router identity..."
+:log info "Frixel Connect: Setting router identity..."
 :do {{
-    /system identity set name="zealsync-{safe_name}"
+    /system identity set name="Frixel Connect-{safe_name}"
 }} on-error={{
-    :log warning "ZealSync: Could not set router identity - non-critical, continuing"
+    :log warning "Frixel Connect: Could not set router identity - non-critical, continuing"
 }}
 
-# SECTION 8: Confirm Setup to ZealSync Server
+# SECTION 8: Confirm Setup to Frixel Connect Server
 # ---------------------------------------------
-# Sends a POST to ZealSync to trigger the "Setup complete!" on the dashboard.
+# Sends a POST to Frixel Connect to trigger the "Setup complete!" on the dashboard.
 # This fires ONLY if all previous sections completed without :error.
 #
-# connection-timeout=30-if ZealSync is unreachable, fail after 30 seconds
+# connection-timeout=30-if Frixel Connect is unreachable, fail after 30 seconds
 # instead of hanging indefinitely. The ISP admin sees a clear timeout error
 # in /log rather than a frozen terminal.
 #
 # FIX [HIGH-2]: connection-timeout=30 added (was missing in original).
-:log info "ZealSync: Confirming setup to ZealSync server..."
+:log info "Frixel Connect: Confirming setup to Frixel Connect server..."
 :do {{
     /tool fetch url="{confirm_url}" mode={http_mode} keep-result=no http-method=post
-    :log info "ZealSync: Server confirmed. Dashboard will update in ~3 seconds."
+    :log info "Frixel Connect: Server confirmed. Dashboard will update in ~3 seconds."
 }} on-error={{
-    :log error "ZealSync: Could not reach ZealSync server for confirmation."
-    :log error "ZealSync: Setup IS complete locally but dashboard may not reflect this."
-    :log error "ZealSync: Contact support or manually mark this router online."
+    :log error "Frixel Connect: Could not reach Frixel Connect server for confirmation."
+    :log error "Frixel Connect: Setup IS complete locally but dashboard may not reflect this."
+    :log error "Frixel Connect: Contact support or manually mark this router online."
     # Do NOT :error here-the router IS configured correctly.
     # The only failure is the callback, not the configuration.
-    # The ZealSync reconciliation cron will detect and confirm within 5 minutes.
+    # The Frixel Connect reconciliation cron will detect and confirm within 5 minutes.
 }}
 
 # SECTION 9: Self-Deletion
@@ -522,11 +522,11 @@ def build_setup_script(
 #      running twice is confusing and creates unnecessary log noise)
 #   2. Removes the embedded API password from the router filesystem
 #   3. Security hygiene-bootstrap credentials should not persist
-:log info "ZealSync: Cleaning up setup script..."
+:log info "Frixel Connect: Cleaning up setup script..."
 :delay 1s
-/file remove zealsync-setup.rsc
-:log info "ZealSync: ====== Setup complete! Router is connected to ZealSync. ======"
-:log info "ZealSync: You can close this terminal. The dashboard updates automatically."
+/file remove Frixel Connect-setup.rsc
+:log info "Frixel Connect: ====== Setup complete! Router is connected to Frixel Connect. ======"
+:log info "Frixel Connect: You can close this terminal. The dashboard updates automatically."
 """
 
     return script

@@ -246,7 +246,7 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Users & Customers | ZealSync Admin" />
+      <PageTitle title="Users & Customers | Frixel Connect Admin" />
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>

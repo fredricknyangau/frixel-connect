@@ -70,7 +70,7 @@ export default function RegisterPage() {
             <span className="text-xl font-bold text-primary">Z</span>
           </div>
           <CardTitle className="text-2xl">Create an account</CardTitle>
-          <CardDescription>Get started with ZealSync WiFi Billing.</CardDescription>
+          <CardDescription>Get started with Frixel Connect.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

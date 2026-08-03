@@ -1,25 +1,25 @@
-# ZealSync -Multi-Tenant WiFi Billing SaaS
+# Frixel Connect -Multi-Tenant WiFi Billing SaaS
 
 [![Python Version](https://img.shields.io/badge/Python-3.12.2-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.137.1-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green)](https://opensource.org/licenses/MIT)
-[![Deployment Status](https://img.shields.io/badge/Deployment-Live-success)](https://zealsync.dev)
+[![Deployment Status](https://img.shields.io/badge/Deployment-Live-success)](https://Frixel Connect.dev)
 
-Small ISPs in Kenya spend 3 hours a day manually reconciling M-Pesa payments and enabling MikroTik accounts in Winbox. ZealSync automates the entire pipeline.
+Small ISPs in Kenya spend 3 hours a day manually reconciling M-Pesa payments and enabling MikroTik accounts in Winbox. Frixel Connect automates the entire pipeline.
 
-ZealSync is a production-deployed, multi-tenant WiFi billing SaaS platform designed specifically for the Kenyan Internet Service Provider (ISP) market. It enables ISPs to manage packages, automate payment reconciliation using Safaricom Daraja API webhooks, provision Hotspot and PPPoE users on MikroTik routers via secure WireGuard VPN tunnels, generate KRA eTIMS-compliant invoices, and manage resellers via a virtual wallet ledger.
+Frixel Connect is a production-deployed, multi-tenant WiFi billing SaaS platform designed specifically for the Kenyan Internet Service Provider (ISP) market. It enables ISPs to manage packages, automate payment reconciliation using Safaricom Daraja API webhooks, provision Hotspot and PPPoE users on MikroTik routers via secure WireGuard VPN tunnels, generate KRA eTIMS-compliant invoices, and manage resellers via a virtual wallet ledger.
 
 ---
 
 ## Interactive Admin Dashboard (ASCII Preview)
 
-Below is an ASCII preview of the ZealSync ISP Owner Dashboard showing real-time revenue collection, active sessions, and reseller ledger statuses:
+Below is an ASCII preview of the Frixel Connect ISP Owner Dashboard showing real-time revenue collection, active sessions, and reseller ledger statuses:
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│  ZEALSYNC ISP DASHBOARD  -  DEFAULT ISP (ZealSync MLP)             [ Role: ISP Owner ]  │
+│  Frixel Connect ISP DASHBOARD  -  DEFAULT ISP (Frixel Connect MLP)             [ Role: ISP Owner ]  │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                        │
 │  REVENUE (MONTH-TO-DATE)      ACTIVE CUSTOMERS             ACTIVE SESSIONS             │
@@ -123,7 +123,7 @@ docker compose exec api python scripts/seed_db.py
 * **Frontend Portal**: [http://localhost:5173](http://localhost:5173)
 
 ### Default Admin Credentials
-* **Username**: `admin@zealsync.dev`
+* **Username**: `admin@Frixel Connect.dev`
 * **Password**: `TestPassword123!`
 * **Tenant ID**: `aaaaaaaa-0000-0000-0000-000000000001`
 
@@ -207,7 +207,7 @@ docker compose exec api python scripts/seed_db.py
 
 Kenyan ISPs operating in residential estates (such as Nairobi's Eastlands, Kasarani, or Roysambu) face high transaction volumes with low average revenue per user (ARPU). Traditional ISP billing suites like Splynx are built for large corporate entities; they are bloated, expensive, and require third-party payment modules to integrate Kenyan payment processors. In contrast, local competitors like Jasiyo charge a revenue-share percentage, which directly eats into the razor-thin margins of small-scale entrepreneurs.
 
-ZealSync solves this by offering a high-performance, flat-rate, multi-tenant billing engine designed natively for Safaricom M-Pesa. It isolates client traffic securely using kernel-level WireGuard tunnels and ensures that webhook dropouts never lead to lost vouchers. This structural reliability allows local operators to grow their networks autonomously without worrying about double-allocating resources or losing track of reseller deposits.
+Frixel Connect solves this by offering a high-performance, flat-rate, multi-tenant billing engine designed natively for Safaricom M-Pesa. It isolates client traffic securely using kernel-level WireGuard tunnels and ensures that webhook dropouts never lead to lost vouchers. This structural reliability allows local operators to grow their networks autonomously without worrying about double-allocating resources or losing track of reseller deposits.
 
 ---
 

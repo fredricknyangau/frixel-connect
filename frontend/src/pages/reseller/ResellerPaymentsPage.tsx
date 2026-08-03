@@ -34,7 +34,7 @@ export default function ResellerPaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Payments | ZealSync Reseller" />
+      <PageTitle title="Payments | Frixel Connect Reseller" />
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>

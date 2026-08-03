@@ -505,11 +505,11 @@ async def pppoe_billing_cron(ctx) -> None:
 
                 # T-3 reminder
                 if days_left == 3 and s["auto_renew"]:
-                    await send_sms(phone, "Your ZealSync WiFi subscription expires in 3 days. Please ensure you have sufficient funds to renew.")
+                    await send_sms(phone, "Your Frixel Connect WiFi subscription expires in 3 days. Please ensure you have sufficient funds to renew.")
 
                 # T-1 reminder
                 elif days_left == 1 and s["auto_renew"]:
-                    await send_sms(phone, "Your ZealSync WiFi subscription expires tomorrow. Please renew to avoid disconnection.")
+                    await send_sms(phone, "Your Frixel Connect WiFi subscription expires tomorrow. Please renew to avoid disconnection.")
 
                 # T+0 (entering grace)
                 elif days_left == 0 and s["status"] == "active":
@@ -540,7 +540,7 @@ async def pppoe_billing_cron(ctx) -> None:
 
 async def tenant_billing_cron(ctx) -> None:
     """
-    Daily cron running at midnight to process ZealSync's own platform billing.
+    Daily cron running at midnight to process Frixel Connect's own platform billing.
     - Meters active customers vs max_customers.
     - Sends Daraja STK Push to tenant owner for their platform fee if next_billing_date is due.
     - Suspends tenants whose next_billing_date is past the 7-day grace period.
@@ -614,8 +614,8 @@ async def tenant_billing_cron(ctx) -> None:
                                 result = await daraja_client.stk_push(
                                     phone=phone,
                                     amount=amount,
-                                    account_reference="ZEALSYNC",
-                                    description="ZealSync Platform"
+                                    account_reference="Frixel Connect",
+                                    description="Frixel Connect Platform"
                                 )
                                 await conn.execute(
                                     """

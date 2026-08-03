@@ -1,7 +1,7 @@
 import type { ServiceType } from '../types/onboarding';
 import type { Package } from '../types/packages';
 
-const STORAGE_KEY = 'zealsync_package_service_types';
+const STORAGE_KEY = 'Frixel Connect_package_service_types';
 
 type PackageServiceTypeMap = Record<string, ServiceType>;
 

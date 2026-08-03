@@ -18,7 +18,7 @@
  *
  * Props:
  *   size?  -diameter in pixels (default: 80)
- *   color? -CSS color string (default: ZealSync primary oklch(0.72 0.18 188))
+ *   color? -CSS color string (default: Frixel Connect primary oklch(0.72 0.18 188))
  */
 
 import { useEffect, useRef } from 'react';
@@ -44,7 +44,7 @@ export function AnimatedCheckmark({
       const style = document.createElement('style');
       style.id = styleId;
       style.textContent = `
-        @keyframes zealsync-circle-draw {
+        @keyframes Frixel Connect-circle-draw {
           0% {
             stroke-dashoffset: 166;
             opacity: 0;
@@ -55,7 +55,7 @@ export function AnimatedCheckmark({
           }
         }
 
-        @keyframes zealsync-check-draw {
+        @keyframes Frixel Connect-check-draw {
           0%, 30% {
             stroke-dashoffset: 48;
             opacity: 0;
@@ -69,13 +69,13 @@ export function AnimatedCheckmark({
         .zs-checkmark-circle {
           stroke-dasharray: 166;
           stroke-dashoffset: 166;
-          animation: zealsync-circle-draw 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+          animation: Frixel Connect-circle-draw 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
         }
 
         .zs-checkmark-check {
           stroke-dasharray: 48;
           stroke-dashoffset: 48;
-          animation: zealsync-check-draw 0.6s cubic-bezier(0.65, 0, 0.45, 1) 0.1s forwards;
+          animation: Frixel Connect-check-draw 0.6s cubic-bezier(0.65, 0, 0.45, 1) 0.1s forwards;
         }
       `;
       document.head.appendChild(style);

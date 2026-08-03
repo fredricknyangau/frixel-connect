@@ -37,7 +37,7 @@ RECOVERY (DOCUMENTED BY DESIGN):
   If the authenticator device is lost:
     UPDATE super_admins
     SET totp_secret = NULL, totp_verified_at = NULL
-    WHERE email = 'affected@zealsync.dev';
+    WHERE email = 'affected@Frixel Connect.dev';
   This restarts the TOTP setup flow on next login.
   Only Fred can perform this operation via direct DB access.
 """
@@ -51,8 +51,8 @@ import qrcode
 from app.core.security import encrypt_secret, decrypt_secret
 
 # The issuer name shown in the authenticator app below the account name.
-# "ZealSync" will appear as the app label; the user's email as the account.
-_ISSUER_NAME = "ZealSync"
+# "Frixel Connect" will appear as the app label; the user's email as the account.
+_ISSUER_NAME = "Frixel Connect"
 
 
 def generate_totp_secret() -> str:
@@ -74,7 +74,7 @@ def get_totp_uri(secret: str, email: str) -> str:
     Returns the otpauth:// provisioning URI for the given secret and email.
 
     Format:
-        otpauth://totp/ZealSync:email@example.com?secret=BASE32SECRET&issuer=ZealSync
+        otpauth://totp/Frixel Connect:email@example.com?secret=BASE32SECRET&issuer=Frixel Connect
 
     This URI is what the QR code encodes. Authenticator apps parse it to
     extract the secret, label (email), and issuer name. The QR encoding is

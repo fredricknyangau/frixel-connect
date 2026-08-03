@@ -46,7 +46,7 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Payments | ZealSync Admin" />
+      <PageTitle title="Payments | Frixel Connect Admin" />
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>

@@ -41,7 +41,7 @@ export default function SessionsPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Network Sessions | ZealSync Admin" />
+      <PageTitle title="Network Sessions | Frixel Connect Admin" />
 
       <div className="flex items-center justify-between">
         <div>

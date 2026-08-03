@@ -6,7 +6,7 @@
 --             tenants sits ABOVE users.
 --
 -- WHAT A TENANT IS:
---   A tenant is one ISP business that subscribes to ZealSync.
+--   A tenant is one ISP business that subscribes to Frixel Connect.
 --   Every user, package, payment, voucher, and session belongs to exactly
 --   one tenant. Data belonging to tenant A is structurally invisible to
 --   tenant B -not just filtered at the application layer, but unreachable
@@ -21,11 +21,11 @@ CREATE TABLE IF NOT EXISTS tenants (
     business_name     VARCHAR(200) NOT NULL,
 
     -- The contact email and phone of the ISP owner (not their customers).
-    -- This is who ZealSync bills for the platform subscription in Phase 10.
+    -- This is who Frixel Connect bills for the platform subscription in Phase 10.
     owner_email       VARCHAR(255) NOT NULL,
     owner_phone       VARCHAR(20)  NOT NULL,
 
-    -- ZealSync pricing tiers. Each tier maps to max_customers and feature gates.
+    -- Frixel Connect pricing tiers. Each tier maps to max_customers and feature gates.
     --   starter    →  up to 50  active customers
     --   growth     →  up to 500 active customers
     --   scale      →  up to 5,000 active customers
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS tenants (
 
     -- Tenant lifecycle:
     --   active    → normal operation; all endpoints available
-    --   suspended → ZealSync's own invoice is unpaid past grace period (Phase 10)
+    --   suspended → Frixel Connect's own invoice is unpaid past grace period (Phase 10)
     --               OR admin manually suspended due to abuse.
     --               Every login for every user under this tenant returns 403
     --               with a clear "account suspended" message.

@@ -8,7 +8,7 @@ interface PageTitleProps {
 export function PageTitle({ title, description }: PageTitleProps) {
   return (
     <Helmet>
-      <title>{title} | ZealSync WiFi Billing</title>
+      <title>{title} | Frixel Connect</title>
       {description && <meta name="description" content={description} />}
     </Helmet>
   );

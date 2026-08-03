@@ -40,8 +40,8 @@ export LC_ALL=C
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-DB_USER="${DB_USER:-zealnet}"
-DB_PASS="${DB_PASS:-zealnet}"
+DB_USER="${DB_USER:-frixel}"
+DB_PASS="${DB_PASS:-frixel}"
 DB_NAME="${DB_NAME:-wifi_billing}"
 
 # USE_DOCKER=true means we connect via `docker compose exec db psql`.

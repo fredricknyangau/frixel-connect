@@ -60,7 +60,7 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <PageTitle title="My Profile | ZealSync" />
+      <PageTitle title="My Profile | Frixel Connect" />
 
       <div className="flex items-center gap-3">
         <div className="p-3 bg-primary/10 rounded-full text-primary">

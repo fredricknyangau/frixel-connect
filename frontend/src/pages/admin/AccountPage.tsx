@@ -54,7 +54,7 @@ export default function AccountPage() {
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Your ZealSync Account</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Your Frixel Connect Account</h2>
           <p className="text-muted-foreground">Manage your ISP's SaaS subscription and view usage limits.</p>
         </div>
       </div>
@@ -99,7 +99,7 @@ export default function AccountPage() {
               </div>
               <StatusBadge status={tenant.billing_status as any} />
             </div>
-            <CardDescription>Your current ZealSync SaaS plan.</CardDescription>
+            <CardDescription>Your current Frixel Connect SaaS plan.</CardDescription>
           </CardHeader>
           
           <CardContent className="space-y-6">

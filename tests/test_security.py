@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 def test_refresh_token_rotation(client: TestClient):
     # 1. Login to get initial tokens
-    response = client.post("/api/v1/auth/login", json={"email": "admin@zealsync.dev", "password": "TestPassword123!"})
+    response = client.post("/api/v1/auth/login", json={"email": "admin@Frixel Connect.dev", "password": "TestPassword123!"})
     assert response.status_code == 200
     data = response.json()
     assert "refresh_token" in data
@@ -29,7 +29,7 @@ def test_refresh_token_rotation(client: TestClient):
 
 def test_audit_logging(client: TestClient):
     # Login as admin
-    response = client.post("/api/v1/auth/login", json={"email": "admin@zealsync.dev", "password": "TestPassword123!"})
+    response = client.post("/api/v1/auth/login", json={"email": "admin@Frixel Connect.dev", "password": "TestPassword123!"})
     token = response.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     
@@ -49,7 +49,7 @@ def test_audit_logging(client: TestClient):
 
 def test_data_protection_endpoints(client: TestClient):
     # Login as customer
-    response = client.post("/api/v1/auth/login", json={"email": "customer@zealsync.dev", "password": "TestPassword123!"})
+    response = client.post("/api/v1/auth/login", json={"email": "customer@Frixel Connect.dev", "password": "TestPassword123!"})
     token = response.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     
@@ -58,7 +58,7 @@ def test_data_protection_endpoints(client: TestClient):
     assert exp_resp.status_code == 200
     exp_data = exp_resp.json()
     assert "user" in exp_data
-    assert exp_data["user"]["email"] == "customer@zealsync.dev"
+    assert exp_data["user"]["email"] == "customer@Frixel Connect.dev"
     assert "payments" in exp_data
     assert "vouchers" in exp_data
     assert "subscriptions" in exp_data
@@ -68,7 +68,7 @@ def test_data_protection_endpoints(client: TestClient):
     assert del_resp.status_code == 200
     
     # 3. Verify user can no longer log in
-    login_resp = client.post("/api/v1/auth/login", json={"email": "customer@zealsync.dev", "password": "TestPassword123!"})
+    login_resp = client.post("/api/v1/auth/login", json={"email": "customer@Frixel Connect.dev", "password": "TestPassword123!"})
     assert login_resp.status_code == 401
 
 

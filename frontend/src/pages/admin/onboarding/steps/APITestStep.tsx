@@ -53,11 +53,11 @@ export function APITestStep({ routerId, version, onSuccess, onBack, onTestAPI }:
     },
     {
       title: 'Is the API user in the correct group?',
-      content: `Run "/user print". Ensure the user "zealsync-api" exists and is assigned to "zealsync-api-group" with "${version === 'v7' ? 'api, read, write, test, rest-api' : 'api, read, write, test'}" policies enabled.`,
+      content: `Run "/user print". Ensure the user "Frixel Connect-api" exists and is assigned to "Frixel Connect-api-group" with "${version === 'v7' ? 'api, read, write, test, rest-api' : 'api, read, write, test'}" policies enabled.`,
     },
     {
       title: `Is the firewall blocking port ${version === 'v7' ? '80' : '8728'} from 10.8.0.1?`,
-      content: 'Run "/ip firewall filter print" and look for drop rules. If you have restrictive firewall rules, you must add an input rule allowing traffic from 10.8.0.1 (ZealSync server) to your API port.',
+      content: 'Run "/ip firewall filter print" and look for drop rules. If you have restrictive firewall rules, you must add an input rule allowing traffic from 10.8.0.1 (Frixel Connect server) to your API port.',
     },
   ];
 
@@ -66,7 +66,7 @@ export function APITestStep({ routerId, version, onSuccess, onBack, onTestAPI }:
       <div className="space-y-1">
         <h3 className="text-lg font-medium text-foreground">Verify API Connection</h3>
         <p className="text-sm text-muted-foreground">
-          We are checking if ZealSync can log in and retrieve hotspot profile names from your router.
+          We are checking if Frixel Connect can log in and retrieve hotspot profile names from your router.
         </p>
       </div>
 
@@ -93,7 +93,7 @@ export function APITestStep({ routerId, version, onSuccess, onBack, onTestAPI }:
             <div className="space-y-1">
               <p className="font-semibold text-primary text-sm">API Connection Successful!</p>
               <p className="text-xs text-muted-foreground">
-                ZealSync has authenticated and connected to your MikroTik.
+                Frixel Connect has authenticated and connected to your MikroTik.
               </p>
             </div>
             {profiles.length > 0 ? (

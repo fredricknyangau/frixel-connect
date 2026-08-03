@@ -152,7 +152,7 @@ export default function AdminLayout() {
     <div className="flex min-h-screen bg-muted/20">
       <aside className="fixed inset-y-0 z-50 hidden w-64 flex-col border-r bg-background px-4 py-6 md:flex">
         <div className="flex items-center justify-between px-2">
-          <span className="text-xl font-bold">ZealSync</span>
+          <span className="text-xl font-bold">Frixel Connect</span>
           <Badge variant="secondary">Admin</Badge>
         </div>
         <NavItems />
@@ -161,7 +161,7 @@ export default function AdminLayout() {
       <div className="flex flex-1 flex-col md:pl-64">
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-background px-4 md:hidden">
           <div className="flex items-center gap-2">
-            <span className="text-lg font-bold">ZealSync</span>
+            <span className="text-lg font-bold">Frixel Connect</span>
             <Badge variant="secondary">Admin</Badge>
           </div>
 

@@ -85,7 +85,7 @@ export default function RoutersPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="MikroTik Routers | ZealSync Admin" />
+      <PageTitle title="MikroTik Routers | Frixel Connect Admin" />
 
       <div className="flex items-center justify-between">
         <div>

@@ -1,6 +1,6 @@
-# ZealSync Observability & Alerting Thresholds
+# Frixel Connect Observability & Alerting Thresholds
 
-This document outlines the operational health metrics exposed by ZealSync's `/metrics` endpoint and the recommended thresholds for configuring alerts (e.g., in Prometheus/Alertmanager, Datadog, or New Relic).
+This document outlines the operational health metrics exposed by Frixel Connect's `/metrics` endpoint and the recommended thresholds for configuring alerts (e.g., in Prometheus/Alertmanager, Datadog, or New Relic).
 
 ## 1. Webhook Failure Rate
 **Metric**: `webhook_events_total{status="error"}` / `webhook_events_total{status="received"}`
@@ -23,4 +23,4 @@ This document outlines the operational health metrics exposed by ZealSync's `/me
 ## 4. Router Connectivity (Heartbeat)
 - **Threshold**: Any router failing heartbeat for `> 15m`.
 - **Why**: If a Mikrotik router stops responding to REST API calls, no new customers can be provisioned on it, and active session syncing stops.
-- **Action**: Verify the public IP of the router. Ensure the router is powered on and `zealnet-api` user has REST API access.
+- **Action**: Verify the public IP of the router. Ensure the router is powered on and `frixel-api` user has REST API access.

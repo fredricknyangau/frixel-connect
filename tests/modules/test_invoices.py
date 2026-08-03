@@ -14,7 +14,7 @@ async def test_invoice_generation_and_tenant_isolation(conn: Connection):
     # 1. Setup Data for Tenant 1 (Default Tenant)
     tenant1_id = "aaaaaaaa-0000-0000-0000-000000000001"
     customer1_id = await conn.fetchval(
-        "SELECT id FROM users WHERE email = 'customer@zealsync.dev'"
+        "SELECT id FROM users WHERE email = 'customer@Frixel Connect.dev'"
     )
     package_id = "11111111-1111-1111-1111-111111111111"
     
@@ -35,14 +35,14 @@ async def test_invoice_generation_and_tenant_isolation(conn: Connection):
     tenant2_id = str(uuid4())
     await conn.execute("""
         INSERT INTO tenants (id, business_name, owner_email, owner_phone, subscription_tier, status)
-        VALUES ($1, 'Tenant 2', 't2@zealsync.dev', '254700000009', 'starter', 'active')
+        VALUES ($1, 'Tenant 2', 't2@Frixel Connect.dev', '254700000009', 'starter', 'active')
     """, tenant2_id)
     
     customer2_id = await conn.fetchval("""
         INSERT INTO users (email, phone, hashed_password, role, tenant_id)
         VALUES ($1, $2, 'hash', 'customer', $3)
         RETURNING id
-    """, "c2@zealsync.dev", "254700000010", tenant2_id)
+    """, "c2@Frixel Connect.dev", "254700000010", tenant2_id)
     
     package2_id = await conn.fetchval("""
         INSERT INTO packages (name, price_kes, duration_minutes, speed_mbps, tenant_id)

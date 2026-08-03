@@ -298,7 +298,7 @@ async def impersonate_tenant(
     summary="Manually trigger platform billing STK push for a tenant (super admin)",
     description=(
         "Sends an M-Pesa STK push to the tenant owner's phone for their monthly "
-        "ZealSync platform fee. Uses the same Daraja integration as the automated "
+        "Frixel Connect platform fee. Uses the same Daraja integration as the automated "
         "billing job. Returns the platform_payments row."
     ),
 )

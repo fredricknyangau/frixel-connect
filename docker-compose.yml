@@ -6,8 +6,11 @@ services:
       target: runtime          # only build up to the runtime stage
     image: wifi_billing_app:latest   # tag the image so the worker can reuse it
     container_name: wifi_billing_api
-    command: ["bash", "scripts/start.sh", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    command: ["bash", "scripts/start.sh", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${PORT:-8000}", "--workers", "${WEB_CONCURRENCY:-1}"]
     environment:
+      - USE_DOCKER=true
+      - PORT=${PORT:-8000}
+      - WEB_CONCURRENCY=${WEB_CONCURRENCY:-1}
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
@@ -82,12 +85,12 @@ services:
     container_name: wifi_billing_db
     environment:
       POSTGRES_DB: wifi_billing
-      POSTGRES_USER: zealnet
-      POSTGRES_PASSWORD: zealnet
+      POSTGRES_USER: frixel
+      POSTGRES_PASSWORD: frixel
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U zealnet -d wifi_billing"]
+      test: ["CMD-SHELL", "pg_isready -U frixel -d wifi_billing"]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -25,7 +25,7 @@ class MockArqRedis:
 
 async def get_test_customer_and_package_ids(conn: asyncpg.Connection):
     """Utility to retrieve seeded customer and package IDs."""
-    customer_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "customer@zealsync.dev")
+    customer_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "customer@Frixel Connect.dev")
     package_id = await conn.fetchval("SELECT id FROM packages WHERE name = $1", "Daily 10Mbps")
     return customer_id, package_id
 

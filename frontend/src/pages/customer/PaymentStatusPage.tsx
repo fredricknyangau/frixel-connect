@@ -26,7 +26,7 @@ export default function PaymentStatusPage() {
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <PageTitle title="Payment Status | ZealSync" />
+      <PageTitle title="Payment Status | Frixel Connect" />
 
       <Card className="w-full max-w-md shadow-lg border-primary/20">
         <CardHeader className="text-center pb-2">

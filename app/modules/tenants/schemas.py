@@ -18,7 +18,7 @@ class TenantRegisterRequest(BaseModel):
     """
     Body for POST /tenants/register -the ISP owner signup flow.
 
-    This is a PUBLIC endpoint (no JWT required). An ISP owner visits ZealSync,
+    This is a PUBLIC endpoint (no JWT required). An ISP owner visits Frixel Connect,
     fills in their business name and contact details, and gets back a tenant
     admin token immediately -analogous to any SaaS signup flow.
 

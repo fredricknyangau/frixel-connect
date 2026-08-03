@@ -1,4 +1,4 @@
-# Minimal RADIUS dictionary for ZealSync CoA operations
+# Minimal RADIUS dictionary for Frixel Connect CoA operations
 ATTRIBUTE	User-Name		1	string
 ATTRIBUTE	NAS-IP-Address		4	ipaddr
 ATTRIBUTE	Acct-Session-Id		44	string

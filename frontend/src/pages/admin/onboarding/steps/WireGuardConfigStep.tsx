@@ -9,8 +9,8 @@ import { ROUTEROS_COMMANDS, WINBOX_PATHS } from '../RouterOSInstructions';
 interface WireGuardConfigStepProps {
   initDetails: {
     router_id: string;
-    zealsync_server_endpoint: string;
-    zealsync_public_key: string;
+    Frixel Connect_server_endpoint: string;
+    Frixel Connect_public_key: string;
     assigned_ip: string;
     server_wg_ip: string;
   };
@@ -29,8 +29,8 @@ export function WireGuardConfigStep({ initDetails, version, onNext }: WireGuardC
   };
 
   const params = {
-    serverPublicKey: initDetails.zealsync_public_key,
-    serverEndpoint: initDetails.zealsync_server_endpoint,
+    serverPublicKey: initDetails.Frixel Connect_public_key,
+    serverEndpoint: initDetails.Frixel Connect_server_endpoint,
     assignedIp: initDetails.assigned_ip,
   };
 
@@ -47,17 +47,17 @@ export function WireGuardConfigStep({ initDetails, version, onNext }: WireGuardC
       <div className="space-y-1">
         <h3 className="text-lg font-medium text-foreground">Configure WireGuard on MikroTik</h3>
         <p className="text-sm text-muted-foreground">
-          Use the details below to establish a secure VPN tunnel between ZealSync and your router.
+          Use the details below to establish a secure VPN tunnel between Frixel Connect and your router.
         </p>
       </div>
 
       {/* Grid of parameters */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[
-          { label: 'ZealSync VPN Endpoint', value: initDetails.zealsync_server_endpoint, id: 'endpoint' },
-          { label: 'ZealSync VPN Public Key', value: initDetails.zealsync_public_key, id: 'pubkey', truncate: true },
+          { label: 'Frixel Connect VPN Endpoint', value: initDetails.Frixel Connect_server_endpoint, id: 'endpoint' },
+          { label: 'Frixel Connect VPN Public Key', value: initDetails.Frixel Connect_public_key, id: 'pubkey', truncate: true },
           { label: "Your Router's Assigned IP", value: `${initDetails.assigned_ip}/24`, id: 'assigned_ip' },
-          { label: 'ZealSync VPN Server IP', value: initDetails.server_wg_ip, id: 'server_ip' },
+          { label: 'Frixel Connect VPN Server IP', value: initDetails.server_wg_ip, id: 'server_ip' },
         ].map((item) => (
           <Card key={item.id} className="bg-muted/30 border border-muted">
             <CardContent className="p-4 flex justify-between items-center space-x-2">
@@ -110,7 +110,7 @@ export function WireGuardConfigStep({ initDetails, version, onNext }: WireGuardC
           </div>
           {version === 'v7' && (
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-              <strong>Why <code className="font-mono text-foreground font-semibold">persistent-keepalive=25s</code>?</strong> This setting forces your MikroTik to send a heartbeat packet every 25 seconds. Since your router is on a private network, this keeps the firewall port open so ZealSync can initiate connections back to your router.
+              <strong>Why <code className="font-mono text-foreground font-semibold">persistent-keepalive=25s</code>?</strong> This setting forces your MikroTik to send a heartbeat packet every 25 seconds. Since your router is on a private network, this keeps the firewall port open so Frixel Connect can initiate connections back to your router.
             </p>
           )}
         </TabsContent>

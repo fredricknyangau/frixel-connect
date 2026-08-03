@@ -43,10 +43,10 @@ export function TunnelTestStep({ routerId, onSuccess, onTestTunnel }: TunnelTest
   const troubleshootingItems = [
     {
       title: 'Did you add persistent-keepalive=25s to the peer config?',
-      content: 'Without this option, your MikroTik only sends data when there is active user traffic. This keepalive forces it to maintain the NAT routing table mappings on intermediate firewalls so that ZealSync can communicate with it at any time.',
+      content: 'Without this option, your MikroTik only sends data when there is active user traffic. This keepalive forces it to maintain the NAT routing table mappings on intermediate firewalls so that Frixel Connect can communicate with it at any time.',
     },
     {
-      title: 'Is the ZealSync public key entered correctly on your router?',
+      title: 'Is the Frixel Connect public key entered correctly on your router?',
       content: 'Double-check the public key entered in Step 1. A single typo in the base64 key will cause WireGuard to reject packets silently without establishing a handshake.',
     },
     {
@@ -80,7 +80,7 @@ export function TunnelTestStep({ routerId, onSuccess, onTestTunnel }: TunnelTest
             <div className="space-y-1">
               <p className="font-semibold text-foreground text-sm">Testing VPN Tunnel...</p>
               <p className="text-xs text-muted-foreground max-w-sm">
-                ZealSync is pinging your MikroTik's VPN address to confirm the tunnel is active. This usually takes 5-15 seconds.
+                Frixel Connect is pinging your MikroTik's VPN address to confirm the tunnel is active. This usually takes 5-15 seconds.
               </p>
             </div>
           </div>

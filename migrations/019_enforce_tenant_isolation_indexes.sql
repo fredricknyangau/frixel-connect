@@ -61,7 +61,7 @@ DECLARE
 BEGIN
     -- Ensure the default tenant exists (idempotent)
     INSERT INTO tenants (id, business_name, owner_email, owner_phone, subscription_tier, max_customers, status)
-    VALUES (default_tenant, 'Default ISP (ZealSync MLP)', 'admin@zealsync.dev', '254700000001', 'enterprise', 99999, 'active')
+    VALUES (default_tenant, 'Default ISP (Frixel Connect MLP)', 'admin@Frixel Connect.dev', '254700000001', 'enterprise', 99999, 'active')
     ON CONFLICT (owner_email) DO NOTHING;
 
     -- Backfill any NULL tenant_id rows before NOT NULL promotion

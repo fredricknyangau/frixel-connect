@@ -64,7 +64,7 @@ export default function OnboardingWizard() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <PageTitle title="ISP Setup Wizard | ZealSync" />
+      <PageTitle title="ISP Setup Wizard | Frixel Connect" />
       <div className="w-full max-w-lg space-y-6">
         {/* Stepper Header */}
         <div className="flex items-center justify-between px-4">
@@ -130,7 +130,7 @@ export default function OnboardingWizard() {
                 <CardTitle className="text-xl">Connect Your First Router</CardTitle>
               </div>
               <CardDescription>
-                Link ZealSync to your MikroTik router in about 60 seconds.
+                Link Frixel Connect to your MikroTik router in about 60 seconds.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -143,12 +143,12 @@ export default function OnboardingWizard() {
                   <p className="font-semibold text-sm">One command does everything</p>
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  ZealSync generates a single terminal command. Paste it into your
+                  Frixel Connect generates a single terminal command. Paste it into your
                   MikroTik terminal, and the router configures itself-VPN, API user,
                   speed profiles, and firewall rules, all in one step.
                 </p>
                 <div className="rounded-lg bg-zinc-900 px-3.5 py-2.5 font-mono text-xs text-emerald-400 truncate">
-                  /tool fetch url="https://api.zealsync.dev/api/v1/setup/..." ...
+                  /tool fetch url="https://api.Frixel Connect.dev/api/v1/setup/..." ...
                 </div>
               </div>
 
@@ -184,7 +184,7 @@ export default function OnboardingWizard() {
               </div>
               <CardTitle className="text-2xl">ISP Setup Complete!</CardTitle>
               <CardDescription>
-                Your ZealSync workspace is ready to process automated payments and manage sessions.
+                Your Frixel Connect workspace is ready to process automated payments and manage sessions.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

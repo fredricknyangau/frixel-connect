@@ -9,4 +9,4 @@ Disallow: /reseller/
 Disallow: /status/
 Disallow: /super-admin/
 
-Sitemap: https://zealsync.com/sitemap.xml
+Sitemap: https://Frixel Connect.com/sitemap.xml

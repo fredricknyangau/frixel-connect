@@ -12,7 +12,7 @@ def get_admin_headers(client: TestClient) -> dict:
     resp = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "admin@zealsync.dev",
+            "email": "admin@Frixel Connect.dev",
             "password": "TestPassword123!"
         }
     )
@@ -27,7 +27,7 @@ def test_register_new_user(client: TestClient):
     response = client.post(
         "/api/v1/auth/register",
         json={
-            "email": "new_user@zealsync.dev",
+            "email": "new_user@Frixel Connect.dev",
             "phone": "0798765432",
             "password": "Password123!",
             "role": "customer"
@@ -48,7 +48,7 @@ def test_register_duplicate_email(client: TestClient):
     client.post(
         "/api/v1/auth/register",
         json={
-            "email": "duplicate@zealsync.dev",
+            "email": "duplicate@Frixel Connect.dev",
             "phone": "0711223344",
             "password": "Password123!",
             "role": "customer"
@@ -60,7 +60,7 @@ def test_register_duplicate_email(client: TestClient):
     response = client.post(
         "/api/v1/auth/register",
         json={
-            "email": "duplicate@zealsync.dev",
+            "email": "duplicate@Frixel Connect.dev",
             "phone": "0755667788",
             "password": "DifferentPassword123!",
             "role": "customer"
@@ -76,7 +76,7 @@ def test_login_correct_credentials(client: TestClient):
     response = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "customer@zealsync.dev",
+            "email": "customer@Frixel Connect.dev",
             "password": "TestPassword123!"
         }
     )
@@ -92,7 +92,7 @@ def test_login_wrong_password(client: TestClient):
     response = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "customer@zealsync.dev",
+            "email": "customer@Frixel Connect.dev",
             "password": "WrongPassword!"
         }
     )
@@ -114,7 +114,7 @@ def test_protected_route_wrong_role(client: TestClient):
     login_response = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "customer@zealsync.dev",
+            "email": "customer@Frixel Connect.dev",
             "password": "TestPassword123!"
         }
     )

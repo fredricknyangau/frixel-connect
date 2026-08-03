@@ -49,7 +49,7 @@ async def test_router_onboarding_wizard_endpoints(
 ):
     # Setup mocks
     mock_assign_ip.return_value = "10.8.0.5"
-    mock_get_pubkey.return_value = "zealsync_server_public_key_mock_base64_val="
+    mock_get_pubkey.return_value = "Frixel Connect_server_public_key_mock_base64_val="
     mock_check_connected.return_value = True
 
     tenant_id, admin_id, token = await create_tenant_and_admin(
@@ -66,14 +66,14 @@ async def test_router_onboarding_wizard_endpoints(
     assert resp.status_code == 200
     data = resp.json()
     router_id = data["router_id"]
-    assert data["zealsync_public_key"] == "zealsync_server_public_key_mock_base64_val="
+    assert data["Frixel Connect_public_key"] == "Frixel Connect_server_public_key_mock_base64_val="
     assert data["assigned_ip"] == "10.8.0.5"
 
     # Verify db status is pending_setup
     db_row = await conn.fetchrow("SELECT * FROM routers WHERE id = $1", router_id)
     assert db_row["status"] == "pending_setup"
     assert str(db_row["wireguard_assigned_ip"]) == "10.8.0.5"
-    assert db_row["wireguard_public_key"] == "zealsync_server_public_key_mock_base64_val="
+    assert db_row["wireguard_public_key"] == "Frixel Connect_server_public_key_mock_base64_val="
 
     # Step 2: /onboarding/register-peer
     peer_payload = {

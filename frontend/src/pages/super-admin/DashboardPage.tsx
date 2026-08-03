@@ -121,13 +121,13 @@ export default function SuperAdminDashboardPage() {
   return (
     <div className="space-y-6">
       <Helmet>
-        <title>⚠ SA | Dashboard | ZealSync</title>
+        <title>⚠ SA | Dashboard | Frixel Connect</title>
       </Helmet>
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-100">ZealSync Operations</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-100">Frixel Connect Operations</h1>
           <p className="text-xs text-slate-400 mt-1">Platform-wide statistics and system status overview.</p>
         </div>
         <Badge className="bg-red-950/40 text-red-400 border border-red-900/30 text-xs px-2.5 py-0.5">

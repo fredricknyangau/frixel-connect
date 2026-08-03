@@ -223,7 +223,7 @@ async def initiate_platform_billing_payment(
             phone=tenant["owner_phone"],
             amount=amount,
             account_reference=f"ZS-{str(payment['id'])[:8]}",
-            description="ZealSync Fee",
+            description="Frixel Connect Fee",
         )
         checkout_id = response.get("CheckoutRequestID")
         updated = await conn.fetchrow(

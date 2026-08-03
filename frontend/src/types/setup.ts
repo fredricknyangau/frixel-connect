@@ -25,9 +25,9 @@ export interface MagicInitResponse {
   /**
    * The complete one-line command to paste into MikroTik terminal.
    * Example (CHR):
-   *   /tool fetch url="http://192.168.56.1:8000/api/v1/setup/TOKEN" dst-path=zealsync-setup.rsc mode=http; /import zealsync-setup.rsc
+   *   /tool fetch url="http://192.168.56.1:8000/api/v1/setup/TOKEN" dst-path=Frixel Connect-setup.rsc mode=http; /import Frixel Connect-setup.rsc
    * Example (Production):
-   *   /tool fetch url="https://api.zealsync.dev/api/v1/setup/TOKEN" dst-path=zealsync-setup.rsc mode=https; /import zealsync-setup.rsc
+   *   /tool fetch url="https://api.Frixel Connect.dev/api/v1/setup/TOKEN" dst-path=Frixel Connect-setup.rsc mode=https; /import Frixel Connect-setup.rsc
    */
   magic_command: string;
 

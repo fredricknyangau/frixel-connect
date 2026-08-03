@@ -20,7 +20,7 @@ from tests.conftest import DEFAULT_TENANT_ID, TEST_PASSWORD
 
 async def get_test_customer_and_package_ids(conn: asyncpg.Connection):
     """Utility to retrieve seeded customer and package IDs."""
-    customer_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "customer@zealsync.dev")
+    customer_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "customer@Frixel Connect.dev")
     package_id = await conn.fetchval("SELECT id FROM packages WHERE name = $1", "Daily 10Mbps")
     return customer_id, package_id
 
@@ -134,7 +134,7 @@ async def test_get_stuck_payments(conn: asyncpg.Connection, client: TestClient):
     )
 
     # ── Test Tenant A stuck payments list ──
-    admin_a_id = await conn.fetchval("SELECT id FROM users WHERE email = 'admin@zealsync.dev'")
+    admin_a_id = await conn.fetchval("SELECT id FROM users WHERE email = 'admin@Frixel Connect.dev'")
     token_a = create_access_token(user_id=str(admin_a_id), role="admin", tenant_id=DEFAULT_TENANT_ID)
     headers_a = {"Authorization": f"Bearer {token_a}"}
 
@@ -175,7 +175,7 @@ async def test_retry_provision_payment_endpoint(mock_get_redis, conn: asyncpg.Co
     mock_get_redis.return_value = mock_redis
 
     # Create Tenant A admin token
-    admin_a_id = await conn.fetchval("SELECT id FROM users WHERE email = 'admin@zealsync.dev'")
+    admin_a_id = await conn.fetchval("SELECT id FROM users WHERE email = 'admin@Frixel Connect.dev'")
     token_a = create_access_token(user_id=str(admin_a_id), role="admin", tenant_id=DEFAULT_TENANT_ID)
     headers_a = {"Authorization": f"Bearer {token_a}"}
 

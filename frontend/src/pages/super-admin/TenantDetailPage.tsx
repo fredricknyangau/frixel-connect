@@ -218,7 +218,7 @@ export default function TenantDetailPage() {
   return (
     <div className="space-y-6">
       <Helmet>
-        <title>{`⚠ SA | ${tenant.business_name} | ZealSync`}</title>
+        <title>{`⚠ SA | ${tenant.business_name} | Frixel Connect`}</title>
       </Helmet>
 
       {/* Top Navigation */}

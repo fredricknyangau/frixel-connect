@@ -2,7 +2,7 @@
 """
 scripts/seed_super_admin.py
 =============================
-Interactive seeder for the first ZealSync super admin account.
+Interactive seeder for the first Frixel Connect super admin account.
 
 USAGE:
     # Inside Docker Compose (recommended):
@@ -48,10 +48,10 @@ from app.core.security import hash_password
 async def seed_super_admin() -> None:
     print()
     print("=" * 60)
-    print("  ZealSync-Super Admin Account Seeder")
+    print("  Frixel Connect-Super Admin Account Seeder")
     print("=" * 60)
     print()
-    print("  This creates the first super admin (ZealSync operator) account.")
+    print("  This creates the first super admin (Frixel Connect operator) account.")
     print("  TOTP (Google Authenticator) setup will be required on first login.")
     print()
 

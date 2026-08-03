@@ -3,7 +3,7 @@ app/modules/tenants/router.py
 ================================
 HTTP endpoints for tenant management.
 
-  POST /tenants/register -PUBLIC. ISP owner signs up for ZealSync.
+  POST /tenants/register -PUBLIC. ISP owner signs up for Frixel Connect.
   GET  /tenants/me       -Admin only. Returns own tenant details + stats.
 """
 
@@ -88,7 +88,7 @@ async def get_my_tenant(
     "/me/billing/pay-now",
     response_model=TenantBillingPaymentResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    summary="Initiate ZealSync platform subscription payment (admin only)",
+    summary="Initiate Frixel Connect platform subscription payment (admin only)",
 )
 async def pay_platform_bill_now(
     current_user: dict = Depends(require_role("admin")),

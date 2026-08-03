@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-seed_db.py -Database Seeder for ZealSync (Phase 1: Multi-Tenant)
+seed_db.py -Database Seeder for Frixel Connect (Phase 1: Multi-Tenant)
 ===================================================================
 Inserts a known set of users and packages so you have working data
 to test every route immediately after running migrations.
@@ -37,9 +37,9 @@ from app.core.security import hash_password
 
 TEST_PASSWORD = "TestPassword123!"
 
-ADMIN_EMAIL    = "admin@zealsync.dev"
-RESELLER_EMAIL = "reseller@zealsync.dev"
-CUSTOMER_EMAIL = "customer@zealsync.dev"
+ADMIN_EMAIL    = "admin@Frixel Connect.dev"
+RESELLER_EMAIL = "reseller@Frixel Connect.dev"
+CUSTOMER_EMAIL = "customer@Frixel Connect.dev"
 
 # The default tenant UUID created by migration 007.
 # All seed data belongs to this tenant.
@@ -65,7 +65,7 @@ PACKAGES = [
 
 async def seed():
     print("=" * 60)
-    print("  ZealSync -Database Seeder (Phase 1: Multi-Tenant)")
+    print("  Frixel Connect -Database Seeder (Phase 1: Multi-Tenant)")
     print("=" * 60)
 
     conn = await asyncpg.connect(dsn=settings.DATABASE_URL)

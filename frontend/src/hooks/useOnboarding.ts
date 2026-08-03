@@ -32,14 +32,14 @@ export function saveOnboardingState(partial: Partial<OnboardingState>): void {
   const existing = getOnboardingState() ?? DEFAULT_STATE;
   const merged: OnboardingState = { ...existing, ...partial };
   localStorage.setItem(ONBOARDING_STATE_KEY, JSON.stringify(merged));
-  window.dispatchEvent(new Event('zealsync-onboarding-change'));
+  window.dispatchEvent(new Event('Frixel Connect-onboarding-change'));
 }
 
 /** Clear onboarding progress after go-live. */
 export function clearOnboardingState(): void {
   localStorage.removeItem(ONBOARDING_STATE_KEY);
   localStorage.removeItem(ONBOARDING_SERVICE_KEY);
-  window.dispatchEvent(new Event('zealsync-onboarding-change'));
+  window.dispatchEvent(new Event('Frixel Connect-onboarding-change'));
 }
 
 /** Service type from onboarding state, falling back to dedicated key then hotspot. */
@@ -53,10 +53,10 @@ export function getServiceType(): ServiceType {
 function subscribeOnboarding(callback: () => void): () => void {
   const handler = () => callback();
   window.addEventListener('storage', handler);
-  window.addEventListener('zealsync-onboarding-change', handler);
+  window.addEventListener('Frixel Connect-onboarding-change', handler);
   return () => {
     window.removeEventListener('storage', handler);
-    window.removeEventListener('zealsync-onboarding-change', handler);
+    window.removeEventListener('Frixel Connect-onboarding-change', handler);
   };
 }
 
@@ -85,7 +85,7 @@ export function initOnboardingState(serviceType: ServiceType): OnboardingState {
   };
   localStorage.setItem(ONBOARDING_SERVICE_KEY, serviceType);
   localStorage.setItem(ONBOARDING_STATE_KEY, JSON.stringify(state));
-  window.dispatchEvent(new Event('zealsync-onboarding-change'));
+  window.dispatchEvent(new Event('Frixel Connect-onboarding-change'));
   return state;
 }
 

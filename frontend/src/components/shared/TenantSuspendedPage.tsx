@@ -34,7 +34,7 @@ export default function TenantSuspendedPage() {
         <h1 className="text-3xl font-bold tracking-tight">Access Suspended</h1>
         <p className="text-muted-foreground">
           {isAdmin
-            ? "Your ISP's ZealSync subscription has lapsed or been suspended. Please pay the outstanding balance to restore services immediately."
+            ? "Your ISP's Frixel Connect subscription has lapsed or been suspended. Please pay the outstanding balance to restore services immediately."
             : "This service provider's account is temporarily unavailable. Please contact your ISP support team for further details."}
         </p>
         {isAdmin && isPaying ? (

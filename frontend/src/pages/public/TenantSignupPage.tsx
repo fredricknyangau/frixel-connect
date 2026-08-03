@@ -127,12 +127,12 @@ export default function TenantSignupPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4 py-10 dark">
-      <PageTitle title="Start Your Free Trial | ZealSync" />
+      <PageTitle title="Start Your Free Trial | Frixel Connect" />
       <Card className="w-full max-w-lg border-border/60 shadow-xl">
         <CardHeader className="text-center pb-2">
           <div className="mb-3 flex items-center justify-center gap-2">
             <Wifi className="h-5 w-5 text-primary" />
-            <span className="text-lg font-bold text-primary">ZealSync</span>
+            <span className="text-lg font-bold text-primary">Frixel Connect</span>
           </div>
           <CardTitle className="text-2xl">Start your free 30-day pilot</CardTitle>
           <CardDescription>No credit card. Cancel anytime.</CardDescription>
@@ -228,7 +228,7 @@ export default function TenantSignupPage() {
                 {...register('owner_phone')}
               />
               <p className="text-xs text-muted-foreground">
-                This number receives your ZealSync billing invoices via M-Pesa
+                This number receives your Frixel Connect billing invoices via M-Pesa
               </p>
               {errors.owner_phone && (
                 <p className="text-sm text-destructive">{errors.owner_phone.message}</p>

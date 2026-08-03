@@ -17,7 +17,7 @@
  *   The CHR toggle on the 'details' step switches is_chr=true/false.
  *   is_chr=true:  Script uses http://192.168.56.1:8000 (Ubuntu host-only IP)
  *                 Script omits WireGuard commands (same-machine networking)
- *   is_chr=false: Script uses https://api.zealsync.dev (production HTTPS)
+ *   is_chr=false: Script uses https://api.Frixel Connect.dev (production HTTPS)
  *                 Script includes full WireGuard setup
  *
  * RESUME LOGIC:
@@ -113,7 +113,7 @@ export default function RouterOnboardingWizard({
   // Pre-select service type from signup when embedded in onboarding shell.
   useEffect(() => {
     if (!embedded) return;
-    const stored = localStorage.getItem('zealsync_onboarding_service');
+    const stored = localStorage.getItem('Frixel Connect_onboarding_service');
     if (stored === 'hotspot' || stored === 'pppoe') {
       setServiceType(stored);
     }
@@ -137,13 +137,13 @@ export default function RouterOnboardingWizard({
   // ── Resume logic ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const resumeId = searchParams.get('resume');
-    const localId = localStorage.getItem('zealsync_magic_router_id');
-    const localToken = localStorage.getItem('zealsync_magic_setup_token');
-    const localIsChr = localStorage.getItem('zealsync_magic_is_chr') === 'true';
-    const localCommand = localStorage.getItem('zealsync_magic_command');
-    const localExpires = localStorage.getItem('zealsync_magic_expires_at');
-    const localName = localStorage.getItem('zealsync_magic_router_name');
-    const localSite = localStorage.getItem('zealsync_magic_site_name');
+    const localId = localStorage.getItem('Frixel Connect_magic_router_id');
+    const localToken = localStorage.getItem('Frixel Connect_magic_setup_token');
+    const localIsChr = localStorage.getItem('Frixel Connect_magic_is_chr') === 'true';
+    const localCommand = localStorage.getItem('Frixel Connect_magic_command');
+    const localExpires = localStorage.getItem('Frixel Connect_magic_expires_at');
+    const localName = localStorage.getItem('Frixel Connect_magic_router_name');
+    const localSite = localStorage.getItem('Frixel Connect_magic_site_name');
 
     const activeId = resumeId || localId;
 
@@ -233,23 +233,23 @@ export default function RouterOnboardingWizard({
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
   function clearLocalStorage() {
-    localStorage.removeItem('zealsync_magic_router_id');
-    localStorage.removeItem('zealsync_magic_setup_token');
-    localStorage.removeItem('zealsync_magic_command');
-    localStorage.removeItem('zealsync_magic_expires_at');
-    localStorage.removeItem('zealsync_magic_is_chr');
-    localStorage.removeItem('zealsync_magic_router_name');
-    localStorage.removeItem('zealsync_magic_site_name');
+    localStorage.removeItem('Frixel Connect_magic_router_id');
+    localStorage.removeItem('Frixel Connect_magic_setup_token');
+    localStorage.removeItem('Frixel Connect_magic_command');
+    localStorage.removeItem('Frixel Connect_magic_expires_at');
+    localStorage.removeItem('Frixel Connect_magic_is_chr');
+    localStorage.removeItem('Frixel Connect_magic_router_name');
+    localStorage.removeItem('Frixel Connect_magic_site_name');
   }
 
   function saveLocalStorage(data: MagicInitResponse, name: string, site: string) {
-    localStorage.setItem('zealsync_magic_router_id', data.router_id);
-    localStorage.setItem('zealsync_magic_setup_token', data.setup_token);
-    localStorage.setItem('zealsync_magic_command', data.magic_command);
-    localStorage.setItem('zealsync_magic_expires_at', data.expires_at);
-    localStorage.setItem('zealsync_magic_is_chr', String(data.is_chr));
-    localStorage.setItem('zealsync_magic_router_name', name);
-    localStorage.setItem('zealsync_magic_site_name', site);
+    localStorage.setItem('Frixel Connect_magic_router_id', data.router_id);
+    localStorage.setItem('Frixel Connect_magic_setup_token', data.setup_token);
+    localStorage.setItem('Frixel Connect_magic_command', data.magic_command);
+    localStorage.setItem('Frixel Connect_magic_expires_at', data.expires_at);
+    localStorage.setItem('Frixel Connect_magic_is_chr', String(data.is_chr));
+    localStorage.setItem('Frixel Connect_magic_router_name', name);
+    localStorage.setItem('Frixel Connect_magic_site_name', site);
   }
 
   async function handleCopyCommand() {
@@ -644,7 +644,7 @@ export default function RouterOnboardingWizard({
                     </div>
                     <h2 className="text-xl font-bold tracking-tight">Router Online!</h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      ZealSync is now connected to {routerName}. Let&apos;s set up your network.
+                      Frixel Connect is now connected to {routerName}. Let&apos;s set up your network.
                     </p>
                   </div>
                 )}
@@ -753,7 +753,7 @@ export default function RouterOnboardingWizard({
                       Router Connected!
                     </h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Your MikroTik is now linked to ZealSync and ready to process sessions.
+                      Your MikroTik is now linked to Frixel Connect and ready to process sessions.
                     </p>
                   </div>
                 )}
@@ -783,7 +783,7 @@ export default function RouterOnboardingWizard({
                       value: (
                         <span className="flex items-center gap-1.5">
                           <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
-                            zealsync-api
+                            Frixel Connect-api
                           </code>
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                         </span>
@@ -838,7 +838,7 @@ export default function RouterOnboardingWizard({
   if (isLoadingResume) {
     return (
       <div className={embedded ? 'flex justify-center py-8' : 'flex min-h-screen items-center justify-center bg-muted/30'}>
-        {!embedded && <PageTitle title="Router Setup | ZealSync" />}
+        {!embedded && <PageTitle title="Router Setup | Frixel Connect" />}
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Checking setup status...</p>
@@ -853,7 +853,7 @@ export default function RouterOnboardingWizard({
 
   return (
     <div className="flex flex-col min-h-screen bg-muted/30">
-      <PageTitle title="Connect a Router | ZealSync" />
+      <PageTitle title="Connect a Router | Frixel Connect" />
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur-sm px-6 shadow-sm">
         <div className="flex items-center space-x-3">
           {step === 'command' && (

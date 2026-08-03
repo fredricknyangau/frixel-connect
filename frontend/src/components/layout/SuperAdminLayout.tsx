@@ -68,7 +68,7 @@ export default function SuperAdminLayout() {
         <div className="mt-auto flex flex-col gap-3 pt-4 border-t border-slate-800/80">
           <div className="px-3 py-2 rounded-lg bg-slate-950/40 border border-slate-800/50">
             <p className="text-xs font-semibold text-slate-300 truncate">{superAdmin?.full_name}</p>
-            <p className="text-[10px] text-slate-500 truncate mt-0.5">ZealSync Operator</p>
+            <p className="text-[10px] text-slate-500 truncate mt-0.5">Frixel Connect Operator</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -100,14 +100,14 @@ export default function SuperAdminLayout() {
     <div className="flex min-h-screen bg-slate-950 text-slate-100">
       {/* Dynamic page title fallback for safety */}
       <Helmet>
-        <title>⚠ SUPER ADMIN | ZealSync</title>
+        <title>⚠ SUPER ADMIN | Frixel Connect</title>
       </Helmet>
 
       {/* Desktop Sidebar (Red-tinted dark background: oklch(0.13 0.03 15) equivalent) */}
       <aside className="hidden w-64 flex-col border-r border-slate-800/60 bg-[oklch(0.13_0.03_15)] px-4 py-6 md:flex fixed inset-y-0 z-50">
         <div className="flex items-center justify-between px-2">
           <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-red-400 to-amber-500 bg-clip-text text-transparent flex items-center">
-            ZealSync<sup className="text-[10px] text-red-500 font-bold ml-1 font-mono tracking-normal">SA</sup>
+            Frixel Connect<sup className="text-[10px] text-red-500 font-bold ml-1 font-mono tracking-normal">SA</sup>
           </span>
           <Badge className="bg-red-950/40 text-red-400 border border-red-900/30 text-[10px] px-1.5 py-0">
             Control
@@ -123,14 +123,14 @@ export default function SuperAdminLayout() {
           <div className="hidden md:flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-red-500" />
             <span className="text-[10px] uppercase font-mono tracking-widest font-bold text-slate-500">
-              ZealSync Control Panel
+              Frixel Connect Control Panel
             </span>
           </div>
 
           {/* Mobile Header Branding */}
           <div className="flex md:hidden items-center gap-2">
             <span className="text-lg font-bold bg-gradient-to-r from-red-400 to-amber-500 bg-clip-text text-transparent">
-              ZealSync<sup className="text-[9px] text-red-500 font-bold ml-0.5">SA</sup>
+              Frixel Connect<sup className="text-[9px] text-red-500 font-bold ml-0.5">SA</sup>
             </span>
             <Badge className="bg-red-950/40 text-red-400 border border-red-900/30 text-[8px] px-1 py-0">
               Control
@@ -146,7 +146,7 @@ export default function SuperAdminLayout() {
               <SheetTitle className="sr-only">Control Panel Menu</SheetTitle>
               <div className="flex items-center gap-2 pb-4 border-b border-slate-800">
                 <span className="text-lg font-bold bg-gradient-to-r from-red-400 to-amber-500 bg-clip-text text-transparent">
-                  ZealSync<sup className="text-[9px] text-red-500 font-bold ml-0.5">SA</sup>
+                  Frixel Connect<sup className="text-[9px] text-red-500 font-bold ml-0.5">SA</sup>
                 </span>
               </div>
               <NavItems isMobile />

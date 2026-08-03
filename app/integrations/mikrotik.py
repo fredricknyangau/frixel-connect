@@ -34,7 +34,7 @@ AUDIT FIXES APPLIED IN THIS VERSION:
   [CRITICAL-2] login.html update approach completely rewritten.
                /file/set was the wrong REST endpoint and had a race condition
                with reset-html. New approach: router fetches login.html from
-               the ZealSync backend directly via /tool fetch. No file path
+               the Frixel Connect backend directly via /tool fetch. No file path
                manipulation needed.
   [HIGH-4]    httpx.AsyncClient is now a persistent instance per MikroTikClient.
                The original code created a new client (new TCP connection) on
@@ -310,7 +310,7 @@ class MikroTikClient:
                 "password":      password,
                 "profile":       profile,
                 "limit-uptime":  time_limit,
-                "comment":       "zealsync-auto",
+                "comment":       "Frixel Connect-auto",
             },
         )
         self._check_response(response, f"create hotspot user '{username}'")
@@ -543,7 +543,7 @@ class MikroTikClient:
 
         NEW APPROACH:
           After hotspot server is created, the router fetches login.html
-          from the ZealSync backend (login_html_url) directly.
+          from the Frixel Connect backend (login_html_url) directly.
           The backend generates the redirect HTML and the router saves it.
           This avoids all file path uncertainty and race conditions.
 
@@ -568,7 +568,7 @@ class MikroTikClient:
         if not addr_exists:
             r = await self._request(
                 "POST", "/ip/address/add",
-                json={"address": target_addr, "interface": interface, "comment": "zealsync-auto"},
+                json={"address": target_addr, "interface": interface, "comment": "Frixel Connect-auto"},
             )
             self._check_response(r, f"assign gateway IP {target_addr} to {interface}")
             logger.info(f"MikroTik [{self._host}]: assigned {target_addr} to {interface}")
@@ -577,15 +577,15 @@ class MikroTikClient:
         pools_response = await self._request("GET", "/ip/pool")
         self._check_response(pools_response, "list IP pools")
         pools = pools_response.json() if isinstance(pools_response.json(), list) else []
-        pool_exists = any(p.get("name") == "zealsync-hs-pool" for p in pools)
+        pool_exists = any(p.get("name") == "Frixel Connect-hs-pool" for p in pools)
         if not pool_exists:
             r = await self._request(
                 "POST", "/ip/pool/add",
-                json={"name": "zealsync-hs-pool", "ranges": f"{pool_start}-{pool_end}"},
+                json={"name": "Frixel Connect-hs-pool", "ranges": f"{pool_start}-{pool_end}"},
             )
             self._check_response(r, "create hotspot IP pool")
         else:
-            pool_id = next(p.get(".id") for p in pools if p.get("name") == "zealsync-hs-pool")
+            pool_id = next(p.get(".id") for p in pools if p.get("name") == "Frixel Connect-hs-pool")
             r = await self._request(
                 "PATCH", f"/ip/pool/{pool_id}",
                 json={"ranges": f"{pool_start}-{pool_end}"},
@@ -596,23 +596,23 @@ class MikroTikClient:
         dhcp_response = await self._request("GET", "/ip/dhcp-server")
         self._check_response(dhcp_response, "list DHCP servers")
         dhcp_servers = dhcp_response.json() if isinstance(dhcp_response.json(), list) else []
-        dhcp_exists = any(d.get("name") == "zealsync-dhcp" for d in dhcp_servers)
+        dhcp_exists = any(d.get("name") == "Frixel Connect-dhcp" for d in dhcp_servers)
         if not dhcp_exists:
             r = await self._request(
                 "POST", "/ip/dhcp-server/add",
                 json={
-                    "name": "zealsync-dhcp",
+                    "name": "Frixel Connect-dhcp",
                     "interface": interface,
-                    "address-pool": "zealsync-hs-pool",
+                    "address-pool": "Frixel Connect-hs-pool",
                     "disabled": "false",
                 },
             )
             self._check_response(r, "create DHCP server")
         else:
-            dhcp_id = next(d.get(".id") for d in dhcp_servers if d.get("name") == "zealsync-dhcp")
+            dhcp_id = next(d.get(".id") for d in dhcp_servers if d.get("name") == "Frixel Connect-dhcp")
             r = await self._request(
                 "PATCH", f"/ip/dhcp-server/{dhcp_id}",
-                json={"interface": interface, "address-pool": "zealsync-hs-pool"},
+                json={"interface": interface, "address-pool": "Frixel Connect-hs-pool"},
             )
             self._check_response(r, "update DHCP server interface")
 
@@ -648,7 +648,7 @@ class MikroTikClient:
                     json={
                         "action": "accept",
                         "dst-address": frontend_host,
-                        "comment": "zealsync-portal"
+                        "comment": "Frixel Connect-portal"
                     },
                 )
                 self._check_response(r, "add walled garden entry")
@@ -658,22 +658,22 @@ class MikroTikClient:
         hsprof_response = await self._request("GET", "/ip/hotspot/profile")
         self._check_response(hsprof_response, "list hotspot profiles")
         hsprofs = hsprof_response.json() if isinstance(hsprof_response.json(), list) else []
-        hsprof_exists = any(p.get("name") == "zealsync-hsprof" for p in hsprofs)
+        hsprof_exists = any(p.get("name") == "Frixel Connect-hsprof" for p in hsprofs)
         if not hsprof_exists:
             r = await self._request(
                 "POST", "/ip/hotspot/profile/add",
                 json={
-                    "name": "zealsync-hsprof",
+                    "name": "Frixel Connect-hsprof",
                     "hotspot-address": gateway,
                     "login-by": "cookie,http-chap,http-pap",
-                    "dns-name": "login.zealsync.local",
+                    "dns-name": "login.Frixel Connect.local",
                     "html-directory": "hotspot",
                     "use-radius": "true",
                 },
             )
             self._check_response(r, "create hotspot profile")
         else:
-            hsprof_id = next(p.get(".id") for p in hsprofs if p.get("name") == "zealsync-hsprof")
+            hsprof_id = next(p.get(".id") for p in hsprofs if p.get("name") == "Frixel Connect-hsprof")
             r = await self._request(
                 "PATCH", f"/ip/hotspot/profile/{hsprof_id}",
                 json={"hotspot-address": gateway},
@@ -684,28 +684,28 @@ class MikroTikClient:
         hs_response = await self._request("GET", "/ip/hotspot")
         self._check_response(hs_response, "list hotspot servers")
         hs_servers = hs_response.json() if isinstance(hs_response.json(), list) else []
-        hs_exists = any(h.get("name") == "zealsync-hotspot" for h in hs_servers)
+        hs_exists = any(h.get("name") == "Frixel Connect-hotspot" for h in hs_servers)
         if not hs_exists:
             r = await self._request(
                 "POST", "/ip/hotspot/add",
                 json={
-                    "name": "zealsync-hotspot",
+                    "name": "Frixel Connect-hotspot",
                     "interface": interface,
-                    "profile": "zealsync-hsprof",
+                    "profile": "Frixel Connect-hsprof",
                     "disabled": "false",
                 },
             )
             self._check_response(r, "create hotspot server")
         else:
-            hs_id = next(h.get(".id") for h in hs_servers if h.get("name") == "zealsync-hotspot")
+            hs_id = next(h.get(".id") for h in hs_servers if h.get("name") == "Frixel Connect-hotspot")
             r = await self._request(
                 "PATCH", f"/ip/hotspot/{hs_id}",
-                json={"interface": interface, "profile": "zealsync-hsprof"},
+                json={"interface": interface, "profile": "Frixel Connect-hsprof"},
             )
             self._check_response(r, "update hotspot server interface")
 
         # ── 6. Login.html-router FETCHES from backend ──────────────────
-        # FIX [CRITICAL-2]: Router pulls its own login.html from ZealSync.
+        # FIX [CRITICAL-2]: Router pulls its own login.html from Frixel Connect.
         # The backend serves the redirect HTML at login_html_url.
         # The router runs /tool fetch to download and save it.
         # This avoids all RouterOS file path manipulation complexity.
@@ -730,16 +730,16 @@ class MikroTikClient:
         if not isinstance(radius_clients, list):
             radius_clients = []
 
-        # Remove any existing zealsync RADIUS entry before adding fresh one
+        # Remove any existing Frixel Connect RADIUS entry before adding fresh one
         for rc in radius_clients:
-            if rc.get("comment") == "zealsync-radius":
+            if rc.get("comment") == "Frixel Connect-radius":
                 rc_id = rc.get(".id")
                 if rc_id:
                     del_r = await self._request("DELETE", f"/radius/{rc_id}")
                     self._check_response(del_r, "remove old RADIUS client")
 
         tenant_prefix = str(tenant_id).replace("-", "")[:8]
-        nas_identifier = f"zealsync-{tenant_prefix}"
+        nas_identifier = f"Frixel Connect-{tenant_prefix}"
 
         # MikroTik RouterOS does NOT use 'nas-identifier' in /radius/add.
         # It sends the System Identity as the NAS-Identifier in RADIUS packets.
@@ -757,7 +757,7 @@ class MikroTikClient:
                 "service": "hotspot",
                 "address": radius_ip,
                 "secret": radius_secret,
-                "comment": "zealsync-radius",
+                "comment": "Frixel Connect-radius",
             },
         )
         self._check_response(r, "add RADIUS client")
@@ -792,7 +792,7 @@ class MikroTikClient:
         nat_exists = any(
             r.get("action") == "masquerade"
             and r.get("chain") == "srcnat"
-            and r.get("comment") == "zealsync-masquerade"
+            and r.get("comment") == "Frixel Connect-masquerade"
             for r in nat_rules
         )
 
@@ -803,7 +803,7 @@ class MikroTikClient:
                     "chain": "srcnat",
                     "action": "masquerade",
                     "src-address": target_src,
-                    "comment": "zealsync-masquerade",
+                    "comment": "Frixel Connect-masquerade",
                 },
             )
             self._check_response(r, "create NAT masquerade rule")
@@ -825,15 +825,15 @@ class MikroTikClient:
         pools_response = await self._request("GET", "/ip/pool")
         self._check_response(pools_response, "list IP pools")
         pools = pools_response.json() if isinstance(pools_response.json(), list) else []
-        pool_exists = any(p.get("name") == "zealsync-pppoe-pool" for p in pools)
+        pool_exists = any(p.get("name") == "Frixel Connect-pppoe-pool" for p in pools)
         if not pool_exists:
             r = await self._request(
                 "POST", "/ip/pool/add",
-                json={"name": "zealsync-pppoe-pool", "ranges": f"{pool_start}-{pool_end}"},
+                json={"name": "Frixel Connect-pppoe-pool", "ranges": f"{pool_start}-{pool_end}"},
             )
             self._check_response(r, "create PPPoE IP pool")
         else:
-            pool_id = next(p.get(".id") for p in pools if p.get("name") == "zealsync-pppoe-pool")
+            pool_id = next(p.get(".id") for p in pools if p.get("name") == "Frixel Connect-pppoe-pool")
             r = await self._request(
                 "PATCH", f"/ip/pool/{pool_id}",
                 json={"ranges": f"{pool_start}-{pool_end}"},
@@ -844,26 +844,26 @@ class MikroTikClient:
         ppp_prof_response = await self._request("GET", "/ppp/profile")
         self._check_response(ppp_prof_response, "list PPP profiles")
         ppp_profs = ppp_prof_response.json() if isinstance(ppp_prof_response.json(), list) else []
-        ppp_prof_exists = any(p.get("name") == "zealsync-pppoe-prof" for p in ppp_profs)
+        ppp_prof_exists = any(p.get("name") == "Frixel Connect-pppoe-prof" for p in ppp_profs)
         if not ppp_prof_exists:
             r = await self._request(
                 "POST", "/ppp/profile/add",
                 json={
-                    "name": "zealsync-pppoe-prof",
+                    "name": "Frixel Connect-pppoe-prof",
                     "local-address": local_address,
-                    "remote-address": "zealsync-pppoe-pool",
+                    "remote-address": "Frixel Connect-pppoe-pool",
                     "use-upnp": "yes",
                     "change-tcp-mss": "yes",
                 },
             )
             self._check_response(r, "create PPPoE profile")
         else:
-            ppp_prof_id = next(p.get(".id") for p in ppp_profs if p.get("name") == "zealsync-pppoe-prof")
+            ppp_prof_id = next(p.get(".id") for p in ppp_profs if p.get("name") == "Frixel Connect-pppoe-prof")
             r = await self._request(
                 "PATCH", f"/ppp/profile/{ppp_prof_id}",
                 json={
                     "local-address": local_address,
-                    "remote-address": "zealsync-pppoe-pool",
+                    "remote-address": "Frixel Connect-pppoe-pool",
                 },
             )
             self._check_response(r, "update PPPoE profile addresses")
@@ -872,27 +872,27 @@ class MikroTikClient:
         pppoe_srv_response = await self._request("GET", "/interface/pppoe-server/server")
         self._check_response(pppoe_srv_response, "list PPPoE servers")
         pppoe_servers = pppoe_srv_response.json() if isinstance(pppoe_srv_response.json(), list) else []
-        server_exists = any(s.get("service-name") == "zealsync-pppoe" for s in pppoe_servers)
+        server_exists = any(s.get("service-name") == "Frixel Connect-pppoe" for s in pppoe_servers)
         if not server_exists:
             # FIX: Corrected REST path from /interface/pppoe-server/server
             # to /interface/pppoe-server/server (same but confirmed working path)
             r = await self._request(
                 "POST", "/interface/pppoe-server/server/add",
                 json={
-                    "service-name": "zealsync-pppoe",
+                    "service-name": "Frixel Connect-pppoe",
                     "interface": interface,
-                    "default-profile": "zealsync-pppoe-prof",
+                    "default-profile": "Frixel Connect-pppoe-prof",
                     "disabled": "false",
                 },
             )
             self._check_response(r, "create PPPoE server")
         else:
-            srv_id = next(s.get(".id") for s in pppoe_servers if s.get("service-name") == "zealsync-pppoe")
+            srv_id = next(s.get(".id") for s in pppoe_servers if s.get("service-name") == "Frixel Connect-pppoe")
             r = await self._request(
                 "PATCH", f"/interface/pppoe-server/server/{srv_id}",
                 json={
                     "interface": interface,
-                    "default-profile": "zealsync-pppoe-prof",
+                    "default-profile": "Frixel Connect-pppoe-prof",
                 },
             )
             self._check_response(r, "update PPPoE server interface")
@@ -908,7 +908,7 @@ class MikroTikClient:
                 "chain": "srcnat",
                 "action": "masquerade",
                 "src-address": target_src,
-                "comment": "zealsync-pppoe-masquerade",
+                "comment": "Frixel Connect-pppoe-masquerade",
             },
         )
         self._check_response(r, "create PPPoE NAT masquerade")

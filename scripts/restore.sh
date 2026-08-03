@@ -23,18 +23,18 @@ echo "Target DB:   $DB_NAME"
 echo "=========================================================="
 
 echo "[1/3] Terminating existing connections and dropping/creating target DB..."
-docker compose exec -T db psql -U zealnet -d postgres -c "
+docker compose exec -T db psql -U frixel -d postgres -c "
     SELECT pg_terminate_backend(pg_stat_activity.pid)
     FROM pg_stat_activity
     WHERE pg_stat_activity.datname = '$DB_NAME' AND pid <> pg_backend_pid();
 " > /dev/null 2>&1 || true
 
-docker compose exec -T db psql -U zealnet -d postgres -c "DROP DATABASE IF EXISTS $DB_NAME;"
-docker compose exec -T db psql -U zealnet -d postgres -c "CREATE DATABASE $DB_NAME;"
+docker compose exec -T db psql -U frixel -d postgres -c "DROP DATABASE IF EXISTS $DB_NAME;"
+docker compose exec -T db psql -U frixel -d postgres -c "CREATE DATABASE $DB_NAME;"
 
 echo "[2/3] Extracting and importing data into $DB_NAME..."
 # gunzip streams the decompressed sql directly into the container's psql process
-gunzip -c "$FILE" | docker compose exec -T db psql -U zealnet -d "$DB_NAME" > /dev/null
+gunzip -c "$FILE" | docker compose exec -T db psql -U frixel -d "$DB_NAME" > /dev/null
 
 echo "[3/3] Restore complete! You can connect to verify:"
-echo "docker compose exec db psql -U zealnet -d $DB_NAME"
+echo "docker compose exec db psql -U frixel -d $DB_NAME"

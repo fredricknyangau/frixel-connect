@@ -105,7 +105,7 @@ export default function PackagesPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Packages | ZealSync Admin" />
+      <PageTitle title="Packages | Frixel Connect Admin" />
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

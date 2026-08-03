@@ -1,17 +1,17 @@
-# ZealSync API Reference Documentation
+# Frixel Connect API Reference Documentation
 
-Welcome to the ZealSync API Reference. This document provides complete contract specifications for the REST API endpoints of the ZealSync multi-tenant WiFi billing platform. It contains exact request and response schemas, HTTP status codes, validation rules, webhook callback definitions, and real-world examples using realistic Kenyan test data.
+Welcome to the Frixel Connect API Reference. This document provides complete contract specifications for the REST API endpoints of the Frixel Connect multi-tenant WiFi billing platform. It contains exact request and response schemas, HTTP status codes, validation rules, webhook callback definitions, and real-world examples using realistic Kenyan test data.
 
 ---
 
 ## 1. Base Information
 
 ### Base URLs
-* **Production API Gateway:** `https://api.zealsync.co.ke/api/v1`
+* **Production API Gateway:** `https://api.Frixel Connect.co.ke/api/v1`
 * **Local Development Environment:** `http://localhost:8000/api/v1`
 
 ### Authentication
-ZealSync secures its API using JSON Web Tokens (JWT). All authenticated endpoints require the client to supply an `Authorization` header containing a valid Bearer token.
+Frixel Connect secures its API using JSON Web Tokens (JWT). All authenticated endpoints require the client to supply an `Authorization` header containing a valid Bearer token.
 
 ```http
 Authorization: Bearer <access_token>
@@ -28,21 +28,21 @@ All write requests (`POST`, `PUT`, `PATCH`) must specify:
 The request body must consist of valid JSON. All response payloads return `Content-Type: application/json`.
 
 ### Rate Limiting
-ZealSync implements a Redis-backed sliding window rate limiter to protect sensitive or resource-intensive endpoints from brute-force attacks and abuse.
+Frixel Connect implements a Redis-backed sliding window rate limiter to protect sensitive or resource-intensive endpoints from brute-force attacks and abuse.
 * **Limiter Scoping:** Scoped by the client's public IP address per endpoint.
 * **Login Endpoint (`POST /auth/login`):** Maximum **5 requests per 60 seconds**.
 * **STK Push Endpoints (`POST /payments/stk` and `POST /portal/payments/stk`):** Maximum **3 requests per 60 seconds**.
 * **Rate-Limit Failure Behavior:** Exceeding these thresholds results in an HTTP `429 Too Many Requests` response.
 
 ### Timezone Representation
-* **Database & API payload Storage:** All timestamps in ZealSync are stored and serialized as **UTC** (ISO 8601 extended format: `YYYY-MM-DDTHH:mm:ss.SSSSSS+00:00`).
+* **Database & API payload Storage:** All timestamps in Frixel Connect are stored and serialized as **UTC** (ISO 8601 extended format: `YYYY-MM-DDTHH:mm:ss.SSSSSS+00:00`).
 * **Display Requirement:** Frontend applications should convert and render these timestamps in the local timezone of the ISP operation: **Africa/Nairobi (EAT, UTC+3)**.
 
 ---
 
 ## 2. Error Response Format
 
-ZealSync returns structured JSON payloads for all error responses. Each response includes a top-level `detail` string or array explaining the failure.
+Frixel Connect returns structured JSON payloads for all error responses. Each response includes a top-level `detail` string or array explaining the failure.
 
 ### HTTP 400 Bad Request
 Occurs when the request format is correct but the business logic rejects the operation (e.g. attempting to retry provisioning a voucher that is already active).
@@ -64,7 +64,7 @@ Returned when credentials are missing, expired, or invalid. The response include
 Returned when authentication succeeds but the user's role is not allowed to access the resource, or when the tenant status blocks login (e.g. account suspended due to non-payment).
 ```json
 {
-  "detail": "Your ZealSync account has been suspended due to an unpaid invoice. Please contact ZealSync support."
+  "detail": "Your Frixel Connect account has been suspended due to an unpaid invoice. Please contact Frixel Connect support."
 }
 ```
 
@@ -206,7 +206,7 @@ Returned when an unexpected backend failure occurs. Under `DEBUG=True` local set
 * **Error Cases:**
   * `401 Unauthorized`: Token is invalid, expired, or reuse is detected (token family theft detection).
   * `403 Forbidden`: Tenant has been suspended or deactivated since the token was issued.
-* **Notes:** ZealSync implements Token Family Rotation. If a revoked refresh token is reused, the entire family is immediately revoked, forcing the legitimate user to re-authenticate.
+* **Notes:** Frixel Connect implements Token Family Rotation. If a revoked refresh token is reused, the entire family is immediately revoked, forcing the legitimate user to re-authenticate.
 
 ---
 
@@ -590,7 +590,7 @@ Returned when an unexpected backend failure occurs. Under `DEBUG=True` local set
 }
 ```
 * **Critical Design Note:** This endpoint **does not hard-delete** the user row. Doing so would violate transactional integrity because payments and vouchers reference the user via foreign keys. Instead, it anonymizes the fields:
-  * `email` is updated to a randomized string (e.g. `deleted-7a2b109c@zealsync.internal`).
+  * `email` is updated to a randomized string (e.g. `deleted-7a2b109c@Frixel Connect.internal`).
   * `phone` is updated to a dummy placeholder (e.g. `254000000000`).
   * `hashed_password` is overwritten with an unusable value.
   * `is_active` is set to `false`.
@@ -882,7 +882,7 @@ https://portal.kamaunet.co.ke/?mac=AA:BB:CC:DD:EE:FF&ip=10.5.50.123&link-login=h
 sequenceDiagram
     participant Guest as Client Device
     participant Portal as React Captive Portal
-    participant API as ZealSync API
+    participant API as Frixel Connect API
     participant Router as MikroTik Router (v7)
 
     Guest->>Router: Try to browse internet
@@ -1029,7 +1029,7 @@ Resellers sell vouchers to walk-in clients. They top up their wallets via M-Pesa
 
 ## 11. Subscriptions Endpoints
 
-ZealSync supports PPPoE home fiber subscriptions in addition to hotspot vouchers. PPPoE user sessions are managed through FreeRADIUS check/reply queries matching these subscription tables.
+Frixel Connect supports PPPoE home fiber subscriptions in addition to hotspot vouchers. PPPoE user sessions are managed through FreeRADIUS check/reply queries matching these subscription tables.
 
 ### GET /subscriptions/me
 * **Description:** Retrieves the active customer's PPPoE subscription status, packages, and expiry date.
@@ -1116,7 +1116,7 @@ ZealSync supports PPPoE home fiber subscriptions in addition to hotspot vouchers
 
 ## 12. Invoices Endpoints
 
-ZealSync supports Kenya Revenue Authority (KRA) eTIMS compliant invoice generation.
+Frixel Connect supports Kenya Revenue Authority (KRA) eTIMS compliant invoice generation.
 
 ### GET /invoices/me
 * **Description:** Retrieves all billing invoices issued to the authenticated customer.
@@ -1130,8 +1130,8 @@ ZealSync supports Kenya Revenue Authority (KRA) eTIMS compliant invoice generati
     "payment_id": "cb1c8a02-8321-4db8-8422-48c5a4d46f5d",
     "invoice_number": 20001,
     "kra_etims_qr_code": "https://etims.kra.go.ke/verify/invoice/qr...",
-    "pdf_path": "/var/www/zealsync/media/invoices/9b1deb/inv_20001.pdf",
-    "pdf_url": "https://api.zealsync.co.ke/media/invoices/inv_20001.pdf",
+    "pdf_path": "/var/www/Frixel Connect/media/invoices/9b1deb/inv_20001.pdf",
+    "pdf_url": "https://api.Frixel Connect.co.ke/media/invoices/inv_20001.pdf",
     "amount_kes": "50.00",
     "created_at": "2026-06-20T21:46:00.000000+00:00"
   }
@@ -1218,8 +1218,8 @@ graph TD
 ```json
 {
   "router_id": "7b7a109c-2831-4db8-8422-48c5a4d46f5d",
-  "zealsync_server_endpoint": "wg.zealsync.co.ke:51820",
-  "zealsync_public_key": "ZealSyncServerWGPublicKeyBase64String=",
+  "Frixel Connect_server_endpoint": "wg.Frixel Connect.co.ke:51820",
+  "Frixel Connect_public_key": "Frixel ConnectServerWGPublicKeyBase64String=",
   "assigned_ip": "10.8.0.5",
   "server_wg_ip": "10.8.0.1"
 }
@@ -1228,7 +1228,7 @@ graph TD
 ---
 
 ### POST /admin/routers/onboarding/register-peer
-* **Description:** Registers the MikroTik's WireGuard public key on the ZealSync server to establish the routing handshake.
+* **Description:** Registers the MikroTik's WireGuard public key on the Frixel Connect server to establish the routing handshake.
 * **Auth Required:** Yes (`admin` only).
 * **Request Body Example:**
 ```json
@@ -1272,7 +1272,7 @@ graph TD
 ```json
 {
   "router_id": "7b7a109c-2831-4db8-8422-48c5a4d46f5d",
-  "username": "zealsync_admin",
+  "username": "Frixel Connect_admin",
   "password": "RouterOSAPISecretPassword",
   "port": 80
 }
@@ -1288,7 +1288,7 @@ graph TD
 ---
 
 ### POST /admin/routers/onboarding/test-api
-* **Description:** Verifies that the ZealSync server can authenticate and query the MikroTik REST API over the established WireGuard VPN tunnel.
+* **Description:** Verifies that the Frixel Connect server can authenticate and query the MikroTik REST API over the established WireGuard VPN tunnel.
 * **Auth Required:** Yes (`admin` only).
 * **Request Body Example:**
 ```json
@@ -1372,12 +1372,12 @@ graph TD
     "name": "Nairobi CBD Node",
     "host": "10.8.0.5",
     "port": 80,
-    "username": "zealsync_admin",
+    "username": "Frixel Connect_admin",
     "site_name": "Kimathi Street Plaza",
     "status": "online",
     "last_heartbeat_at": "2026-06-20T21:45:00.000000+00:00",
     "created_at": "2026-06-20T21:00:00.000000+00:00",
-    "wireguard_public_key": "ZealSyncServerWGPublicKeyBase64String=",
+    "wireguard_public_key": "Frixel ConnectServerWGPublicKeyBase64String=",
     "wireguard_assigned_ip": "10.8.0.5",
     "wireguard_peer_public_key": "MikrotikClientWGPublicKeyBase64String="
   }
@@ -1493,7 +1493,7 @@ graph TD
 ---
 
 ### POST /tenants/me/billing/pay-now
-* **Description:** Triggers an M-Pesa STK Push on the owner's billing phone number to pay the ZealSync platform monthly subscription fee.
+* **Description:** Triggers an M-Pesa STK Push on the owner's billing phone number to pay the Frixel Connect platform monthly subscription fee.
 * **Auth Required:** Yes (`admin` only).
 * **Response (HTTP 202 Accepted):**
 ```json

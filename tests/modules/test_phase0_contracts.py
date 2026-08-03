@@ -13,7 +13,7 @@ from tests.conftest import DEFAULT_TENANT_ID, TEST_PASSWORD
 
 
 async def _seed_customer_subscription(conn: asyncpg.Connection):
-    customer = await conn.fetchrow("SELECT id FROM users WHERE email = $1", "customer@zealsync.dev")
+    customer = await conn.fetchrow("SELECT id FROM users WHERE email = $1", "customer@Frixel Connect.dev")
     package = await conn.fetchrow("SELECT id FROM packages WHERE name = $1", "Daily 10Mbps")
     sub_id = await conn.fetchval(
         """
@@ -45,14 +45,14 @@ def _admin_headers(conn_user_id: str) -> dict:
 
 @pytest.mark.asyncio
 async def test_admin_reseller_endpoint(client: TestClient, conn: asyncpg.Connection):
-    admin_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "admin@zealsync.dev")
-    reseller_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "reseller@zealsync.dev")
-    customer_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "customer@zealsync.dev")
+    admin_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "admin@Frixel Connect.dev")
+    reseller_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "reseller@Frixel Connect.dev")
+    customer_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "customer@Frixel Connect.dev")
 
     resp = client.post(
         "/api/v1/admin/resellers",
         json={
-            "email": "new_reseller@zealsync.dev",
+            "email": "new_reseller@Frixel Connect.dev",
             "phone": "254711123456",
             "password": TEST_PASSWORD,
         },
@@ -67,7 +67,7 @@ async def test_admin_reseller_endpoint(client: TestClient, conn: asyncpg.Connect
     customer_token = create_access_token(str(customer_id), "customer", DEFAULT_TENANT_ID)
 
     forbidden_payload = {
-        "email": "blocked_reseller@zealsync.dev",
+        "email": "blocked_reseller@Frixel Connect.dev",
         "phone": "254711123457",
         "password": TEST_PASSWORD,
     }
@@ -105,7 +105,7 @@ async def test_customer_subscription_me_get_and_update(client: TestClient, conn:
 
 @pytest.mark.asyncio
 async def test_customer_invoices_me_are_scoped(client: TestClient, conn: asyncpg.Connection):
-    customer_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "customer@zealsync.dev")
+    customer_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "customer@Frixel Connect.dev")
     package_id = await conn.fetchval("SELECT id FROM packages WHERE name = $1", "Daily 10Mbps")
     payment_id = await conn.fetchval(
         """
@@ -133,7 +133,7 @@ async def test_customer_invoices_me_are_scoped(client: TestClient, conn: asyncpg
 
 @pytest.mark.asyncio
 async def test_tenant_me_includes_usage_and_billing_fields(client: TestClient, conn: asyncpg.Connection):
-    admin_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "admin@zealsync.dev")
+    admin_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "admin@Frixel Connect.dev")
     resp = client.get("/api/v1/tenants/me", headers=_admin_headers(str(admin_id)))
 
     assert resp.status_code == 200
@@ -151,7 +151,7 @@ async def test_tenant_billing_pay_now_creates_platform_payment(
     conn: asyncpg.Connection,
 ):
     mock_daraja.stk_push = AsyncMock(return_value={"CheckoutRequestID": "PLATFORM-CHECKOUT-1"})
-    admin_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "admin@zealsync.dev")
+    admin_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "admin@Frixel Connect.dev")
 
     resp = client.post("/api/v1/tenants/me/billing/pay-now", headers=_admin_headers(str(admin_id)))
     assert resp.status_code == 202
@@ -174,7 +174,7 @@ async def test_voucher_generation_does_not_call_mikrotik_hotspot_user(
     mock_generate_hotspot_user,
     conn: asyncpg.Connection,
 ):
-    customer_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "customer@zealsync.dev")
+    customer_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", "customer@Frixel Connect.dev")
     package_id = await conn.fetchval("SELECT id FROM packages WHERE name = $1", "Daily 10Mbps")
     payment_id = await conn.fetchval(
         """

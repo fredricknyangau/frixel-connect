@@ -10,9 +10,9 @@ export const ROUTEROS_COMMANDS = {
       const endpointParts = params.serverEndpoint.split(':');
       const host = endpointParts[0];
       const port = endpointParts[1] || '51820';
-      return `/interface wireguard add name=wg-zealsync
+      return `/interface wireguard add name=wg-Frixel Connect
 /interface wireguard peers add \\
-  interface=wg-zealsync \\
+  interface=wg-Frixel Connect \\
   public-key="${params.serverPublicKey}" \\
   endpoint-address=${host} \\
   endpoint-port=${port} \\
@@ -20,14 +20,14 @@ export const ROUTEROS_COMMANDS = {
   persistent-keepalive=25s
 /ip address add \\
   address=${params.assignedIp.split('/')[0]}/24 \\
-  interface=wg-zealsync`;
+  interface=wg-Frixel Connect`;
     },
     get_public_key: `/interface wireguard print
-# Look for the 'public-key' column under the 'wg-zealsync' interface`,
-    create_api_user: (password: string) => `/user group add name=zealsync-api-group policy=api,read,write,test,rest-api
-/user add name=zealsync-api \\
+# Look for the 'public-key' column under the 'wg-Frixel Connect' interface`,
+    create_api_user: (password: string) => `/user group add name=Frixel Connect-api-group policy=api,read,write,test,rest-api
+/user add name=Frixel Connect-api \\
   password=${password} \\
-  group=zealsync-api-group`,
+  group=Frixel Connect-api-group`,
     enable_rest_api: (port: number) => `/ip service enable www
 /ip service set www port=${port}`,
     create_hotspot_profile: (name: string, rateLimit: string) => `/ip hotspot user profile add name="${name}" rate-limit="${rateLimit}"`,
@@ -36,13 +36,13 @@ export const ROUTEROS_COMMANDS = {
   },
   v6: {
     wireguard_setup: () => `# WireGuard is NOT supported natively on RouterOS v6.
-# You must upgrade your router to RouterOS v7 to use ZealSync VPN onboarding.
+# You must upgrade your router to RouterOS v7 to use Frixel Connect VPN onboarding.
 # Alternatively, configure a custom SSTP/PPTP/L2TP client to 10.8.0.1 manually.`,
     get_public_key: `# WireGuard not supported on v6. No public key available.`,
-    create_api_user: (password: string) => `/user group add name=zealsync-api-group policy=api,read,write,test
-/user add name=zealsync-api \\
+    create_api_user: (password: string) => `/user group add name=Frixel Connect-api-group policy=api,read,write,test
+/user add name=Frixel Connect-api \\
   password=${password} \\
-  group=zealsync-api-group`,
+  group=Frixel Connect-api-group`,
     enable_router_api: (port: number) => `/ip service enable api
 /ip service set api port=${port}`,
     create_hotspot_profile: (name: string, rateLimit: string) => `/ip hotspot user profile add name="${name}" rate-limit="${rateLimit}"`,
@@ -55,24 +55,24 @@ export const WINBOX_PATHS = {
   v7: {
     wireguard: `1. Go to "WireGuard" tab in sidebar
 2. Click "+" (Add New)
-3. Set Name to: wg-zealsync. Click Apply/OK
+3. Set Name to: wg-Frixel Connect. Click Apply/OK
 4. Go to "Peers" sub-tab, click "+" (Add New)
-5. Select Interface: wg-zealsync
+5. Select Interface: wg-Frixel Connect
 6. Paste Public Key, Endpoint, Endpoint Port (51820)
 7. Set Allowed IPs to: 10.8.0.1/32
 8. Set Persistent Keepalive to: 25
 9. Click OK
 10. Go to "IP" -> "Addresses", click "+" (Add New)
 11. Set Address to: [YOUR_ASSIGNED_IP]/24
-12. Select Interface: wg-zealsync. Click OK`,
+12. Select Interface: wg-Frixel Connect. Click OK`,
     get_public_key: `1. Go to "WireGuard" tab in sidebar
-2. Double-click "wg-zealsync" interface
+2. Double-click "wg-Frixel Connect" interface
 3. Copy the value in the "Public Key" field`,
     api_user: `1. Go to "System" -> "Users"
 2. Click "Groups" tab, click "+" (Add New)
-3. Name: zealsync-api-group, check: api, read, write, test, rest-api. Click OK
+3. Name: Frixel Connect-api-group, check: api, read, write, test, rest-api. Click OK
 4. Click "Users" tab, click "+" (Add New)
-5. Name: zealsync-api, Group: zealsync-api-group, Password: [YOUR_PASSWORD]. Click OK`,
+5. Name: Frixel Connect-api, Group: Frixel Connect-api-group, Password: [YOUR_PASSWORD]. Click OK`,
     enable_rest_api: `1. Go to "IP" -> "Services"
 2. Select "www", click the Green Checkmark to Enable
 3. Double-click "www" to change Port to 80 (or desired port)`,
@@ -87,9 +87,9 @@ export const WINBOX_PATHS = {
     get_public_key: `Not supported on RouterOS v6.`,
     api_user: `1. Go to "System" -> "Users"
 2. Click "Groups" tab, click "+" (Add New)
-3. Name: zealsync-api-group, check: api, read, write, test. Click OK
+3. Name: Frixel Connect-api-group, check: api, read, write, test. Click OK
 4. Click "Users" tab, click "+" (Add New)
-5. Name: zealsync-api, Group: zealsync-api-group, Password: [YOUR_PASSWORD]. Click OK`,
+5. Name: Frixel Connect-api, Group: Frixel Connect-api-group, Password: [YOUR_PASSWORD]. Click OK`,
     enable_router_api: `1. Go to "IP" -> "Services"
 2. Select "api" (Port 8728), click the Green Checkmark to Enable
 3. (Do NOT enable www REST API as it is not supported in RouterOS v6)`,

@@ -1,12 +1,12 @@
 # System Architecture and Component Design
 
-This document details the system design, core components, request sequence flows, and architectural constraints of ZealSync.
+This document details the system design, core components, request sequence flows, and architectural constraints of Frixel Connect.
 
 ---
 
 ## 1. System Overview
 
-ZealSync is a multi-tenant WiFi billing SaaS platform built on a modular monolith backend (FastAPI) and a single-page frontend (React 19). It automates payment collection and service provisioning for small and medium ISPs in Kenya. The platform handles user authentication, billing, payments via Safaricom M-Pesa, SMS delivery via Africa's Talking, KRA eTIMS invoice generation, and real-time session control on remote MikroTik routers. Secure router connections are established through kernel-level WireGuard VPN tunnels, and user authentication is handled via a PostgreSQL-backed FreeRADIUS setup.
+Frixel Connect is a multi-tenant WiFi billing SaaS platform built on a modular monolith backend (FastAPI) and a single-page frontend (React 19). It automates payment collection and service provisioning for small and medium ISPs in Kenya. The platform handles user authentication, billing, payments via Safaricom M-Pesa, SMS delivery via Africa's Talking, KRA eTIMS invoice generation, and real-time session control on remote MikroTik routers. Secure router connections are established through kernel-level WireGuard VPN tunnels, and user authentication is handled via a PostgreSQL-backed FreeRADIUS setup.
 
 ---
 
@@ -303,20 +303,20 @@ app/
 
 ## 6. Multi-Tenancy Design
 
-ZealSync implements a logical multi-tenancy model where multiple independent ISPs (tenants) share the same application instance and database.
+Frixel Connect implements a logical multi-tenancy model where multiple independent ISPs (tenants) share the same application instance and database.
 
 * **Tenant Isolation**: Every database table that holds tenant-specific data contains a `tenant_id` column referencing `tenants.id`.
 * **JWT Scoping**: When an admin or reseller authenticates, their token contains their profile ID and their company's `tenant_id`.
 * **Dependency Scoping**: FastAPI endpoint protection utilizes the `get_current_tenant_id` dependency. This extracts the `tenant_id` claim from the JWT, ensuring that database updates are constrained using a `WHERE tenant_id = :tenant_id` clause.
 * **Security Scoping**: If a user attempts to retrieve an resource ID belonging to another tenant (e.g. `GET /vouchers/some-other-tenant-uuid`), the system returns a `404 Not Found` instead of a `403 Forbidden`. This prevents resource enumeration and limits scanning vector visibility.
 * **Onboarding Flow**: Tenants onboard via the public registration API: `POST /api/v1/tenants/register`. This creates the tenant profile, seeds their administrator account, and sets up default routing profiles.
-* **Platform Billing**: ZealSync meters active users per tenant against their subscription tier limits. If a tenant's billing cycle expires, a daily midnight cron initiates a Safaricom STK Push to their registered owner phone. If unpaid past a 7-day grace period, the tenant's status changes to `suspended` and all requests are blocked.
+* **Platform Billing**: Frixel Connect meters active users per tenant against their subscription tier limits. If a tenant's billing cycle expires, a daily midnight cron initiates a Safaricom STK Push to their registered owner phone. If unpaid past a 7-day grace period, the tenant's status changes to `suspended` and all requests are blocked.
 
 ---
 
 ## 7. Reliability Design
 
-To meet the core guarantee that payments always result in vouchers, ZealSync implements four fault-tolerance layers:
+To meet the core guarantee that payments always result in vouchers, Frixel Connect implements four fault-tolerance layers:
 
 ```text
 Incoming Webhook

@@ -1,8 +1,8 @@
 import { DecodedToken, UserRole } from '../types/auth';
 
-const TOKEN_KEY = (tenantId: string) => `zealsync_token_${tenantId}`;
-const REFRESH_KEY = (tenantId: string) => `zealsync_refresh_${tenantId}`;
-export const ACTIVE_TENANT_KEY = 'zealsync_active_tenant';
+const TOKEN_KEY = (tenantId: string) => `Frixel Connect_token_${tenantId}`;
+const REFRESH_KEY = (tenantId: string) => `Frixel Connect_refresh_${tenantId}`;
+export const ACTIVE_TENANT_KEY = 'Frixel Connect_active_tenant';
 
 // SECURITY: localStorage is vulnerable to XSS. An injected script can read tokens.
 // v2: switch to httpOnly cookies set by the backend.
@@ -38,10 +38,10 @@ export function clearToken(): void {
 
 export function clearAllTenantTokens(): void {
   Object.keys(localStorage)
-    .filter((k) => k.startsWith('zealsync_token_'))
+    .filter((k) => k.startsWith('Frixel Connect_token_'))
     .forEach((k) => localStorage.removeItem(k));
   Object.keys(localStorage)
-    .filter((k) => k.startsWith('zealsync_refresh_'))
+    .filter((k) => k.startsWith('Frixel Connect_refresh_'))
     .forEach((k) => localStorage.removeItem(k));
   localStorage.removeItem(ACTIVE_TENANT_KEY);
 }

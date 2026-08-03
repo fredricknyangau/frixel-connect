@@ -38,7 +38,8 @@ COPY --chown=appuser:appgroup . .
 
 USER appuser
 
+ENV PORT=8000
 EXPOSE 8000
 
-# Default command-overridden per-service in docker-compose.yml
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Works both locally (default 8000) and on Render (PORT is set dynamically)
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1}"]

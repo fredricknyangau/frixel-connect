@@ -1,6 +1,6 @@
 # CHR Magic Command Testing Guide
 
-**ZealSync Magic Command Router Onboarding-MikroTik CHR on VirtualBox**
+**Frixel Connect Magic Command Router Onboarding-MikroTik CHR on VirtualBox**
 
 This document walks through the complete end-to-end test of the Magic Command
 onboarding flow using MikroTik CHR (Cloud Hosted Router) running in VirtualBox.
@@ -40,7 +40,7 @@ Settings → Network → Adapter 2 → Host-Only Adapter → vboxnet0.
 ```bash
 # SSH into CHR from Ubuntu
 ssh admin@192.168.56.100
-# Enter the CHR admin password when prompted (e.g., ZealNet2026)
+# Enter the CHR admin password when prompted (e.g., frixel2026)
 
 # If you get "Connection refused", check CHR's IP:
 # In Winbox or CHR console: /ip address print
@@ -51,8 +51,8 @@ ssh admin@192.168.56.100
 
 ```bash
 # From Ubuntu, test CHR REST API
-# Replace 'ZealNet2026' with your actual CHR admin password if different
-curl -s -u admin:ZealNet2026 http://192.168.56.100/rest/ip/hotspot/user/profile | python3 -m json.tool
+# Replace 'frixel2026' with your actual CHR admin password if different
+curl -s -u admin:frixel2026 http://192.168.56.100/rest/ip/hotspot/user/profile | python3 -m json.tool
 # Expected: JSON array (may be empty [] if no profiles yet)
 ```
 
@@ -66,7 +66,7 @@ The `www` service should be enabled with port 80. If disabled:
 /ip service set www port=80
 ```
 
-### 1.4 ZealSync Backend Running
+### 1.4 Frixel Connect Backend Running
 
 ```bash
 # From Ubuntu
@@ -135,10 +135,10 @@ The button shows a spinner briefly, then the **command step** appears with:
 
 The command should look like:
 ```
-/tool fetch url="http://192.168.56.1:8000/api/v1/setup/XXXXXXXXXXXXXXXXXXXXXXXXXX" dst-path=zealsync-setup.rsc mode=http; /import zealsync-setup.rsc
+/tool fetch url="http://192.168.56.1:8000/api/v1/setup/XXXXXXXXXXXXXXXXXXXXXXXXXX" dst-path=Frixel Connect-setup.rsc mode=http; /import Frixel Connect-setup.rsc
 ```
 
-⚠️ **CHR:** Note `http://` (not `https://`) and `192.168.56.1:8000` (not `api.zealsync.dev`).
+⚠️ **CHR:** Note `http://` (not `https://`) and `192.168.56.1:8000` (not `api.Frixel Connect.dev`).
 
 ### 2.4 Copy the Command
 
@@ -153,7 +153,7 @@ Click **"Copy Command"**. The button changes to **"Copied! ✓"** for 2 seconds.
 ```bash
 # From Ubuntu
 ssh admin@192.168.56.100
-# Enter your CHR admin password (e.g., ZealNet2026)
+# Enter your CHR admin password (e.g., frixel2026)
 ```
 
 ### 3.2 Paste and Execute
@@ -161,7 +161,7 @@ ssh admin@192.168.56.100
 Paste the copied command and press Enter:
 
 ```
-[admin@MikroTik] > /tool fetch url="http://192.168.56.1:8000/api/v1/setup/XXXXXXXX..." dst-path=zealsync-setup.rsc mode=http; /import zealsync-setup.rsc
+[admin@MikroTik] > /tool fetch url="http://192.168.56.1:8000/api/v1/setup/XXXXXXXX..." dst-path=Frixel Connect-setup.rsc mode=http; /import Frixel Connect-setup.rsc
 ```
 
 ### 3.3 Expected Output Sequence
@@ -172,23 +172,23 @@ Paste the copied command and press Enter:
       status: verifying content...
       status: downloading...
          url: http://192.168.56.1:8000/api/v1/setup/XXXXXXXX...
-   file-name: zealsync-setup.rsc
+   file-name: Frixel Connect-setup.rsc
 
-Opening script file zealsync-setup.rsc
+Opening script file Frixel Connect-setup.rsc
 Script file loaded and executed successfully
 ```
 
 After the import starts, you'll see log entries (check with `/log print`):
 ```
-ZealSync: Starting auto-configuration for router: CHR Test 01
-ZealSync: CHR mode - skipping WireGuard setup (same-machine networking)
-ZealSync: Creating API user and permissions group...
-ZealSync: Enabling REST API on port 80...
-ZealSync: Creating hotspot speed profiles...
-ZealSync: Configuring API firewall rule (CHR host-only mode)...
-ZealSync: Setting router identity...
-ZealSync: Notifying ZealSync server of successful setup...
-ZealSync: Setup complete! Router is now connected to ZealSync.
+Frixel Connect: Starting auto-configuration for router: CHR Test 01
+Frixel Connect: CHR mode - skipping WireGuard setup (same-machine networking)
+Frixel Connect: Creating API user and permissions group...
+Frixel Connect: Enabling REST API on port 80...
+Frixel Connect: Creating hotspot speed profiles...
+Frixel Connect: Configuring API firewall rule (CHR host-only mode)...
+Frixel Connect: Setting router identity...
+Frixel Connect: Notifying Frixel Connect server of successful setup...
+Frixel Connect: Setup complete! Router is now connected to Frixel Connect.
 ```
 
 ### 3.4 Troubleshooting the Fetch Step
@@ -214,26 +214,26 @@ After the script runs, verify in the CHR SSH session:
 ### 4.1 API User Created
 
 ```
-/user print where name=zealsync-api
+/user print where name=Frixel Connect-api
 ```
 
 **Expected:**
 ```
 Flags: X - disabled
  #   NAME         GROUP              LAST-LOGGED-IN
- 0   zealsync-api zealsync-api-group never
+ 0   Frixel Connect-api Frixel Connect-api-group never
 ```
 
 ### 4.2 API User Group Created
 
 ```
-/user group print where name=zealsync-api-group
+/user group print where name=Frixel Connect-api-group
 ```
 
 **Expected:**
 ```
  # NAME               POLICY
- 0 zealsync-api-group api,read,write,test,...
+ 0 Frixel Connect-api-group api,read,write,test,...
 ```
 
 ### 4.3 REST API Enabled
@@ -270,12 +270,12 @@ The row should NOT have `X` at the start (X means disabled).
 ### 4.5 Firewall Rule Added
 
 ```
-/ip firewall filter print where comment~"ZealSync"
+/ip firewall filter print where comment~"Frixel Connect"
 ```
 
 **Expected:**
 ```
- 0  chain=input action=accept protocol=tcp src-address=192.168.56.0/24 dst-port=80 comment="ZealSync API access from dev host"
+ 0  chain=input action=accept protocol=tcp src-address=192.168.56.0/24 dst-port=80 comment="Frixel Connect API access from dev host"
 ```
 
 ⚠️ **CHR:** The source address is `192.168.56.0/24` (host-only network).
@@ -289,13 +289,13 @@ For a physical MikroTik in production, this would be `10.8.0.1/32` (WG VPN IP).
 
 **Expected:**
 ```
-name: zealsync-CHR Test 01
+name: Frixel Connect-CHR Test 01
 ```
 
 ### 4.7 Script Self-Deleted
 
 ```
-/file print where name=zealsync-setup.rsc
+/file print where name=Frixel Connect-setup.rsc
 ```
 
 **Expected:** Empty result (no output). The script deleted itself in Section 8.
@@ -320,7 +320,7 @@ You should see:
   - Site: Local Dev
   - Status: ✅ Online
   - Network: Local (VirtualBox host-only)
-  - API user: zealsync-api ✅ Created
+  - API user: Frixel Connect-api ✅ Created
   - Speed tiers: 10 / 20 / 50 Mbps ✅ Created
 
 ### 5.2 If the Wizard Didn't Advance
@@ -342,21 +342,21 @@ curl -X POST http://localhost:8000/api/v1/setup/${TOKEN}/confirm
 ```bash
 # Get the router_id from the admin portal URL or response
 ROUTER_ID="your_router_id_here"
-TOKEN_HEADER="Authorization: Bearer $(cat ~/.zealsync_dev_token)"
+TOKEN_HEADER="Authorization: Bearer $(cat ~/.Frixel Connect_dev_token)"
 curl -s -H "$TOKEN_HEADER" http://localhost:8000/api/v1/admin/routers/onboarding/status/${ROUTER_ID}
 # Expected: {"router_id":"...","status":"online"}
 ```
 
 **Step 4:** Check the database:
 ```bash
-docker compose exec db psql -U zealnet -d wifi_billing \
+docker compose exec db psql -U frixel -d wifi_billing \
   -c "SELECT name, status, last_heartbeat_at FROM routers WHERE name='CHR Test 01';"
 # Expected: status=online, last_heartbeat_at IS NOT NULL
 ```
 
 **Step 5:** Check that the token was consumed:
 ```bash
-docker compose exec db psql -U zealnet -d wifi_billing \
+docker compose exec db psql -U frixel -d wifi_billing \
   -c "SELECT token, used_at, router_wg_private_key FROM setup_tokens ORDER BY created_at DESC LIMIT 1;"
 # Expected: used_at IS NOT NULL, router_wg_private_key IS NULL
 ```
@@ -369,7 +369,7 @@ From Ubuntu, test the freshly configured REST API:
 
 ```bash
 # Get the encrypted password from the DB
-ENCRYPTED_PW=$(docker compose exec -T db psql -U zealnet -d wifi_billing -t \
+ENCRYPTED_PW=$(docker compose exec -T db psql -U frixel -d wifi_billing -t \
   -c "SELECT password_encrypted FROM routers WHERE name='CHR Test 01';" | tr -d ' \n')
 
 # Decrypt it in Python
@@ -381,7 +381,7 @@ print(decrypt_secret('${ENCRYPTED_PW}'))
 echo "API Password: ${API_PW}"
 
 # Test the REST API with the decrypted password
-curl -s -u "zealsync-api:${API_PW}" \
+curl -s -u "Frixel Connect-api:${API_PW}" \
   http://192.168.56.100/rest/ip/hotspot/user/profile \
   | python3 -m json.tool
 ```
@@ -395,7 +395,7 @@ curl -s -u "zealsync-api:${API_PW}" \
 ]
 ```
 
-If authentication fails (401), double-check the username is `zealsync-api` (not `admin`).
+If authentication fails (401), double-check the username is `Frixel Connect-api` (not `admin`).
 
 ---
 
@@ -459,9 +459,9 @@ The hotspot user for the revoked voucher should be gone.
 | Aspect | CHR (this guide) | Physical MikroTik |
 |--------|-----------------|-------------------|
 | CHR Mode toggle | ✅ ON | ❌ OFF |
-| Script URL | `http://192.168.56.1:8000/...` | `https://api.zealsync.dev/...` |
+| Script URL | `http://192.168.56.1:8000/...` | `https://api.Frixel Connect.dev/...` |
 | WireGuard section | Skipped | Full setup |
-| Confirm URL | `http://192.168.56.1:8000/...` | `https://api.zealsync.dev/...` |
+| Confirm URL | `http://192.168.56.1:8000/...` | `https://api.Frixel Connect.dev/...` |
 | Firewall rule | `192.168.56.0/24` | `10.8.0.1/32` (WG VPN only) |
 | HTTPS | Not needed (local) | Required (public internet) |
 | Token must work | Same | Same |
@@ -470,7 +470,7 @@ The hotspot user for the revoked voucher should be gone.
 1. Ensure `MOCK_WIREGUARD=False` in production `.env`
 2. Ensure the WireGuard server (`wg0`) is running on the Ubuntu/Oracle Cloud host
 3. Turn OFF the CHR mode toggle when generating the command
-4. The router needs a path to the public internet to reach `api.zealsync.dev`
+4. The router needs a path to the public internet to reach `api.Frixel Connect.dev`
 
 ---
 
@@ -484,25 +484,25 @@ If you want a perfectly clean slate on the web app without any old test data:
 
 ```bash
 # 1. Wipe all data (this cascades and deletes users too!)
-docker compose exec -T db psql -U zealnet -d wifi_billing -c "TRUNCATE TABLE routers CASCADE;"
+docker compose exec -T db psql -U frixel -d wifi_billing -c "TRUNCATE TABLE routers CASCADE;"
 
 # 2. Reseed the database to recreate your admin user and default packages
 docker compose exec -T -w /app api python -m scripts.seed_db
 ```
-*Note: Your admin login will be reset to `admin@zealsync.dev` / `TestPassword123!`*
+*Note: Your admin login will be reset to `admin@Frixel Connect.dev` / `TestPassword123!`*
 
 On CHR, clean up the specific test configuration. This is much safer than a full factory reset because it preserves your `ether1` and `ether2` DHCP clients so you don't lose SSH access:
 
 ```routeros
-/user remove [find name="zealsync-api"]
-/user group remove [find name="zealsync-api-group"]
-/ip firewall filter remove [find comment~"ZealSync"]
+/user remove [find name="Frixel Connect-api"]
+/user group remove [find name="Frixel Connect-api-group"]
+/ip firewall filter remove [find comment~"Frixel Connect"]
 /ip hotspot remove [find]
 /ip hotspot profile remove [find name!="default"]
 /ip hotspot user profile remove [find name!="default"]
 /ip dhcp-server remove [find]
 /ip dhcp-server network remove [find]
-/ip pool remove [find name~"zealsync" or name~"hs-pool"]
+/ip pool remove [find name~"Frixel Connect" or name~"hs-pool"]
 /system identity set name="MikroTik"
 /file remove [find name="hotspot/login.html"]
 ```
@@ -523,10 +523,10 @@ To reconfigure IPs and ensure WinBox access after a clean reset (via the Virtual
 /ip dhcp-client add interface=ether1 disabled=no
 /ip address add address=192.168.56.100/24 interface=ether2
 /ip address add address=10.10.10.1/24 interface=ether3
-/user set admin password=ZealNet2026
+/user set admin password=frixel2026
 ```
 
 ### Accessing via WinBox After Reset
 Since a clean reset removes all firewall rules, the WinBox service (TCP port 8291) is active and accessible by default.
-- **Via IP Address:** Open WinBox, enter `192.168.56.100`, login as `admin` with password `ZealNet2026`.
+- **Via IP Address:** Open WinBox, enter `192.168.56.100`, login as `admin` with password `frixel2026`.
 - **Via MAC Address:** Even before you assign the IP addresses above, you can open WinBox, go to the **Neighbors** tab, click the router's MAC address, and log in directly over Layer 2!

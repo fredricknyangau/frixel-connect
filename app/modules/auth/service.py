@@ -184,14 +184,14 @@ async def authenticate_user(
     # creds, and "account suspended" only for correct creds).
     if user["tenant_status"] == "suspended":
         raise ForbiddenException(
-            "Your ZealSync account has been suspended due to an unpaid invoice. "
-            "Please contact ZealSync support."
+            "Your Frixel Connect account has been suspended due to an unpaid invoice. "
+            "Please contact Frixel Connect support."
         )
 
     if user["tenant_status"] == "cancelled":
         raise ForbiddenException(
-            "Your ZealSync account has been cancelled. "
-            "Please contact ZealSync support."
+            "Your Frixel Connect account has been cancelled. "
+            "Please contact Frixel Connect support."
         )
 
     return dict(user)
@@ -250,9 +250,9 @@ async def rotate_refresh_token(conn: asyncpg.Connection, old_token: str) -> tupl
         
     # Tenant/User status check BEFORE issuing new tokens
     if rt["tenant_status"] == "suspended":
-        raise ForbiddenException("Your ZealSync account has been suspended due to an unpaid invoice.")
+        raise ForbiddenException("Your Frixel Connect account has been suspended due to an unpaid invoice.")
     if rt["tenant_status"] == "cancelled":
-        raise ForbiddenException("Your ZealSync account has been cancelled.")
+        raise ForbiddenException("Your Frixel Connect account has been cancelled.")
     if not rt["is_active"]:
         raise UnauthorisedException("This account has been deactivated. Contact support.")
         

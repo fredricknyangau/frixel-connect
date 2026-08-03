@@ -206,7 +206,7 @@ async def generate_voucher(
 
             from app.integrations.africastalking import send_sms
             msg = (
-                f"ZealSync Wi-Fi: Payment successful! Your voucher code is {code}. "
+                f"Frixel Connect Wi-Fi: Payment successful! Your voucher code is {code}. "
                 "You can also use this code as your PIN to log into the Customer Portal on the login page."
             )
             try:

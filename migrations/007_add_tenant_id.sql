@@ -45,8 +45,8 @@ INSERT INTO tenants (
 )
 VALUES (
     'aaaaaaaa-0000-0000-0000-000000000001',
-    'Default ISP (ZealSync MLP)',
-    'admin@zealsync.dev',        -- matches seed_db.py ADMIN_EMAIL
+    'Default ISP (Frixel Connect MLP)',
+    'admin@Frixel Connect.dev',        -- matches seed_db.py ADMIN_EMAIL
     '254700000001',              -- matches seed_db.py admin phone
     'enterprise',
     99999,

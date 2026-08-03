@@ -102,8 +102,8 @@ class OnboardingInitRequest(BaseModel):
 
 class OnboardingInitResponse(BaseModel):
     router_id: UUID
-    zealsync_server_endpoint: str
-    zealsync_public_key: str
+    Frixel Connect_server_endpoint: str
+    Frixel Connect_public_key: str
     assigned_ip: str
     server_wg_ip: str
 

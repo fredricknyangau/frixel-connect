@@ -1,6 +1,6 @@
 # Database Schema and Table Reference
 
-This document serves as the data dictionary and migration reference manual for the PostgreSQL database structure of ZealSync.
+This document serves as the data dictionary and migration reference manual for the PostgreSQL database structure of Frixel Connect.
 
 ---
 
@@ -62,7 +62,7 @@ Migrations are executed in lexicographical order via `./scripts/run_migrations.s
 | `013_alter_packages_duration.sql` | Renames `duration_days` to `duration_minutes` in `packages` and scales existing records (1 day = 1440 mins). | `002_create_packages.sql`. |
 | `013b_create_invoices.sql` | `invoices` table, trigger `trg_set_invoice_number` for sequential numbering. | `012_create_subscriptions.sql`. |
 | `014_create_security_tables.sql` | `refresh_tokens` and `audit_log` tables. | `013b_create_invoices.sql`. |
-| `015_create_platform_billing.sql` | Adds `next_billing_date` to `tenants`, creates `platform_payments` table for ZealSync monthly collection. | `006_create_tenants.sql`. |
+| `015_create_platform_billing.sql` | Adds `next_billing_date` to `tenants`, creates `platform_payments` table for Frixel Connect monthly collection. | `006_create_tenants.sql`. |
 | `016_add_wireguard_columns.sql` | Adds `wireguard_public_key`, `wireguard_assigned_ip`, `wireguard_peer_public_key` to `routers`, adjusts connection nullabilities. | `009_create_routers.sql`. |
 
 ---
@@ -432,13 +432,13 @@ WHERE mpesa_receipt_number = 'QHD48FJ92K';
 ### Run a manual database backup
 To run a compressed custom-format backup from outside the Docker environment, execute:
 ```bash
-docker compose exec -T db pg_dump -U zealnet -d wifi_billing -F c -b -v -f /var/lib/postgresql/data/backups/wifi_billing_backup.dump
+docker compose exec -T db pg_dump -U frixel -d wifi_billing -F c -b -v -f /var/lib/postgresql/data/backups/wifi_billing_backup.dump
 ```
 
 ### Restore the database from a backup
 To restore the database (overwriting existing tables), execute:
 ```bash
-docker compose exec -T db pg_restore -U zealnet -d wifi_billing --clean --no-owner --no-privileges /var/lib/postgresql/data/backups/wifi_billing_backup.dump
+docker compose exec -T db pg_restore -U frixel -d wifi_billing --clean --no-owner --no-privileges /var/lib/postgresql/data/backups/wifi_billing_backup.dump
 ```
 
 ### Verify database restore integrity

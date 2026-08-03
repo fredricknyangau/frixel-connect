@@ -128,7 +128,7 @@ async def clean_and_seed_db(db_pool: asyncpg.Pool) -> AsyncGenerator[None, None]
             """
             INSERT INTO tenants (id, business_name, owner_email, owner_phone,
                                  subscription_tier, max_customers, status)
-            VALUES ($1, 'Default ISP (ZealSync MLP)', 'admin@zealsync.dev',
+            VALUES ($1, 'Default ISP (Frixel Connect MLP)', 'admin@Frixel Connect.dev',
                     '254700000001', 'enterprise', 99999, 'active')
             """,
             DEFAULT_TENANT_ID,
@@ -143,7 +143,7 @@ async def clean_and_seed_db(db_pool: asyncpg.Pool) -> AsyncGenerator[None, None]
             VALUES ($1, $2, $3, 'admin', NULL, $4)
             RETURNING id
             """,
-            "admin@zealsync.dev", "254700000001", hashed, DEFAULT_TENANT_ID
+            "admin@Frixel Connect.dev", "254700000001", hashed, DEFAULT_TENANT_ID
         )
 
         reseller_id = await conn.fetchval(
@@ -152,7 +152,7 @@ async def clean_and_seed_db(db_pool: asyncpg.Pool) -> AsyncGenerator[None, None]
             VALUES ($1, $2, $3, 'reseller', $4, $5)
             RETURNING id
             """,
-            "reseller@zealsync.dev", "254700000002", hashed, admin_id, DEFAULT_TENANT_ID
+            "reseller@Frixel Connect.dev", "254700000002", hashed, admin_id, DEFAULT_TENANT_ID
         )
 
         await conn.execute(
@@ -160,7 +160,7 @@ async def clean_and_seed_db(db_pool: asyncpg.Pool) -> AsyncGenerator[None, None]
             INSERT INTO users (email, phone, hashed_password, role, reseller_id, tenant_id)
             VALUES ($1, $2, $3, 'customer', $4, $5)
             """,
-            "customer@zealsync.dev", "254700000003", hashed, reseller_id, DEFAULT_TENANT_ID
+            "customer@Frixel Connect.dev", "254700000003", hashed, reseller_id, DEFAULT_TENANT_ID
         )
 
         # 4. Seed packages (in the default tenant)

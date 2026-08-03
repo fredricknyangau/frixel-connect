@@ -40,7 +40,7 @@ export default function CustomerLayout() {
     <div className="flex min-h-screen flex-col bg-muted/20 pb-16 md:pb-0">
       {/* Top Header - Mobile and Desktop */}
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-background px-4">
-        <span className="text-lg font-bold">ZealSync</span>
+        <span className="text-lg font-bold">Frixel Connect</span>
         <Button variant="ghost" size="sm" onClick={handleLogout} className="md:hidden">
           <LogOut className="h-4 w-4 mr-2" />
           Logout

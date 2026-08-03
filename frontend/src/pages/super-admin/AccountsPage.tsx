@@ -104,7 +104,7 @@ export default function AccountsPage() {
   return (
     <div className="space-y-6">
       <Helmet>
-        <title>⚠ SA | Accounts | ZealSync</title>
+        <title>⚠ SA | Accounts | Frixel Connect</title>
       </Helmet>
 
       {/* Header */}
@@ -223,7 +223,7 @@ export default function AccountsPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="operator@zealsync.com"
+                    placeholder="operator@Frixel Connect.com"
                     className="bg-slate-950/60 border-slate-850 text-slate-100 placeholder:text-slate-650 focus:border-red-500 pl-9 h-9 text-xs"
                     disabled={createAdminMutation.isPending}
                     {...register('email')}

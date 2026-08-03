@@ -152,14 +152,14 @@ export default function TenantsPage() {
   return (
     <div className="space-y-6">
       <Helmet>
-        <title>⚠ SA | Tenants | ZealSync</title>
+        <title>⚠ SA | Tenants | Frixel Connect</title>
       </Helmet>
 
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-100">ISP Tenants</h1>
-          <p className="text-xs text-slate-400 mt-1">Manage and audit all registered ISP accounts on ZealSync.</p>
+          <p className="text-xs text-slate-400 mt-1">Manage and audit all registered ISP accounts on Frixel Connect.</p>
         </div>
       </div>
 
@@ -556,7 +556,7 @@ export default function TenantsPage() {
             </div>
             
             <p className="text-slate-350 text-xs">
-              This will trigger a manual M-Pesa STK push for ZealSync platform fees directly to the owner's phone for <span className="font-bold text-slate-200">{billingTenant.name}</span>. Proceed?
+              This will trigger a manual M-Pesa STK push for Frixel Connect platform fees directly to the owner's phone for <span className="font-bold text-slate-200">{billingTenant.name}</span>. Proceed?
             </p>
 
             <div className="flex justify-end gap-2 pt-2">

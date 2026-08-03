@@ -28,5 +28,5 @@ export interface TenantSignupRequest {
   subscription_tier: 'starter' | 'growth' | 'scale' | 'enterprise';
 }
 
-export const ONBOARDING_STATE_KEY = 'zealsync_onboarding_state';
-export const ONBOARDING_SERVICE_KEY = 'zealsync_onboarding_service';
+export const ONBOARDING_STATE_KEY = 'Frixel Connect_onboarding_state';
+export const ONBOARDING_SERVICE_KEY = 'Frixel Connect_onboarding_service';

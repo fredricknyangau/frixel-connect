@@ -81,7 +81,7 @@ async def download_setup_script(
     Serves the RouterOS .rsc auto-configuration script for the given token.
 
     Called by the MikroTik router's `/tool fetch` command as part of the
-    Magic Command: `/tool fetch url=".../{token}" dst-path=zealsync-setup.rsc`
+    Magic Command: `/tool fetch url=".../{token}" dst-path=Frixel Connect-setup.rsc`
 
     IMPORTANT: This endpoint does NOT mark the token as used on download.
     The token is only consumed when the router calls POST /setup/{token}/confirm.
@@ -144,7 +144,7 @@ async def download_setup_script(
             )
             return PlainTextResponse(
                 "# Error: Setup token is invalid, expired, or already used.\n"
-                "# Please generate a new setup command in the ZealSync admin portal.",
+                "# Please generate a new setup command in the Frixel Connect admin portal.",
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
@@ -173,7 +173,7 @@ async def download_setup_script(
             )
             return PlainTextResponse(
                 "# Error: Router configuration not found.\n"
-                "# Please contact ZealSync support.",
+                "# Please contact Frixel Connect support.",
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
@@ -270,7 +270,7 @@ async def download_setup_script(
 
     # Content-Disposition: attachment-tells browsers to download, not display.
     # Not strictly necessary (routers don't use browsers), but belt-and-suspenders.
-    response.headers["Content-Disposition"] = 'attachment; filename="zealsync-setup.rsc"'
+    response.headers["Content-Disposition"] = 'attachment; filename="Frixel Connect-setup.rsc"'
 
     # X-Content-Type-Options: nosniff-prevents MIME-type sniffing.
     # Without this, some proxies might re-interpret the text/plain response
@@ -426,5 +426,5 @@ async def confirm_setup(
     return {
         "status": "confirmed",
         "router_id": str(router_id),
-        "message": "Router is now online. ZealSync dashboard will update shortly.",
+        "message": "Router is now online. Frixel Connect dashboard will update shortly.",
     }

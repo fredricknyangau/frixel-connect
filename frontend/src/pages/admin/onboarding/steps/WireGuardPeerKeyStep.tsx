@@ -61,7 +61,7 @@ export function WireGuardPeerKeyStep({
       <div className="space-y-1">
         <h3 className="text-lg font-medium text-foreground">Register MikroTik VPN Key</h3>
         <p className="text-sm text-muted-foreground">
-          ZealSync needs your MikroTik's WireGuard public key to accept incoming connection handshakes.
+          Frixel Connect needs your MikroTik's WireGuard public key to accept incoming connection handshakes.
         </p>
       </div>
 

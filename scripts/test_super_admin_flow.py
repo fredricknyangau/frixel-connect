@@ -15,8 +15,8 @@ async def test_flow():
     # 1. Connect to the database
     conn = await asyncpg.connect(dsn=settings.DATABASE_URL)
     
-    email = "superadmin@zealsync.com"
-    password = "ZealSyncAdmin2026!"
+    email = "superadmin@Frixel Connect.com"
+    password = "Frixel ConnectAdmin2026!"
     ip_address = "127.0.0.1"
 
     print("Step 1: Authenticating password...")

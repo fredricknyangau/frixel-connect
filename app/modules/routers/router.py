@@ -144,7 +144,7 @@ async def onboarding_init(
             raise ConflictException(f"A router with name '{data.name}' already exists.")
 
         assigned_ip = await assign_peer_ip(conn)
-        zealsync_pubkey = get_server_public_key()
+        Frixel Connect_pubkey = get_server_public_key()
 
         # Insert PENDING router record (no host, port, username, password yet)
         row = await conn.fetchrow(
@@ -157,14 +157,14 @@ async def onboarding_init(
             data.name,
             data.site_name,
             assigned_ip,
-            zealsync_pubkey,
+            Frixel Connect_pubkey,
         )
         router_id = row["id"]
 
     return OnboardingInitResponse(
         router_id=router_id,
-        zealsync_server_endpoint=settings.WIREGUARD_ENDPOINT,
-        zealsync_public_key=zealsync_pubkey,
+        Frixel Connect_server_endpoint=settings.WIREGUARD_ENDPOINT,
+        Frixel Connect_public_key=Frixel Connect_pubkey,
         assigned_ip=assigned_ip,
         server_wg_ip="10.8.0.1"
     )
@@ -190,7 +190,7 @@ async def onboarding_register_peer(
 
         assigned_ip = str(router_row["wireguard_assigned_ip"])
         
-        # Call WireGuard CLI / mock to register the peer on ZealSync server
+        # Call WireGuard CLI / mock to register the peer on Frixel Connect server
         add_wireguard_peer(data.peer_public_key, assigned_ip)
 
         # Update the router record with the peer's public key
@@ -485,7 +485,7 @@ async def onboarding_init_magic(
     CHR vs Production:
       is_chr=True:  magic_command uses http://192.168.56.1:8000/...
                     No WireGuard commands in the .rsc script
-      is_chr=False: magic_command uses https://api.zealsync.dev/...
+      is_chr=False: magic_command uses https://api.Frixel Connect.dev/...
                     Full WireGuard setup in the .rsc script
     """
     from datetime import datetime, timedelta, timezone
@@ -546,11 +546,11 @@ async def onboarding_init_magic(
             data.name,
             data.site_name,
             assigned_ip,
-            get_server_public_key(),     # server's WG public key (what zealsync_public_key was before)
+            get_server_public_key(),     # server's WG public key (what Frixel Connect_public_key was before)
             wg_peer_key_to_save,         # router's WG public key (NULL for CHR)
             assigned_ip,                 # host = WG assigned IP (how the backend reaches the router)
             80,                          # port = REST API port
-            "zealsync-api",              # username (created by the script)
+            "Frixel Connect-api",              # username (created by the script)
             api_password_encrypted,      # encrypted API password
         )
         router_id = router_row["id"]
@@ -599,16 +599,16 @@ async def onboarding_init_magic(
         script_url = f"http://{settings.CHR_HOST_IP}:{settings.CHR_BACKEND_PORT}/api/v1/setup/{setup_token}"
         magic_command = (
             f'/tool fetch url="{script_url}" '
-            f'dst-path=zealsync-setup.rsc mode=http; '
-            f'/import zealsync-setup.rsc'
+            f'dst-path=Frixel Connect-setup.rsc mode=http; '
+            f'/import Frixel Connect-setup.rsc'
         )
     else:
         # Production: fetch from public HTTPS API endpoint
         script_url = f"{settings.API_BASE_URL}/api/v1/setup/{setup_token}"
         magic_command = (
             f'/tool fetch url="{script_url}" '
-            f'dst-path=zealsync-setup.rsc mode=https; '
-            f'/import zealsync-setup.rsc'
+            f'dst-path=Frixel Connect-setup.rsc mode=https; '
+            f'/import Frixel Connect-setup.rsc'
         )
 
     logger.info(
@@ -734,7 +734,7 @@ async def provision_router(
 
     try:
         if data.service_type == "hotspot":
-            frontend_url = getattr(settings, "FRONTEND_URL", "https://portal.zealsync.dev")
+            frontend_url = getattr(settings, "FRONTEND_URL", "https://portal.Frixel Connect.dev")
             # Determine RADIUS client address: 192.168.56.1 if testing on a VirtualBox
             # host-only subnet, or 10.8.0.1 as default VPN gateway.
             radius_ip = "10.8.0.1"

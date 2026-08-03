@@ -38,7 +38,7 @@ export default function WalletPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Wallet Ledger | ZealSync Reseller" />
+      <PageTitle title="Wallet Ledger | Frixel Connect Reseller" />
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
@@ -79,7 +79,7 @@ export default function WalletPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">How to Top Up Your Wallet</CardTitle>
             <CardDescription>
-              ZealSync supports automated wallet topups via Safaricom M-Pesa C2B.
+              Frixel Connect supports automated wallet topups via Safaricom M-Pesa C2B.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2 text-sm">

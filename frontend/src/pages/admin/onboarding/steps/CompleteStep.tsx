@@ -28,8 +28,8 @@ export function CompleteStep({
     const activateRouter = async () => {
       try {
         await onComplete();
-        localStorage.removeItem('zealsync_onboarding_router_id');
-        localStorage.removeItem('zealsync_onboarding_router_version');
+        localStorage.removeItem('Frixel Connect_onboarding_router_id');
+        localStorage.removeItem('Frixel Connect_onboarding_router_version');
         setIsPending(false);
         toast.success('MikroTik router is now online!');
       } catch (err: any) {

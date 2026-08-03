@@ -143,7 +143,7 @@ export default function SuperAdminLoginPage() {
             <Shield className="h-5 w-5" />
           </div>
           <Badge variant="outline" className="font-mono text-[10px] tracking-widest text-teal-400 border-teal-800 bg-teal-950/30 uppercase px-2 py-0.5 mb-1.5">
-            ZealSync Admin
+            Frixel Connect Admin
           </Badge>
         </div>
 
@@ -162,7 +162,7 @@ export default function SuperAdminLoginPage() {
                   id="email"
                   type="email"
                   autoComplete="email"
-                  placeholder="fredrick@zealsync.com"
+                  placeholder="fredrick@Frixel Connect.com"
                   className="bg-slate-950/60 border-slate-800 text-slate-100 placeholder:text-slate-600 focus:border-teal-500 h-9"
                   disabled={passwordLoginMutation.isPending}
                   {...register('email')}

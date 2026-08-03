@@ -166,8 +166,8 @@ sql {
 	#
 	server = "db"
 	port = 5432
-	login = "zealnet"
-	password = "zealnet"
+	login = "frixel"
+	password = "frixel"
 
 	# Connection info for Mongo
 	# Authentication Without SSL
@@ -420,7 +420,7 @@ sql {
 	$INCLUDE ${modconfdir}/${.:name}/main/${dialect}/queries.conf
 
 	# T4: Tenant-scoped authorization — NAS-Identifier set during MikroTik provisioning
-	# as zealsync-{first 8 hex chars of tenant UUID}. Production should use routers.nas_identifier.
+	# as Frixel Connect-{first 8 hex chars of tenant UUID}. Production should use routers.nas_identifier.
 	authorize_check_query = "\
 		SELECT id, username, attribute, value, op \
 		FROM ${authcheck_table} \

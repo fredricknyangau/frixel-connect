@@ -26,7 +26,7 @@ export default function ResellerDashboard() {
   if (isError) {
     return (
       <div className="p-4">
-        <PageTitle title="Dashboard | ZealSync Reseller" />
+        <PageTitle title="Dashboard | Frixel Connect Reseller" />
         <EmptyState
           icon={AlertCircle}
           title="Failed to load dashboard"
@@ -61,7 +61,7 @@ export default function ResellerDashboard() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Dashboard | ZealSync Reseller" />
+      <PageTitle title="Dashboard | Frixel Connect Reseller" />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>

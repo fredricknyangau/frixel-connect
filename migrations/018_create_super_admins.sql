@@ -32,8 +32,8 @@
 BEGIN;
 
 -- ── 1. Super Admins ────────────────────────────────────────────────────────────
--- Stores ZealSync operator identities. Intentionally NOT linked to any tenant.
--- Credentials here belong to Zeal Digital Solutions employees / Fred himself.
+-- Stores Frixel Connect operator identities. Intentionally NOT linked to any tenant.
+-- Credentials here belong to Frixel Labs employees / Fred himself.
 
 CREATE TABLE IF NOT EXISTS super_admins (
     id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS super_admin_pre_auth_tokens (
 --   a) tenant audit_log has a tenant_id FK-super admin has no tenant_id.
 --   b) tenant audit_log data belongs to ISP tenants; mixing in super admin
 --      actions would make it impossible to isolate tenant audit exports.
---   c) Different retention requirements: super admin actions are ZealSync's
+--   c) Different retention requirements: super admin actions are Frixel Connect's
 --      own compliance record, not the ISP's.
 --
 -- Every super admin action (including reads) is logged here.

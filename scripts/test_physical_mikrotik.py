@@ -8,7 +8,7 @@ and user lifecycle directly against a real MikroTik CHR over WireGuard.
 Usage:
   export MIKROTIK_VPN_IP=10.8.0.2
   export MIKROTIK_PORT=80
-  export MIKROTIK_USERNAME=zealsync-api
+  export MIKROTIK_USERNAME=Frixel Connect-api
   export MIKROTIK_PASSWORD=YourPassword
   python scripts/test_physical_mikrotik.py
 """
@@ -30,7 +30,7 @@ if os.path.exists(".env"):
 
 VPN_IP = os.getenv("MIKROTIK_VPN_IP") or os.getenv("MIKROTIK_HOST")
 PORT = os.getenv("MIKROTIK_PORT", "80")
-USERNAME = os.getenv("MIKROTIK_USERNAME", "zealsync-api")
+USERNAME = os.getenv("MIKROTIK_USERNAME", "Frixel Connect-api")
 PASSWORD = os.getenv("MIKROTIK_PASSWORD")
 
 if not VPN_IP:
@@ -108,7 +108,7 @@ def test_create_user():
         "name": "PHYSTEST001",
         "password": "PHYSTEST001_password",
         "profile": "default",
-        "comment": "zealsync-physical-test"
+        "comment": "Frixel Connect-physical-test"
     }
     resp = requests.post(url, json=payload, auth=AUTH, headers=HEADERS, timeout=8)
     if resp.status_code in (200, 201):

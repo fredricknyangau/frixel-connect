@@ -179,14 +179,14 @@ async def _assert_tenant_active(tenant_id: str) -> None:
 
     if row["status"] == "suspended":
         raise ForbiddenException(
-            "Your ZealSync account has been suspended. "
-            "Please contact ZealSync support to resolve your outstanding balance."
+            "Your Frixel Connect account has been suspended. "
+            "Please contact Frixel Connect support to resolve your outstanding balance."
         )
 
     if row["status"] == "cancelled":
         raise ForbiddenException(
-            "Your ZealSync account has been cancelled. "
-            "Please contact ZealSync support to reinstate your account."
+            "Your Frixel Connect account has been cancelled. "
+            "Please contact Frixel Connect support to reinstate your account."
         )
 
 

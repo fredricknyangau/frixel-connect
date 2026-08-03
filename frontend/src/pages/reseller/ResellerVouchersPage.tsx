@@ -41,7 +41,7 @@ export default function ResellerVouchersPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Vouchers | ZealSync Reseller" />
+      <PageTitle title="Vouchers | Frixel Connect Reseller" />
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>

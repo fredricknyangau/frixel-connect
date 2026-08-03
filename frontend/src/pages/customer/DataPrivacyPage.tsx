@@ -24,7 +24,7 @@ export default function DataPrivacyPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `zealsync_my_data_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `Frixel Connect_my_data_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -53,7 +53,7 @@ export default function DataPrivacyPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Data & Privacy | ZealSync" />
+      <PageTitle title="Data & Privacy | Frixel Connect" />
 
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={() => navigate('/customer/profile')}>

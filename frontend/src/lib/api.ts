@@ -12,7 +12,7 @@ import {
   ACTIVE_TENANT_KEY,
 } from './auth';
 
-const IMPERSONATION_TOKEN_KEY = 'zealsync_impersonation_token';
+const IMPERSONATION_TOKEN_KEY = 'Frixel Connect_impersonation_token';
 
 export class RateLimitedError extends Error {
   constructor(message = 'Too many attempts, try again shortly') {

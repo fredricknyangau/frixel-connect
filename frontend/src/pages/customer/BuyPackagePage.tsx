@@ -54,7 +54,7 @@ export default function BuyPackagePage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Buy Package | ZealSync" />
+      <PageTitle title="Buy Package | Frixel Connect" />
 
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Choose Your Plan</h2>

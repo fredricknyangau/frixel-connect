@@ -22,8 +22,8 @@ async def run_test():
     sa_id = None
     try:
         # 1. Clean up any existing test accounts
-        await conn.execute("DELETE FROM super_admin_audit_log WHERE super_admin_id IN (SELECT id FROM super_admins WHERE email = $1)", "test_hardening@zealsync.com")
-        await conn.execute("DELETE FROM super_admins WHERE email = $1", "test_hardening@zealsync.com")
+        await conn.execute("DELETE FROM super_admin_audit_log WHERE super_admin_id IN (SELECT id FROM super_admins WHERE email = $1)", "test_hardening@Frixel Connect.com")
+        await conn.execute("DELETE FROM super_admins WHERE email = $1", "test_hardening@Frixel Connect.com")
         
         # 2. Create test super admin
         hashed = hash_password("TestPassword123!")
@@ -33,7 +33,7 @@ async def run_test():
             VALUES ($1, $2, $3, $4, NOW())
             RETURNING id
             """,
-            "test_hardening@zealsync.com",
+            "test_hardening@Frixel Connect.com",
             hashed,
             "Test Hardening",
             None
@@ -54,7 +54,7 @@ async def run_test():
         # 3. Create a pre-auth token
         from app.modules.super_admin import service
         ip = "1.2.3.4"
-        res = await service.authenticate_password(conn, "test_hardening@zealsync.com", "TestPassword123!", ip)
+        res = await service.authenticate_password(conn, "test_hardening@Frixel Connect.com", "TestPassword123!", ip)
         pre_auth_token = res["pre_auth_token"]
         print(f"Pre-auth token generated: {pre_auth_token}")
         

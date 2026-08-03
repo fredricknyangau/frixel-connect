@@ -18,7 +18,7 @@ export default function PublicLayout() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Wifi className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold tracking-tight">ZealSync</span>
+            <span className="text-xl font-bold tracking-tight">Frixel Connect</span>
           </Link>
 
           {/* Desktop Nav */}
@@ -92,7 +92,7 @@ export default function PublicLayout() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                   <Wifi className="h-5 w-5 text-primary-foreground" />
                 </div>
-                <span className="text-xl font-bold tracking-tight">ZealSync</span>
+                <span className="text-xl font-bold tracking-tight">Frixel Connect</span>
               </div>
               <p className="text-sm text-muted-foreground">
                 Next-generation WiFi billing and hotspot management for the modern world.
@@ -128,7 +128,7 @@ export default function PublicLayout() {
           </div>
           
           <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-border/50 text-sm text-muted-foreground">
-            <p>© {new Date().getFullYear()} ZealSync Networks. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Frixel Connect Networks. All rights reserved.</p>
             
           </div>
         </div>

@@ -37,7 +37,7 @@ export default function CustomerVouchersPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="My Vouchers | ZealSync" />
+      <PageTitle title="My Vouchers | Frixel Connect" />
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>

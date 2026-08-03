@@ -5,16 +5,16 @@
  * WHY A SEPARATE INSTANCE?
  * ─────────────────────────
  * The tenant portal's `api` instance reads tenant-scoped localStorage keys
- * (zealsync_token_{tenant_id}). If both portals shared one Axios instance:
+ * (Frixel Connect_token_{tenant_id}). If both portals shared one Axios instance:
  *   1. A super admin who opens an impersonation tab would contaminate tokens.
  *   2. A 401 from a tenant-scoped endpoint would log out the super admin.
  *   3. Token refresh logic in `api.ts` would fire for super admin 401s incorrectly.
  *
  * IMPERSONATION ISOLATION:
- * Impersonation tokens live in sessionStorage (zealsync_impersonation_token), read
+ * Impersonation tokens live in sessionStorage (Frixel Connect_impersonation_token), read
  * by the tenant portal's `api.ts` when that tab is opened from the super admin UI.
  * sessionStorage is per-tab and cleared on tab close — never written to localStorage.
- * The super admin's own JWT stays in localStorage under zealsync_super_admin_token.
+ * The super admin's own JWT stays in localStorage under Frixel Connect_super_admin_token.
  */
 
 import axios from 'axios';
@@ -22,11 +22,11 @@ import axios from 'axios';
 // ─── Token Storage Key ────────────────────────────────────────────────────────
 
 /**
- * Intentionally different from the tenant portal's 'zealsync_access_token'.
+ * Intentionally different from the tenant portal's 'Frixel Connect_access_token'.
  * This prevents the tenant Axios interceptor from accidentally reading or
  * clearing the super admin token.
  */
-const SUPER_ADMIN_TOKEN_KEY = 'zealsync_super_admin_token';
+const SUPER_ADMIN_TOKEN_KEY = 'Frixel Connect_super_admin_token';
 
 export function getSuperAdminToken(): string | null {
   return localStorage.getItem(SUPER_ADMIN_TOKEN_KEY);

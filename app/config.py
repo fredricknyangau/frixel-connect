@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # App
-    APP_NAME: str = "ZealSync WiFi Billing"
+    APP_NAME: str = "Frixel Connect"
     APP_ENV: str = "development"
     DEBUG: bool = True
     ALLOWED_ORIGINS: list[str] = ["*"]
@@ -48,18 +48,18 @@ class Settings(BaseSettings):
     RADIUS_COA_SECRET: str = "testing123"
 
     # WireGuard Settings
-    WIREGUARD_SERVER_PUBLIC_KEY: Optional[str] = "zealsyncServerPublicKeyWgPlaceholderBase64="
+    WIREGUARD_SERVER_PUBLIC_KEY: Optional[str] = "Frixel ConnectServerPublicKeyWgPlaceholderBase64="
     WIREGUARD_ENDPOINT: str = "102.219.208.5:51820"
     MOCK_WIREGUARD: bool = True
 
     # Magic Command-Production API base URL (used to build confirm_url in .rsc scripts)
     # Change this to your actual domain when deploying to production.
-    API_BASE_URL: str = "https://api.zealsync.dev"
+    API_BASE_URL: str = "https://api.Frixel Connect.dev"
 
     # Magic Command-CHR (VirtualBox) testing configuration
     # These settings are only used when is_chr=True is passed to /init-magic.
     # They define how the MikroTik CHR (running in VirtualBox) reaches the
-    # Ubuntu host where the ZealSync backend is running.
+    # Ubuntu host where the Frixel Connect backend is running.
     #
     # CHR_HOST_IP:          The Ubuntu host's IP on the VirtualBox host-only
     #                       adapter. Default: 192.168.56.1 (VirtualBox default).

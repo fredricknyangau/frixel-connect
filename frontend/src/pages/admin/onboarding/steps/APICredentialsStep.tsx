@@ -39,7 +39,7 @@ export function APICredentialsStep({
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      username: 'zealsync-api',
+      username: 'Frixel Connect-api',
       password: '',
       port: version === 'v7' ? 80 : 8728,
     },
@@ -116,7 +116,7 @@ export function APICredentialsStep({
             <Label htmlFor="username">API Username</Label>
             <Input
               id="username"
-              placeholder="zealsync-api"
+              placeholder="Frixel Connect-api"
               {...register('username')}
               className={errors.username ? 'border-destructive' : ''}
             />

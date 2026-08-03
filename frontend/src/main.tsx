@@ -9,10 +9,10 @@ if (localStorage.getItem('theme') !== 'light') {
 }
 
 // Handle impersonation token receiving from the Super Admin parent window
-if (window.opener && !sessionStorage.getItem('zealsync_impersonation_token')) {
+if (window.opener && !sessionStorage.getItem('Frixel Connect_impersonation_token')) {
   const handleImpersonationToken = (event: MessageEvent) => {
     if (event.origin === window.location.origin && event.data?.type === 'impersonation_token') {
-      sessionStorage.setItem('zealsync_impersonation_token', event.data.token);
+      sessionStorage.setItem('Frixel Connect_impersonation_token', event.data.token);
       window.removeEventListener('message', handleImpersonationToken);
       window.location.reload();
     }

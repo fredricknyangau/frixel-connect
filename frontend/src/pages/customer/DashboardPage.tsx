@@ -31,11 +31,11 @@ export default function CustomerDashboard() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Dashboard | ZealSync" />
+      <PageTitle title="Dashboard | Frixel Connect" />
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Welcome to ZealSync</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Welcome to Frixel Connect</h2>
           <p className="text-muted-foreground">Manage your internet access and view usage.</p>
         </div>
         <Button onClick={() => navigate('/customer/buy')} size="lg" className="w-full md:w-auto">

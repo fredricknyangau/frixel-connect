@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS setup_tokens (
     --      since the token is the authentication barrier.
     router_wg_private_key   TEXT,
 
-    -- The MikroTik REST API password for the zealsync-api user.
+    -- The MikroTik REST API password for the Frixel Connect-api user.
     -- Fernet-encrypted (same pattern as routers.password_encrypted) so we
     -- never store credentials in plaintext at rest.
     api_password            TEXT        NOT NULL,

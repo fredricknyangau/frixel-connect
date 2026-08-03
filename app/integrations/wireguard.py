@@ -23,7 +23,7 @@ def get_server_public_key() -> str:
     Runs `wg show wg0 public-key` or falls back to Settings.
     """
     if settings.MOCK_WIREGUARD:
-        return settings.WIREGUARD_SERVER_PUBLIC_KEY or "zealsyncServerPublicKeyWgPlaceholderBase64="
+        return settings.WIREGUARD_SERVER_PUBLIC_KEY or "Frixel ConnectServerPublicKeyWgPlaceholderBase64="
 
     try:
         result = subprocess.run(
@@ -55,7 +55,7 @@ def get_server_public_key() -> str:
     except Exception as fe:
         logger.error(f"Failed to read/derive public key from wg0.conf: {fe}")
 
-    return settings.WIREGUARD_SERVER_PUBLIC_KEY or "zealsyncServerPublicKeyWgPlaceholderBase64="
+    return settings.WIREGUARD_SERVER_PUBLIC_KEY or "Frixel ConnectServerPublicKeyWgPlaceholderBase64="
 
 
 async def assign_peer_ip(conn) -> str:

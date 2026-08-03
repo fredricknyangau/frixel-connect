@@ -61,7 +61,7 @@ export default function AuditLogPage() {
   return (
     <div className="space-y-6">
       <Helmet>
-        <title>⚠ SA | Audit Log | ZealSync</title>
+        <title>⚠ SA | Audit Log | Frixel Connect</title>
       </Helmet>
 
       {/* Header */}

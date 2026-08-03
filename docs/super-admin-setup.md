@@ -1,8 +1,8 @@
-# ZealSync Super Admin Setup and Operations Guide
+# Frixel Connect Super Admin Setup and Operations Guide
 
-This guide describes how to initialize, configure, recover, and operate the ZealSync Super Admin portal.
+This guide describes how to initialize, configure, recover, and operate the Frixel Connect Super Admin portal.
 
-The super admin account operates outside and above all standard tenants. This role is meant exclusively for Zeal Digital Solutions (Fredrick Nyangau) to manage ISP tenants, view system-wide metrics, and perform billing operations.
+The super admin account operates outside and above all standard tenants. This role is meant exclusively for Frixel Labs (Fredrick Nyangau) to manage ISP tenants, view system-wide metrics, and perform billing operations.
 
 ---
 
